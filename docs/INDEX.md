@@ -44,13 +44,164 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+### Required-gate coverage after accepted rejection verification
+
+- [B1 required-gate suite contract and structural checker](compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md) — **Current implementation; structural declarations only.** A caller-pinned selection binds the finite case roster, per-gate evidence obligations and existing compute packet references. Every occurrence must bind its selected input independently. Valid drafts remain unresolved; complete synthetic declarations establish no execution readiness, metric PASS or release authority.
+
+- [B2 snapshot-sanitizer idempotence protocol proposal](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md) — **Preserved concrete protocol selection; B2 incomplete.** Select the existing EPF snapshot sanitizer, fixed configuration, twelve exact public inputs and 24 planned applications. Preserve the selected composition, comparison, privacy and acquisition boundaries. No subject execution, metric verdict or gate activation is supplied.
+
+- [B2 offline idempotence observation adapter](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md) — **Implemented selected-byte and recorded-relation verification.** Admit a distinct standalone runtime profile and require every second application to consume its own first output state, reusing existing compute analysis. Exact source/carrier/receipt bindings and synthetic regressions establish no authenticated physical execution, complete runtime closure, metric verdict or B2 completion.
+
+- [B2 bounded idempotence acquisition primitives](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md) — **Implemented source preparation, bounded worker/process controls and synthetic orchestration.** Preserve incomplete attempts and verify complete example carriers through the existing adapter. Observed launch remains closed pending recoverable runtime closure, review and separate owner authorization; B2 is incomplete and no actual reference is supplied.
+
+- [B2 selected runtime preservation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md) — **Implemented closed-file preservation, static native dependency bindings and exact restoration.** Bind independent runtime/operator selections, retain selected interpreter/library/Python/source bytes in a separate capsule, and restore them without execution. Dynamic closure, actual loader resolution, host qualification and observed-launch integration remain outstanding; B2 is incomplete and `authority_effect=none`.
+
+- [B2 containment primitives](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md) — **Implemented deterministic boundary requests, sealed-input example attempts and independent diagnostic-record checking.** Preserve a fixed static entry and syscall policy, bound output and retain incomplete evidence. Selected-runtime execution, host qualification and acquisition integration remain closed; B2 is incomplete and `authority_effect=none`.
+
+- [B2 fixed entry build acquisition and provenance](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md) — **Current implementation; completed bounded hosted operational record.** Run `43854478248/1` at `f290aee20cd610e4fdb358dbf34d054ec351d390` produced two byte-identical entries, accepted both hosted record checks and completed the separate hosted signature verification. Both original artifact ZIPs and a descriptive preservation record are retained. Two later source-pinned offline checker executions reproduced the hosted reports byte-for-byte; no fresh local cryptographic verification is claimed. No produced entry or selected runtime was executed. Launcher/host qualification, runtime/loader observations and selected-bootstrap integration remain outstanding; B2 is incomplete and `authority_effect=none`.
+
+- [B2 launcher and passive host binding](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCH_HOST_v0.md) — **Implemented original package membership, entry-build-to-containment equality, complete per-consumer static native bindings and bounded host-observation interpretation.** Independently reconstruct the selected relationships; retain blocked and unknown prerequisites without upgrading them to qualification. A real Debian bubblewrap package member matched the local launcher bytes without execution or package-index signature authentication. Actual host qualification, bounded execution and runtime/loader observations remain outstanding; B2 is incomplete and `authority_effect=none`.
+
+- [B2 launcher distribution authentication](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCHER_DISTRIBUTION_v0.md) — **Implemented fresh signature verification and complete signed-Release-to-index-to-package-to-launcher reconstruction.** Two separate checker processes verified all three original Debian signature groups and produced identical canonical reports from the full 68825-paragraph package index. Bind the separate external trust policy, exact original keyring, complete signer roster and explicit evaluation epoch; preserve bounded verifier diagnostics. The old launch-host plan and report remain unchanged. Trust freshness, upstream/build origin, actual mapped objects, host qualification and selected execution remain open; B2 is incomplete and `authority_effect=none`.
+
+- [B2 fixed-probe stopped mapping observation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md) — **Example-only observation of an actual stopped process and its executable backing object.** Bind one fixed authored ELF, its retained sealed file object, the actual child executable descriptor and each kernel-reported file mapping. Preserve raw evidence and cleanup, and independently reconstruct the same capture under explicit observer/kernel trust. The cooperative checkpoint leaves original launcher/loader coverage, process-memory equality, whole-host qualification and selected-runtime execution open; B2 is incomplete and `authority_effect=none`.
+
+- [B2 fixed-probe private-memory transition](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MEMORY_OBSERVATION_v0.md) — **Example-only observation of two actual stopped checkpoints and two selected memory pages.** Bind the unchanged sealed executable object and mappings to separately sampled code/data bytes, with one fixed byte change across exactly one continuation. Independently reconstruct every checkpoint/range occurrence; preserve incomplete attempts and terminal cleanup. Whole-memory authentication, original launcher/loader observation, host qualification and selected-runtime execution remain open; B2 is incomplete and `authority_effect=none`.
+
+- [B2 original launcher exec-stop acquisition](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md) — **Implemented original-input preparation, owner-invoked collector and independent capture checking.** Freshly reconstruct the preserved distribution/launch-host chain; select the original launcher/interpreter, eight segment occurrences and four RX sample obligations at the first kernel exec stop. Terminate without post-exec continuation. Actual acquisition requires a separately authorized eligible owner environment; selected-runtime execution and authority remain unchanged.
+
+- [B2 original launcher exec-stop GitHub observation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md) — **Selected original cp0 observation completed in owner-dispatched run 44375052171/1.** Preserve the original capture, two byte-identical accepted reports, successful hosted attestation verification and a bounded repository selection with exact original-member provenance. Eight launcher/interpreter segment occurrences and four RX samples are verified; no post-exec continuation occurred. Original full ZIPs require separate custody. The earlier failed attempt, Q2's negative result, twelve unsupported gates and all authority boundaries retain their meanings. Per-consumer loader resolution, containment, full B2 and broader Steps 6 and 7 remain outstanding.
+
+- [B2 original executable-entry observation plan](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_PLAN_v0.md) — **Preserved authored proposal, closed plan schema and independent preserved-byte checking.** Reconstruct the completed cp0 baseline and derive six original native objects, 24 segment obligations, twelve RX samples and all twelve static relationships. Specify a fresh cp0-to-entry attempt, explicit pre-entry initialization, a candidate hardware breakpoint, task-creation guard, finite evidence and cleanup limits. The implementation follow-up is listed next; the authored plan bytes remain unchanged. No entry acquisition, B2 completion or authority is supplied by the plan.
+
+- [B2 guarded original executable-entry observation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_v0.md) — **Implemented collector and completed bounded hosted observation in owner-dispatched run 44740993943/1.** Both prerequisite capability qualifications completed before a fresh original attempt, its live cp0 prefix and one hardware-breakpoint continuation to entry. The selected native-object and entry-memory relations, descriptor continuity and terminal cleanup have their own narrow verification scope. Actual per-consumer loader resolution, observed containment and full B2 remain outstanding; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 guarded original executable-entry GitHub observation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md#completed-hosted-observation-447409939431) — **Selected original entry observation completed in owner-dispatched run 44740993943/1.** Acquisition and separate verification succeeded at source `03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081`, including capture reconstruction, owned outer cleanup and hosted attestation verification. Preserve a bounded repository selection with exact original-member provenance; the full original ZIPs require separate custody. The earlier environment-build failure retains its meaning. Later loader-resolution, containment and actual-reference obligations remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 per-consumer loader-resolution plan](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_PLAN_v0.md) — **Implemented authored proposal, closed schema and independent data-only plan checking.** Reconstruct the completed original entry capture with all 81 historical source bindings and independently derive nine `DT_NEEDED` occurrences plus three separate interpreter declarations. Select a finite proposed original-loader return-event witness with a final entry stop, exact occurrence joins, bounded preservation and zero post-entry continuation. Exact binary/ABI and two-slot hardware qualification, a new collector/capture checker and actual acquisition remain open. No loader-resolution success, B2 completion or authority is supplied by the plan.
+
+- [B2 exact original-loader binary/debug/source binding](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BINARY_BINDING_v0.md) — **Implemented offline static artifact, instruction and selected private-layout binding.** Reconstruct complete pinned package/source inputs, all relevant source patches and exact raw DWARF relationships. Qualify the pre-store `openaux` return checkpoint at original ELF address `0x3671`, with args in RBX and the provider in RAX, and derive the nine original occurrence pointer obligations. The historical plan remains unchanged. Independent source-to-binary reproduction, authenticated build provenance, live readout, two-slot capability and actual resolution acquisition remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 bootstrap preparation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md) — **Implemented deterministic launch planning, exact view materialization and a fixed diagnostic probe.** Bind finite module/resource targets and native aliases to an accepted runtime capsule, reconstruct the plan independently and preserve its exact filesystem bytes. The probe remains diagnostic; contained execution, runtime qualification and observed-launch integration remain outstanding. B2 is incomplete and `authority_effect=none`.
+
+- [B2 loader readout checker contract](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_READOUT_CONTRACT_v0.md) — **Implemented fresh static-prerequisite reconstruction and separate data-only readout/two-slot fixture checkers.** Reconstruct raw register, memory, map and original occurrence joins; check repeated hardware-stop transcript relationships with explicit incomplete-prefix rules. Authored fixtures never become live qualification or original observations. Build provenance, invocation modes, live capability, original acquisition and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 original-loader startup and resume acceptance contract](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_STARTUP_CONTRACT_v0.md) — **Implemented conditional original source/debug/instruction mode derivation and additional authored-fixture acceptance rules.** Bind the selected zero startup modes to the original recipe, validate complete bounded initial argument/environment and process relationships, and require RF set / TF clear at hardware execution stops. Freshly reconstruct the unchanged prior readout/static proof and preserve incomplete results. Actual invocation, live resumption, build provenance, original acquisition and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 original-loader build-record binding](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BUILD_RECORD_BINDING_v0.md) — **Implemented exact recovered buildinfo/changes preservation and bounded record reconstruction.** Account for twenty shared package rows and the changes-to-buildinfo carrier join; freshly check the two selected original package byte streams after reconstructing the unchanged startup prerequisite. The other eighteen payloads remain unverified. Signature-packet structure does not establish cryptographic validity or builder authority. Authenticated build provenance, the source/build gate, live acquisition and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 original-loader rebuild-attestation binding](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ATTESTATION_BINDING_v0.md) — **Implemented preserved rebuilder statement reconstruction, selected signature verification and exact original-byte joins.** Freshly reconstruct the preceding build-record chain; derive the published key identity and canonical signed messages, verify one Ed25519 signature per selected package, and check every signed buildinfo/product digest against original bytes. Preserve the different unverified signature and one evidence set across API aliases. Historical key authority, direct signed source-input coverage, accepted build policy, the source/build gate, live acquisition and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 original-loader rebuild acceptance policy](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ACCEPTANCE_v0.md) — **Implemented candidate policy and independent verification; project selection remains pending.** Join the exact preserved public source-resolution records to complete original source bytes and freshly reverify the preceding package/signature chain. Only an externally selected exact policy can satisfy the scoped source/build prerequisite under the explicit current-daemon endorsement and unsigned source-association trust assumptions. Preserve the truncated log, unresolved historical signature authority and all prior records. Original acquisition, future-host admission and B2 remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 bounded original-loader acquisition and independent replay](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md) — **Implemented a separate bounded collector and native raw-event checker; actual acquisition remains outstanding.** Freshly reconstruct original distribution and selected source/build-policy inputs, qualify the current observer, bind nine unique consumer/provider return observations and stop at original entry with exact continuation counts and owned cleanup. Preserve contemporaneous backing reads, paired samples and incomplete prefixes; scripted tests never become native evidence. Existing profiles and whole-runtime #2879 remain unchanged; `b2_complete=false`, `metric_pass=null` and `authority_effect=none`.
+
+- [B2 hosted original-loader resolution observation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md) — **Implemented a manual acquisition and independent offline replay route; owner dispatch remains outstanding.** Bind the reviewed main source, explicitly selected rebuild policy, full admission closure and exact GPG/OpenSSL/native environment. Supervise one existing bounded collector, require four equal reports and both owned cleanups, preserve failed prefixes and attest only completed verification. This implementation supplies no new native result, B2 completion or whole-runtime #2879 closure.
+
+- [B2 loader two-slot qualification implementation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_QUALIFICATION_v0.md) — **Implemented producer/checker with completed selected native result `45253188286/1`.** Reconstruct both hardware slots, nine RF/TF-qualified return stops, the terminal stop, exact continuation counts, process identity and owned cleanup. Preserve scripted implementation cases separately from that actual fixed-probe record. Future-context admission, original loader acquisition, source/build acceptance, B2 completion and release authority remain open.
+
+- [B2 loader two-slot qualification request and attempt](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_ACQUISITION_v0.md) — **Implemented pre-execution selection and completed selected hosted attempt `45253188286/1`.** Bind the selected context and exact implementation before the single fixed-probe invocation, preserve the original request/attempt/native record, and reconstruct through the unchanged checker. The actual selected result and scripted regressions retain distinct origins. Original loader acquisition, fresh-context admission, source/build acceptance and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
+- [B2 loader two-slot hosted qualification](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861) — **Selected qualification completed and preserved in owner-dispatched run `45253188286/1`.** At source `624713608bcf5467c6d4be44cd026f906c45f274`, one fixed native probe, four byte-identical hosted reports, separate replay, strict AppArmor checks, owned-container cleanup and hosted attestation verification completed. Preserve 255 unchanged original members in the bounded repository selection; only the Docker base-save payload is omitted, and both full original ZIPs retain separate custody. Original acquisition, source/build admission, future-host admission and B2 completion remain open; #2879 retains its full whole-runtime scope.
+
+[Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
+[Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
+[Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)
+
+**Preserved engineering plan with B1 structural implementation.** The linked
+plan retains the implementation sequence selected after #3016. B1 now supplies
+the shared metric-suite/obligation contract and structural checker. The B2
+proposal specifies one finite component protocol; its offline adapter now checks
+selected bytes and recorded application relationships. Actual acquisition,
+runtime closure, substantive calculation and release applicability remain open. Eleven requirements still lack
+complete operational protocols; Q3 already has standalone mathematics but needs
+accepted inputs/labels, specification migration and coordinated release
+admission. All twelve unsupported gates, historical Q2 FAIL and the existing
+authority boundary remain unchanged. The earlier Q3 preflight and capture
+have already run; this plan requests no repeat.
+
+### Q3 bounded-response continuation — versioned implementation
+
+[Implementation and execution boundary](compute/PULSEMECH_Q3_CONTINUATION_v1.md) ·
+[Historical continuation amendment](compute/q3_capture_continuation_amendment_v1/README.md) ·
+[Exact historical bindings and 204-occurrence plan](compute/q3_capture_continuation_amendment_v1/CONTINUATION_PLAN.json) ·
+[Closed proposal schema](compute/q3_capture_continuation_amendment_v1/continuation_plan.schema.json)
+
+**Implementation checkpoint; later hosted executions recorded.** Preflight
+[43235020126/1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43235020126)
+and capture [43237628996/1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43237628996)
+are terminal and successful at `68c6fb199885c99f6a5809866ebd0aaae43b4847`.
+This navigation update verifies API metadata, not fresh carrier acceptance
+or Q1/Q3 results. The linked contract retains its implementation-time scope.
+Native v1 and handoff v2 implement the reviewed 1+203 partition: dedicated
+zero-generation verification of the retained first response, a fresh complete-frame
+token preflight, separately authorized capture of the 203 original unstarted tasks,
+and a deterministic composite verifier. A valid 256-token response permits the
+next task only after full response validation and watchdog closure. The original
+failed session and unverified worker cleanup remain unchanged. Fresh preflight
+and capture must use the same final reviewed commit. Merge alone authorizes no
+execution. No Q1 labels or Q3 measurement are produced; `authority_effect=none`;
+#2879 remains open.
+
+### Q3 runtime input companion — publication checkpoint 2026-11-09
+
+[Published runtime input release record](compute/q3_runtime_release_binding_v0/README.md) ·
+[Machine-readable release and asset identities](compute/q3_runtime_release_binding_v0/RELEASE_BINDING.json) ·
+[Immutable companion release](https://github.com/HKati/pulsemech-q3-runtime-inputs/releases/tag/q2-runtime-37148637546-1-v1)
+
+**Reader / audit surface; published external input companion.** The release
+contains the selected original runtime in twenty unchanged fragments plus five
+companion assets. The metadata comparison covers all 25 names, exact sizes and
+GitHub-reported SHA-256 digests. It records the release ID, tag target commit and
+asset identities. The main-repository acquisition controller remains
+unconfigured; actual-runner retrieval, preflight and capture acceptance remain
+separate. `authority_effect=none`; #2879 remains open.
+
+### Earlier navigation checkpoint — 2026-11-04
+
+The Q3, Anchor, LRM and W1 navigation entries below were checked on 2026-11-04
+against repository snapshot `1f6ad0961ec4dc576916248681651254996b6ea5`.
+Linked preparation and historical records retain their original scope and source
+identities. The open W1 preservation PR is identified separately from this main
+snapshot.
+
 - Q3 native token preflight and finite capture:
   [Native capture contract](compute/PULSEMECH_Q3_NATIVE_CAPTURE_v0.md)
-  **Implementation for review; no native Q3 execution claimed.** Separates
+  **Current implementation; historical zero-generation preflight recorded.** Separates
   zero-generation input tokenization from an explicitly authorized 204-task
   capture, independent token/text checks and non-authorizing evidence retention.
-  Q1 labels and Q3 measurement remain separate; keep #2879 open.
-
+  Recorded preflight `41350046443/1` retains a startup/native runner-image
+  contradiction that blocks its use for capture. It is not execution of the
+  later observation/transport code. Q1 labels, Q3 measurement and full Step 5C/5D
+  acceptance remain separate; keep #2879 open.
+- Q3 external postflight and mandatory capture handoff:
+  [Offline comparison](compute/PULSEMECH_Q3_EXTERNAL_POSTFLIGHT_COMPARISON_v0.md),
+  [read-only acquisition](compute/PULSEMECH_Q3_EXTERNAL_POSTFLIGHT_ACQUISITION_v0.md)
+  and [capture handoff v1](compute/PULSEMECH_Q3_CAPTURE_HANDOFF_v1.md)
+  **Current implementation; actual capture acceptance remains open.** The supported
+  controller consumes fresh acquired records and their comparison in the same
+  process; a saved verdict does not authorize capture. Original and current
+  source/run identities remain distinct, and offline replay does not authenticate
+  acquisition or supply new Q1/Q3 measurements.
+- Q3 early runner-image observation:
+  [Same-job observation and invocation gate](compute/PULSEMECH_Q3_RUNNER_IMAGE_OBSERVATION_v0.md)
+  **Current implementation; historical image contradictions retained.** Three
+  source-bound observation points reject inconsistent or incomplete local image
+  metadata before runtime acquisition. They do not repair platform metadata or
+  replace the external startup/native comparison. A fresh preflight from the
+  final reviewed source and separate acceptance remain required.
+- Q3 original runtime custody and transport:
+  [Owner-local custody](compute/q3_runtime_local_custody_v0/README.md) and
+  [earlier part transport candidate](compute/PULSEMECH_Q3_RUNTIME_PART_TRANSPORT_v0.md),
+  followed by the [immutable-release acquisition adapter](compute/PULSEMECH_Q3_RUNTIME_RELEASE_TRANSPORT_v0.md).
+  **Source-bound adapter; actual-runner retrieval remains unverified.** The selected
+  original 508,460,811-byte archive retains its identity. Owner-local storage
+  replaces the earlier LFS proposal for this object; LFS and paid storage are not
+  authorized, and verification of the saved owner-machine copy is not observed.
+  The controller now selects the fixed published release and asset IDs, verifies
+  the manifest and twenty fragments, and records before/after metadata checks.
+  Publication and synthetic tests do not authorize preflight or capture.
+  This does not close the custody obligations for the other Q2 archives.
 - Offline Q3 archived-input preparation:
   [Selected-original package preparation](compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)
   **Current implementation with synthetic conformance tests.** Packages separately
@@ -95,12 +246,13 @@ moves between merged and open work, update this index.
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
   **Dated source-bound implementation and evidence checkpoint.** The
-  2026-10-25 checkpoint at `a248f5e21dd6163416bf54b23f12a09a12259e3f`
-  links the completed E2 execution and original-artifact preservation through
-  #2950, the recorded Q2 native execution/field comparison, and the Q3
-  reference/preparation implementations. Earlier source-bound checkpoints
-  remain historical. Q2 49/50 FAIL, pending full Q2/Step 5C/5D acceptance
-  and non-active authority boundaries remain unchanged.
+  scoped 2026-10-30 Paradoxon checkpoint at
+  `72e8973e54d8f94422c0dabb264b8316ac8e4de6` links the preserved
+  PD-SM-01-E1 / MON-1 record, the #2957 PD-SM-02 implementation and its
+  separately preserved #2958 bounded local scratch result. The earlier E2,
+  Q2 and Q3 checkpoints retain their original dates and source identities.
+  Q2 49/50 FAIL, pending full Q2/Step 5C/5D acceptance and non-active
+  authority boundaries remain unchanged. No new execution is claimed.
 - Preserved Q2-1 native tokenizer and independent replay procedure:
   [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 13](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
   **Recorded bounded checkpoint.** Original run `38478598045/1`, original
@@ -400,8 +552,30 @@ Read these documents in this order:
 - [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md) — **Current implementation and completed bounded proof.** Records the exact Device Ledger evidence-to-carrier path, deterministic `.pulseledger`, exact four-member `ZIP_STORED` Reproduction Capsule, two isolated byte-identical constructions, two exact positive standalone-verifier executions, targeted `package_signature_valid` rejection, canonical reproduction result, protected-source preservation, minimal runnable iPhone demonstrator, exact artifact export, and the preserved `authority_effect = none` / `external_validation_claim = none` boundary.
 - [EXTERNAL_VERIFICATION_PATH_v0.md](EXTERNAL_VERIFICATION_PATH_v0.md) — **Reviewer and operator path.** Separates the direct `pulsemech_device_ledger_v0` verification profile from the `pulsemech_device_ledger_reproduction_capsule_v0` construction and execution profile, including complete pinned reference-workflow dispatch, portable local proof replay, bounded inner runner execution, deterministic Swift-to-verifier reproduction, targeted fail-closed mutation checks and non-authorizing report fields.
 - [PULSEbox v0 technical plan](PULSEBOX_V0_TECHNICAL_PLAN.md) — **Design proposal; implementation and physical acceptance pending.** Preserves revision 0.2, separate execute/promote decisions and Execution/Device Gates, source identities and 54 planned negative cases (`NOT_RUN`); `authority_effect = none`.
+- Anchor Integrity v0.1 contracts and local diagnostic implementation:
+  [WP1 contract](ANCHOR_INTEGRITY_v0_1_CONTRACT.md),
+  [WP2A local bindings](ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
+  [WP2B explicit JSON Pointer projection](ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)
+  and [WP2C materialized verifier-record bindings](ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md).
+  **Current local diagnostic implementation; full adapter remains incomplete.**
+  Checks exact local bytes and recorded references, explicitly selected pointer
+  projections, and materialized records against caller-pinned expectations.
+  WP2C reruns the base binding checker; it executes no semantic verifier and
+  does not authenticate a recorded verifier identity. Authentication, semantic
+  support, typed dependency-cycle evaluation and full coverage/disposition logic
+  remain separate. `requested_checks_complete = false`,
+  `accepted_as_semantic_support = false`; `authority_effect = none`.
+- Language Relation Measurement v0:
+  [LRM-01 contract](PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_CONTRACT.md) and
+  [LRM-01–LRM-06 development plan](PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_PLAN.md).
+  **Implemented contract foundation; measurement runtime not implemented.**
+  LRM-01 supplies a finite profile, four schemas, synthetic reference fixtures
+  and contract tests. Source/representation verification, relation comparison,
+  impact evaluation, automatic extraction and executable replay remain later
+  work. Synthetic result examples are specification material, not observed
+  language measurements; `authority_effect = none`.
 - [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — **Current implementation and completed bounded proof.** Detailed compute contracts, completed Step 3G automation and regressions, exact historical Step 4A capture, bounded Step 4B preservation, accepted Step 5A runtime-bound construction and the completed Step 5B owner-dispatched six-process reference with exact preservation and source-bound replay; whole-runtime observation, complete Step 5 closure and later measurement remain separate.  
-- [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint) — **Implementation history and recorded bounded results.** Section 17 records the local comparison of historical run `37600313529/1` and native run `39057898256/1`: 150 paired calls with matching selected output fields, preserved run-binding and platform differences, and unchanged 49/50 FAIL. Section 16 retains native acquisition and separate offline verification; section 13 retains Q2-1. Full Q2-4 acceptance, durable owner-held custody and full Q2/Step 5C/5D remain open under #2879.
+- [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) — **Current proposed coverage plan and preserved implementation history.** Section 18 continues after #3016 with the exact nineteen-gate partition, eleven protocol-definition gaps, Q3 input/migration/admission obligations, a shared metric-suite companion over the existing compute chain and the complete current test-cardinality dependency inventory for the proposed B1 unit. It activates no gate and requests no execution. Sections 1–17 retain their earlier bounded results and limitations; #2879 remains open.
 - [compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md](compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md) — **Implementation contract with recorded bounded Q2-1 reference.** Closed tokenizer-only source/input/projection/result contracts, four isolated occurrences, preserved historical 49/50 FAIL, separate canonical replay and the reviewed owner-run procedure. The recorded checkpoint preserves earlier rejected runs; full model/worker/release-host verification and authority remain separate.
 - [compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md](compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md) — **Strict v0 implementation contract.** Combined Q2-2/Q2-3 fixed-capsule worker, explicit owner execution/retention consent, independent checks and fail-closed custody. The later acquisition used the explicit v1 extension, not strict historical-platform equality;
   see [section 16](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint). Q2-4 acceptance remains separate.
@@ -447,7 +621,7 @@ It does not create authority beyond the artifact-bound path defined by the linke
 | Legacy verifier diagnostics and historical prerequisites | Preserves the earlier failure-only verifier-report line, expectation summaries, schema drafts and relation-promotion prerequisites without presenting them as the current admission path. | [PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md](PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md), [PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md](PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md), [PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_DELTA_MAP_v0.md](PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_DELTA_MAP_v0.md), [PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_ONLY_DRAFT_BOUNDARY_v0.md](PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_ONLY_DRAFT_BOUNDARY_v0.md), [PULSE_RELEASE_EVIDENCE_RELATION_BINDING_PROMOTION_PREREQUISITES_v0.md](PULSE_RELEASE_EVIDENCE_RELATION_BINDING_PROMOTION_PREREQUISITES_v0.md), [PULSE_EVIDENCE_FOLD_IN_ADMISSIBILITY_v0.md](PULSE_EVIDENCE_FOLD_IN_ADMISSIBILITY_v0.md) |
 | Release-grade reference and public record | Defines the completed-run contract and records the concrete first completed hosted execution. | [release_grade_reference_run_v0.md](release_grade_reference_run_v0.md), [RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md](RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md), [PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md](PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md) |
 | Reader surfaces | Shows recorded state without allowing dashboards, summaries, notebooks or Pages to become authority carriers. | [quality_ledger.md](quality_ledger.md), [PULSE_PUBLIC_SURFACE_CONTRACT_v0.md](PULSE_PUBLIC_SURFACE_CONTRACT_v0.md), [PULSE_PUBLIC_PRIVATE_ARTIFACT_BOUNDARY_v0.md](PULSE_PUBLIC_PRIVATE_ARTIFACT_BOUNDARY_v0.md), [PULSE_NATIVE_REVIEW_FRAME_v0.md](PULSE_NATIVE_REVIEW_FRAME_v0.md) |
-| Audit and provenance sidecars | Preserves digest-backed decision, binding, manifest, attestation-subject and cryptographic-verification state around the normative path. | [ARTIFACT_PROVENANCE_BINDING_v0.md](ARTIFACT_PROVENANCE_BINDING_v0.md), [release_authority_manifest_v0.md](release_authority_manifest_v0.md), [RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md](RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md), [RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md](RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md), [ANCHOR_INTEGRITY_v0.md](ANCHOR_INTEGRITY_v0.md) |
+| Audit and provenance sidecars | Preserves digest-backed decision, binding, manifest, attestation-subject and cryptographic-verification state around the normative path. Anchor Integrity v0.1 now implements local byte/reference checks, explicit JSON Pointer projection and materialized verifier-record bindings. These diagnostic checks do not authenticate provenance, execute semantic verifiers, complete the full adapter or enter the authority chain. | [ARTIFACT_PROVENANCE_BINDING_v0.md](ARTIFACT_PROVENANCE_BINDING_v0.md), [release_authority_manifest_v0.md](release_authority_manifest_v0.md), [RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md](RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md), [RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md](RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md), [ANCHOR_INTEGRITY_v0.md](ANCHOR_INTEGRITY_v0.md), [ANCHOR_INTEGRITY_v0_1_CONTRACT.md](ANCHOR_INTEGRITY_v0_1_CONTRACT.md), [WP2A](ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md), [WP2B](ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md), [WP2C](ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md) |
 | Diagnostic and shadow surfaces | Keeps EPF, paradox, topology, field, overlay and shadow inventory outputs diagnostic unless explicitly admitted through declared policy and strict enforcement. | [OPTIONAL_LAYERS.md](OPTIONAL_LAYERS.md), [NORMATIVE_SHADOW_INVENTORY_MODEL_v0.md](NORMATIVE_SHADOW_INVENTORY_MODEL_v0.md), [SHADOW_ARTIFACT_COMMON_v0.md](SHADOW_ARTIFACT_COMMON_v0.md), [PULSE_epf_shadow_quickstart_v0.md](PULSE_epf_shadow_quickstart_v0.md), [PULSE_paradox_core_v0.md](PULSE_paradox_core_v0.md), [PULSE_topology_overview_v0.md](PULSE_topology_overview_v0.md), [PULSE_decision_field_v0_overview.md](PULSE_decision_field_v0_overview.md) |
 | Future operational work | Collects portability, independent reproduction, HPC, later hardening and separately governed future promotion work. | [FUTURE_LIBRARY.md](FUTURE_LIBRARY.md), [FUTURE_READY_WORKMODE.md](FUTURE_READY_WORKMODE.md), [PULSE_HARDENING_BOUNDARY_MAP_v0.md](PULSE_HARDENING_BOUNDARY_MAP_v0.md), [UNREALIZED_DOCUMENTATION_PLANS_AUDIT_2026-06-05.md](UNREALIZED_DOCUMENTATION_PLANS_AUDIT_2026-06-05.md) |
 | Adoption and external review | Supports operator handoff, external review, governance packets and challenge packets while preserving the authority boundary. | [PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md), [EXTERNAL_VERIFICATION_PATH_v0.md](EXTERNAL_VERIFICATION_PATH_v0.md), [EXTERNAL_VERIFICATION_PACKET_v0.md](EXTERNAL_VERIFICATION_PACKET_v0.md), [GOVERNANCE_PACK_v0.md](GOVERNANCE_PACK_v0.md), [OPERATOR_HANDOFF_v0.md](OPERATOR_HANDOFF_v0.md), [OUTSIDE_REVIEW_RESPONSE.md](OUTSIDE_REVIEW_RESPONSE.md), [AUTHORITY_IMPACT_AUDIT_CHECKLIST_v0.md](AUTHORITY_IMPACT_AUDIT_CHECKLIST_v0.md) |
@@ -583,6 +757,13 @@ pulsemech_witness_verification_evidence_v0.schema.json
 ---
 
 ## Compute binding and current-run export expectation
+
+### Bounded admission-rejection observation
+
+- [Admission-rejection observer and independent checker](compute/PULSEMECH_COMPUTE_ADMISSION_REJECTION_v0.md) — A separate read-only carrier for the pinned hosted-evidence rejection path. It preserves an exact terminal run, reconstructs its source/step/input bindings, and independently checks Q2 and attestation evidence. Implementation and controlled tests do not establish a completed observed reference or satisfy the original successful Step 5C profile.
+- [Independent verification of preserved run 43445176088/1](compute/admission_rejection_43445176088_v0/README.md) — **Completed bounded operational record.** Verification run `43514702328/1` at `c06d306b0affcbfde35544f7dc64fc21bbf36180` checked the original rejected run at `59b0aa8d93cb655db5452367e6ad43ced424d83a`. Two separate processes of the same independent checker accepted the frozen evidence and produced byte-identical reports. The original GitHub artifact and a preservation record are retained. Acceptance covers the source-bound admission rejection and downstream stop; it does not complete Step 5C/5D or grant release authority. Issue #2879 remains open.
+
+- [Required-gate coverage plan (machine-readable)](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) — **Proposed next implementation; no gate activation.** Shared metric-suite obligations, per-property independent reconstruction, Q3 semantic migration and coordinated candidate admission.
 
 ### Current merged implementation
 
@@ -973,6 +1154,77 @@ index update neither predeclares that closure nor performs a new proof execution
   and 4096 unchanged-base controls. Original ZIP, nested E0 and histories
   remain unchanged; E2 portability and production authority remain separate.
   `authority_effect = none`.
+- Paradoxon PD-SM-02 source-bound pre-execution scratch pilot:
+  [PD-SM-02 bounded scratch execution result](PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md)
+  **Completed bounded local execution record; source-bound scratch evidence.**
+  On merged implementation commit `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905`,
+  all 24 declared cases matched their classification or binding obligations.
+  Four launch-eligible cases completed one exact monitored 22-byte scratch
+  effect each; twenty non-eligible authorized launcher attempts stopped before
+  candidate execution and output-directory creation. CPython 3.13.5/Linux
+  x86_64 only; no production enforcement, release authority or general Python
+  analysis claim; `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 bounded native-witness experiment:
+  [Source-bound selection and experiment contract](experiments/PD_SM_02_W1_CONTRACT_v0.md)
+  **Preregistered experiment contract; preparation-era status retained.** Fixes three
+  healthy-scenario model witnesses (N01, N07, N08), a P00 positive control
+  and an N02 native-primitive refusal control. Its `NOT_RUN` declaration describes
+  the original preparation stage. Later admission, request preservation, hosted
+  integration and the separately pending native-run preservation are indexed
+  below. The original predictions and evidence remain unchanged;
+  `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 offline input and observation-record checker:
+  [W1 record-checker implementation and format](experiments/PD_SM_02_W1_RECORD_CHECKER_v0.md)
+  **Current implementation; offline record consistency only.** Binds the frozen
+  selection and original evidence; checks operation coverage and request/ACK
+  ordering separately from final bytes. Synthetic fixtures remain synthetic;
+  acquisition authenticity, containment, native witness observation and a new
+  execution authorization are not established by this checker.
+  `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 bounded diagnostic acquisition implementation:
+  [Native controller, observer and external boundary](experiments/PD_SM_02_W1_NATIVE_CAPTURE_v0.md)
+  **Current implementation; later operational records remain separate.**
+  Exact request and source closure; five fixed candidates; separate trusted
+  primitive instrumentation and collector; inspected Docker limits and admission
+  controls; the native controller retains `--pull=never`, with no automatic
+  execution or normal-launch bypass.
+  Synthetic lifecycle tests do not establish live containment or native witnesses.
+  `execution_authorized = false`; `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 separate environment admission:
+  [Selected Linux/image target, zero-candidate controls and offline replay](experiments/PD_SM_02_W1_ADMISSION_v0.md)
+  **Current candidate-free implementation; completed admission recorded separately.** Selects the
+  GitHub-hosted Ubuntu 24.04 x64 runner class and an exact official Python image;
+  preserves registry metadata and uses a separate zero-budget request, claim,
+  manual workflow and control replay. The
+  [preserved request record](experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  records admission `41362257003/1`: both `probe-time` and `probe-output`
+  completed and replayed with zero candidate invocations and
+  `ADMISSION_COMPLETED_UNATTESTED`. That admission does not authorize a W1
+  experiment or attest the later execution host.
+  `maximum_candidate_invocations = 0`; `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 preserved native request:
+  [Request archive, prior admission and offline preparation checks](experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  **Completed preparation record; request validity grants no execution permission.**
+  Preserves the exact 444,703-byte ZIP, twenty payloads, original admission archive
+  and source-bound validation receipts. Its `REQUEST_VALID_NOT_AUTHORIZED` and
+  five-case `NOT_RUN` declarations retain their preparation-time meaning.
+  No request payload or original evidence is rewritten by later integration.
+- Paradoxon PD-SM-02-W1 manual hosted integration:
+  [Hosted workflow, source/request guards and retained-result boundary](experiments/PD_SM_02_W1_HOSTED_NATIVE_v0.md)
+  **Current implementation; actual native-run preservation is tracked separately.**
+  Consumes the unchanged request, repeats both live controls on the actual host,
+  and supervises one owner-authorized five-case attempt with retained evidence
+  and offline replay. Its implementation-delivery `NOT_RUN` statement is not a
+  current assertion that no later run exists. A completed capture remains
+  unattested and creates no further execution permission or release authority.
+- Paradoxon PD-SM-02-W1 native-run preservation:
+  [Preservation PR #2984](https://github.com/HKati/pulse-release-gates-0.1/pull/2984)
+  **Open preservation PR as of 2026-11-04; outside the inspected main snapshot.**
+  Proposes preservation of actual run `41852641211/1`, its original capture,
+  separate source-bound replay and bounded review. Reviewed PR head:
+  `d23ed1b02c69df4fd51878067e93f381a8b5e11d`. Its evidence files are not yet
+  merged into main; capture completion does not establish external acquisition
+  authenticity, native-witness correspondence or release authority.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.

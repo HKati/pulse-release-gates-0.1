@@ -1,0 +1,56 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "evidence_items": [
+    {
+      "content_sha256": "8e55e3f190cfa261f8a0d1f6aab231eabf4fa8adf2c1147706961fa3e568e36c",
+      "evidence_id": "evidence-1",
+      "locator": {
+        "type": "json_pointer",
+        "value": "/record/value"
+      },
+      "locator_verification": {
+        "reason": "synthetic_fixture_no_external_verification",
+        "result": null,
+        "status": "not_run"
+      },
+      "source_id": "source-1",
+      "subject_binding": {
+        "expected_run_id": "synthetic-run-001",
+        "expected_subject_id": "wp2b-synthetic-001",
+        "observed_run_id": "synthetic-run-001",
+        "observed_subject_id": "wp2b-synthetic-001",
+        "verification": {
+          "reason": "synthetic_fixture_no_external_verification",
+          "result": null,
+          "status": "not_run"
+        }
+      }
+    }
+  ],
+  "packet_id": "wp2b-evidence",
+  "schema_version": "anchor_integrity_evidence_packet_v0_1",
+  "sources": [
+    {
+      "canonical_identifier": "fixture:anchor-wp2b:source-1",
+      "content_sha256": "e2e9ac2e7e1ccd842e00075e39f5efec84d09a3fa810591a646a285b758ea6f8",
+      "identity_verification": {
+        "reason": "synthetic_fixture_no_external_verification",
+        "result": null,
+        "status": "not_run"
+      },
+      "integrity_verification": {
+        "reason": "synthetic_fixture_no_external_verification",
+        "result": null,
+        "status": "not_run"
+      },
+      "revision": null,
+      "source_id": "source-1",
+      "source_type": "provided_context"
+    }
+  ],
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2b-synthetic-001"
+  }
+}

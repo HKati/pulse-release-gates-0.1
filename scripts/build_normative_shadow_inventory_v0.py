@@ -91,7 +91,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
 
     if rel == ".github/workflows/q3_reference_acquisition_v0.yml":
         if (name != "Q3 native token preflight and capture v0"
-                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "fdf88f140c704ff97f16b3f60a2ab56b3f77d6b853599d0cde553183d7287c74"):
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "460a49a8e90a30aa51ae6d322993e76f2b40ad8c07efde3634dba5a0c5f018f4"):
             return entry(name=name, path=rel, surface_type="workflow",
                          primary_role="unclassified workflow", carrier_class="advisory",
                          authority_impacting="conditional",
@@ -104,6 +104,278 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                      writes_artifacts=["bounded original token/text evidence or explicit incompleteness"],
                      publishes_artifacts=["30-day owner-consented Actions evidence; not private storage"],
                      notes="No labeling, metric execution, required gate, attestation or release activation.")
+
+    if rel == ".github/workflows/q3_reference_acquisition_v1.yml":
+        expected_sha256 = "dc6dd7cbb660d6494e6fcc71bffe498623afaa0920098f5f64591f5ba2dcc24c"
+        if (name != "Q3 bounded continuation preflight and capture v1"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(name=name, path=rel, surface_type="workflow",
+                         primary_role="unclassified workflow", carrier_class="advisory",
+                         authority_impacting="conditional",
+                         authority_boundary="Changed Q3 continuation carrier requires exact source review")
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing Q3 bounded continuation preflight and capture",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Separately consented zero-generation preflight or bounded 203-task continuation; "
+                "no gate admission."
+            ),
+            reads_artifacts=["fixed Q3 inputs, continuation amendment and exact historical capture evidence"],
+            writes_artifacts=["historical verification and bounded continuation evidence or explicit incompleteness"],
+            publishes_artifacts=["30-day owner-consented Actions evidence; not private storage"],
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
+            notes=("The historical session remains incomplete. No labeling, metric execution, "
+                   "required gate, attestation or release activation."),
+        )
+
+    if rel == ".github/workflows/pulsemech_admission_rejection_verification_v0.yml":
+        expected_sha256 = "571a0a8046e212adeb10107bcd7b9654e6eb244f3a14a948a14f265171686e03"
+        if (name != "PULSEmech independent admission-rejection verification v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed admission-rejection verification carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing independent admission-rejection verification",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Read-only verification of one exact historical rejection run; "
+                "no subject dispatch, model inference or release admission."
+            ),
+            reads_artifacts=["exact original plan, Q2 inputs and terminal-run evidence"],
+            writes_artifacts=["fresh semantic and signature verification, two canonical reports or bounded failure"],
+            publishes_artifacts=["owner-dispatched verification evidence with declared Actions retention"],
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
+            notes=("Verifies an existing attestation without producing one. Historical rejection remains; "
+                   "bounded observation acceptance does not close Step 5C/5D or grant release authority."),
+        )
+
+    if rel == ".github/workflows/required_gate_idempotence_entry_build_v0.yml":
+        expected_sha256 = "cff2855863498f015564318ce0adda218e62d6d204a96ced343a473452252e88"
+        if (name != "PULSEmech idempotence entry build provenance v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed entry-build provenance carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing fixed entry-build provenance workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped preservation and attestation of two fixed entry builds; "
+                "no produced-entry or selected-runtime execution, required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit and pinned containment-entry C source",
+                "selected compiler and before/after toolchain observations",
+                "exact current-run build artifact and closed record manifest",
+            ],
+            writes_artifacts=[
+                "two preserved entry binaries, source copies, raw build logs and bounded process records",
+                "independent closed-record verification or incomplete attempt evidence",
+                "original GitHub SLSA provenance bundle and bounded signature-verification output",
+            ],
+            publishes_artifacts=[
+                "owner-dispatched build evidence and separate attestation evidence with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Produces and verifies build provenance for the closed record without granting release authority. "
+                "Same-host repeat builds do not establish compiler correctness, source/binary equivalence or "
+                "host qualification. Static verification keeps github_build_provenance_verified=false; "
+                "signature verification has its own preserved result and B2 remains incomplete."
+            ),
+        )
+
+    if rel == ".github/workflows/required_gate_idempotence_exec_stop_v0.yml":
+        expected_sha256 = "8f4ec694d60e455273d2e29bccae289a7821363781ddb8c5b05096b01534b182"
+        if (name != "PULSEmech original launcher exec-stop observation v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed original-launcher exec-stop carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing original-launcher exec-stop observation workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped acquisition at one original-launcher kernel exec checkpoint; "
+                "no continuation or detach after PTRACE_EVENT_EXEC, selected-runtime execution, "
+                "required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit and same-attempt owner acknowledgement",
+                "preserved original launcher/distribution inputs and pinned observation environment inputs",
+                "exact current-run artifact ID and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "original exec-stop request, raw capture or bounded incomplete attempt prefix",
+                "two independent-checker executions reconstructing the preserved original capture",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "original observation and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Preserves failed prerequisites and incomplete captures without automatically repeating acquisition. "
+                "Accepted reconstruction of an incomplete record is not completed observation. "
+                "Hosted provenance and selected cp0 relationships do not establish complete native closure, "
+                "host qualification, observed containment or release authority. Steps 6 and 7 remain separate; "
+                "authority_effect=none; keep #2879 open."
+            ),
+        )
+
+    if rel == ".github/workflows/required_gate_idempotence_entry_stop_v0.yml":
+        expected_sha256 = "452972094f789a65b5933497be000d97c2ba7d896a7b41fad0dd028cfa7a9021"
+        if (name != "PULSEmech original launcher entry-stop observation v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed original-entry observation carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing guarded original-entry observation workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped capability qualification and one fresh original cp0-to-entry attempt; "
+                "no continuation or detach after executable entry, selected-runtime execution, "
+                "required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit and same-attempt owner acknowledgement",
+                "preserved original inputs, selected native objects and pinned observation environment",
+                "separate task-guard and hardware-breakpoint qualification records from the acquisition context",
+                "exact current-run artifact ID and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "both capability records and bounded failed-prerequisite or original-attempt prefixes",
+                "original entry request and raw cp0/entry capture with owned-child cleanup evidence",
+                "two independent reconstructions of preserved bytes and owned outer-container cleanup evidence",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "original qualification/observation and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Both capability qualifications must complete before the original attempt. "
+                "Failed prerequisites and incomplete captures remain incomplete; verification repeats neither "
+                "qualification nor acquisition. Loader initialization can execute before entry; provider mappings "
+                "do not establish per-consumer resolution, complete native closure, containment or release authority. "
+                "B2 and Steps 6 and 7 remain separate; metric_pass=null; authority_effect=none; keep #2879 open."
+            ),
+        )
+
+    if rel == ".github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml":
+        expected_sha256 = "b0b889a3b6b8f8fa863e3ffba295dd9c295254ea7fdddb2066017f8c5d1e59ef"
+        if (name != "PULSEmech loader two-slot qualification v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed synthetic two-slot qualification carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing synthetic loader two-slot qualification workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped execution of one fixed synthetic probe with preserved evidence "
+                "and independent data-only replay; no original-launcher or model execution, "
+                "required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit, fixed source closure and owner acknowledgement",
+                "pinned Python base, six hash-locked verifier wheels and preserved build inputs",
+                "exact current-run artifact ID/digest and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "context-bound synthetic request, native attempt and qualification bytes or incomplete prefix",
+                "two canonical acquisition reports and two independent data-only replay reports",
+                "fixed command/runtime records and verified owned container cleanup",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "synthetic qualification and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Incomplete prefixes remain incomplete and cannot reach completed-statement attestation. "
+                "The verifier rebuilds from preserved inputs without repeating native qualification. "
+                "Hosted statement attestation does not establish physical execution authentication, "
+                "future-host admission, original source/build acceptance, B2 completion or release authority. "
+                "metric_pass=null; authority_effect=none; keep #2879 open with its complete whole-runtime scope."
+            ),
+        )
+
+    if rel == ".github/workflows/required_gate_idempotence_loader_resolution_v0.yml":
+        expected_sha256 = "ef4b6622ef0443452062e872f8d960658f0647723677ca8c1e5d0f2f8b4b7f97"
+        if (name != "PULSEmech original loader resolution observation v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed original-loader resolution carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing bounded original-loader resolution observation workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped original-input and selected-policy admission, fresh guard and two-slot "
+                "qualification, and one original attempt through nine selected dependency returns and entry; "
+                "no continuation after entry, model execution, required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit, independently selected policy digest and owner acknowledgement",
+                "preserved original distribution and rebuild inputs, exact verifier and original native objects",
+                "pinned Python base, verified Debian packages and hash-locked verifier wheels",
+                "exact current-run artifact ID/digest and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "source-bound original request, raw nine-return and entry capture or bounded incomplete prefix",
+                "fresh acquisition-context task-guard and two-slot qualification records",
+                "two canonical acquisition reports and two independent data-only replay reports",
+                "fixed command/runtime records and verified owned container cleanup",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "original-loader observation and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Incomplete prefixes remain incomplete and cannot reach completed-statement attestation. "
+                "The verifier rebuilds offline from preserved inputs without repeating probes or acquisition. "
+                "The historical GPG selection remains exact; test-host verifier selection cannot replace it. "
+                "Hosted statement attestation does not establish physical execution authentication, "
+                "future-host admission, whole-runtime closure, B2 completion or release authority. "
+                "metric_pass=null; authority_effect=none; keep #2879 open with its complete whole-runtime scope."
+            ),
+        )
 
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
@@ -142,7 +414,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     if rel == ".github/workflows/q2_release_host_worker_verification_v0.yml":
         # This exact reviewed carrier is non-authorizing, not every workflow
         # containing a Q2 name. Any byte change needs renewed carrier review.
-        expected_sha256 = "289ed953b0d6067ad93ab55d5399cc2c7c770a062c2ac3bde5cbe6ecd7578f97"
+        expected_sha256 = "e4babb03d3f2ef57ce17462a0719c47f43c67df0c8319e7e58a8fc4183d6c2eb"
         if (name != "Q2 native release-host worker verification v0"
                 or hashlib.sha256(text.encode("utf-8")).hexdigest() != expected_sha256):
             return entry(

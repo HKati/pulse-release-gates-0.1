@@ -31,9 +31,9 @@ TEST_RELATIVE_PATH = (
 EXPECTED_WORKFLOW_LINES = 2065
 EXPECTED_WORKFLOW_BYTES = 86927
 EXPECTED_WORKFLOW_SHA256 = (
-    "aa56f0599457ebf1df7aec5a62d809e9253f7937c74ebd82aa534a8c5c83eea9"
+    "b54a2e521ed446e883f149b07f4822dbba6babde2f263c0f08e1e2e70ad03286"
 )
-EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "4ed8af34f9f7fac14a91c3e40b0c6ebde27ab1af"
+EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "536564a650e6bcada9b9e560fd23bb857a97d22f"
 
 EXPECTED_STEP_NAMES = (
     "Resolve exact Step 3F provider run and protected control plane",
@@ -56,7 +56,7 @@ EXPECTED_REUSABLE_ACTIONS = (
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
     "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-    "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
 )
 
 EXPECTED_CONTROL_PATHS = frozenset(
@@ -464,7 +464,7 @@ def test_workflow_artifact_identity_matches_reviewed_head() -> None:
 
 def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> None:
     entries = manifest_entries()
-    assert len(entries) == 167
+    assert len(entries) == 190
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)

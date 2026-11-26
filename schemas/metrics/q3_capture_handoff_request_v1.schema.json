@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/metrics/q3_capture_handoff_request_v1.schema.json",
+  "title": "Q3 capture handoff request v1",
+  "description": "Closed versioned envelope; exact UTF-8 hashes, native-v0 and postflight-v0 contracts, source equality and live admission are additional mandatory program checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "repository",
+    "capture_source_commit",
+    "native_request_utf8",
+    "native_request_sha256",
+    "postflight_selection_utf8",
+    "postflight_selection_sha256",
+    "handoff_source_files",
+    "authorization"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "q3_capture_handoff_request_v1"
+    },
+    "repository": {
+      "const": "HKati/pulse-release-gates-0.1"
+    },
+    "capture_source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "native_request_utf8": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 131072
+    },
+    "native_request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "postflight_selection_utf8": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 131072
+    },
+    "postflight_selection_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "handoff_source_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemas/metrics/q3_capture_handoff_request_v1.schema.json",
+        "tools/acquire_q3_external_postflight_v0.py",
+        "tools/check_q3_external_postflight_v0.py",
+        "tools/q3_capture_handoff_v1.py"
+      ],
+      "properties": {
+        "schemas/metrics/q3_capture_handoff_request_v1.schema.json": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "git_blob_sha1",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "git_blob_sha1": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            }
+          }
+        },
+        "tools/acquire_q3_external_postflight_v0.py": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "git_blob_sha1",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "git_blob_sha1": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            }
+          }
+        },
+        "tools/check_q3_external_postflight_v0.py": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "git_blob_sha1",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "git_blob_sha1": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            }
+          }
+        },
+        "tools/q3_capture_handoff_v1.py": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "git_blob_sha1",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "git_blob_sha1": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            }
+          }
+        }
+      }
+    },
+    "authorization": {
+      "const": "AUTHORIZE_ONE_OWNER_CAPTURE_DISPATCH_WITH_FRESH_POSTFLIGHT_AND_30_DAY_RETENTION"
+    }
+  }
+}

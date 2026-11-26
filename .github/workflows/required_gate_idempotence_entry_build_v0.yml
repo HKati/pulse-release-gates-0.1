@@ -1,0 +1,427 @@
+name: PULSEmech idempotence entry build provenance v0
+
+# Explicit entry compilation only. Neither produced entry is executed.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_commit:
+        description: Exact reviewed main commit containing this workflow (40 lowercase hex digits).
+        required: true
+        type: string
+      acknowledgement:
+        description: Enter BUILD_ENTRY_ONLY_NO_RUNTIME_EXECUTION to request this finite build.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulsemech-required-gate-idempotence-entry-build-v0
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Preserve two fixed entry builds without executing either output
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.preserve.outputs.artifact-id }}
+      request_sha256: ${{ steps.check.outputs.request_sha256 }}
+      record_sha256: ${{ steps.check.outputs.record_sha256 }}
+    env:
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+      ENTRY_BUILD_ACKNOWLEDGEMENT: ${{ inputs.acknowledgement }}
+    steps:
+      - name: Require the exact owner and manual build context
+        id: context
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = HKati/pulse-release-gates-0.1
+          test "$GITHUB_REPOSITORY_ID" = 1061766508
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "$ENTRY_BUILD_ACKNOWLEDGEMENT" = BUILD_ENTRY_ONLY_NO_RUNTIME_EXECUTION
+          [[ "$EXPECTED_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_SHA"
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml@refs/heads/main
+
+      - name: Create the failure-preservation prefix
+        id: prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "required-gate-entry-build-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          )
+          root.mkdir(mode=0o700)
+          record = {
+              "format": "required_gate_idempotence_entry_build_workflow_start_v0",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "repository_id": os.environ["GITHUB_REPOSITORY_ID"],
+              "source_commit": os.environ["EXPECTED_SOURCE_COMMIT"],
+              "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              "workflow_ref": os.environ["GITHUB_WORKFLOW_REF"],
+              "run_id": int(os.environ["GITHUB_RUN_ID"]), "run_attempt": 1,
+              "entry_binary_executed": False, "selected_runtime_executed": False,
+              "original_operator_applications": 0, "model_calls": 0, "authority_effect": "none",
+          }
+          with (root / "workflow-start.json").open("x") as output:
+              output.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+
+      - name: Checkout the exact reviewed build implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up the exact verification Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.11.16'
+
+      - name: Install the existing locked checker dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          dependency_lock="$GITHUB_WORKSPACE/PULSE_safe_pack_v0/requirements-attestation-v0.lock"
+          test -f "$dependency_lock"
+          test ! -L "$dependency_lock"
+          printf '%s  %s\n' dfea85090305c5dd7ea5b3f829cbb450621087d4b07179019a285a7d41badb28 "$dependency_lock" | sha256sum --check --strict -
+          PIP_CONFIG_FILE=/dev/null python -I -m pip --isolated --disable-pip-version-check \
+            install --no-input --no-cache-dir --index-url https://pypi.org/simple \
+            --require-hashes --only-binary=:all: --requirement "$dependency_lock"
+
+      - name: Acquire the two fixed builds and their original evidence
+        id: acquire
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_root="$RUNNER_TEMP/required-gate-entry-build-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python -I -B - <<'PY' > "$build_root/acquisition.stdout.bin" 2> "$build_root/acquisition.stderr.bin"
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import stat
+          import subprocess
+          import sys
+
+          repository = Path(os.environ["GITHUB_WORKSPACE"])
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "required-gate-entry-build-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          )
+          try:
+              compiler = Path("/usr/bin/gcc").resolve(strict=True)
+              info = compiler.stat()
+              if not stat.S_ISREG(info.st_mode) or not info.st_mode & 0o111 or not 0 < info.st_size <= 134217728:
+                  raise ValueError("entry_build_compiler_unavailable")
+              raw = compiler.read_bytes()
+              selected = {"path": str(compiler), "sha256": hashlib.sha256(raw).hexdigest(), "size_bytes": len(raw)}
+              with (root / "compiler-selection.json").open("x") as output:
+                  output.write(json.dumps(selected, sort_keys=True, separators=(",", ":")) + "\n")
+              command = [
+                  sys.executable, "-I", "-B", str(repository / "tools/required_gate_idempotence_entry_build_v0.py"),
+                  "acquire", "--repository-root", str(repository), "--source-commit", os.environ["EXPECTED_SOURCE_COMMIT"],
+                  "--compiler", str(compiler), "--compiler-sha256", selected["sha256"],
+                  "--output-directory", str(root / "evidence"), "--github",
+              ]
+              subprocess.run(command, stdin=subprocess.DEVNULL, check=True)
+          except BaseException:
+              with (root / "workflow-build.incomplete.json").open("x") as output:
+                  output.write(json.dumps({
+                      "format": "required_gate_idempotence_entry_build_workflow_incomplete_v0",
+                      "status": "incomplete", "error_code": "entry_build_workflow_acquisition_failed",
+                      "source_commit": os.environ["EXPECTED_SOURCE_COMMIT"],
+                      "entry_binary_executed": False, "selected_runtime_executed": False, "authority_effect": "none",
+                  }, sort_keys=True, separators=(",", ":")) + "\n")
+              raise
+          PY
+
+      - name: Independently check the original build evidence before handoff
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -B - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          repository = Path(os.environ["GITHUB_WORKSPACE"])
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "required-gate-entry-build-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          )
+          evidence = root / "evidence"
+          request_digest = hashlib.sha256((evidence / "request.json").read_bytes()).hexdigest()
+          record_digest = hashlib.sha256((evidence / "record.json").read_bytes()).hexdigest()
+          subprocess.run([
+              sys.executable, "-I", "-B", str(repository / "tools/check_required_gate_idempotence_entry_build_v0.py"),
+              "--evidence-dir", str(evidence), "--source-commit", os.environ["EXPECTED_SOURCE_COMMIT"],
+              "--request-sha256", request_digest, "--record-sha256", record_digest,
+              "--output", str(root / "record-verification.json"),
+          ], stdin=subprocess.DEVNULL, check=True)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write("request_sha256=" + request_digest + "\nrecord_sha256=" + record_digest + "\n")
+          PY
+
+      - name: Preserve the complete or incomplete original build prefix
+        id: preserve
+        if: always() && steps.prefix.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: required-gate-idempotence-entry-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/required-gate-entry-build-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+          retention-days: 90
+
+  attest:
+    name: Verify and attest the exact current-run build record
+    needs: build
+    if: github.repository == 'HKati/pulse-release-gates-0.1' && needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    env:
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+      ENTRY_BUILD_ACKNOWLEDGEMENT: ${{ inputs.acknowledgement }}
+      BUILD_ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
+      EXPECTED_REQUEST_SHA256: ${{ needs.build.outputs.request_sha256 }}
+      EXPECTED_RECORD_SHA256: ${{ needs.build.outputs.record_sha256 }}
+    steps:
+      - name: Require the exact manual signer context and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = HKati/pulse-release-gates-0.1
+          test "$GITHUB_REPOSITORY_ID" = 1061766508
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "$ENTRY_BUILD_ACKNOWLEDGEMENT" = BUILD_ENTRY_ONLY_NO_RUNTIME_EXECUTION
+          [[ "$EXPECTED_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BUILD_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$EXPECTED_REQUEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_RECORD_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_SHA"
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml@refs/heads/main
+
+      - name: Create a separate signer evidence prefix
+        id: prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          signer_root="$RUNNER_TEMP/required-gate-entry-attestation-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test ! -e "$signer_root"
+          test ! -L "$signer_root"
+          mkdir -m 0700 "$signer_root"
+          printf '%s\n' "$BUILD_ARTIFACT_ID" > "$signer_root/original-build-artifact-id.txt"
+
+      - name: Checkout the exact independent checker
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up the exact verification Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.11.16'
+
+      - name: Install the existing locked checker dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          dependency_lock="$GITHUB_WORKSPACE/PULSE_safe_pack_v0/requirements-attestation-v0.lock"
+          test -f "$dependency_lock"
+          test ! -L "$dependency_lock"
+          printf '%s  %s\n' dfea85090305c5dd7ea5b3f829cbb450621087d4b07179019a285a7d41badb28 "$dependency_lock" | sha256sum --check --strict -
+          PIP_CONFIG_FILE=/dev/null python -I -m pip --isolated --disable-pip-version-check \
+            install --no-input --no-cache-dir --index-url https://pypi.org/simple \
+            --require-hashes --only-binary=:all: --requirement "$dependency_lock"
+
+      - name: Download only the original current-run artifact ID
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.run_id }}
+          path: ${{ runner.temp }}/required-gate-entry-attestation-${{ github.run_id }}-${{ github.run_attempt }}/input
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Recheck all bytes and bind the original build to this run
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -B - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          repository = Path(os.environ["GITHUB_WORKSPACE"])
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "required-gate-entry-attestation-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          )
+          evidence = root / "input/evidence"
+          subprocess.run([
+              sys.executable, "-I", "-B", str(repository / "tools/check_required_gate_idempotence_entry_build_v0.py"),
+              "--evidence-dir", str(evidence), "--source-commit", os.environ["EXPECTED_SOURCE_COMMIT"],
+              "--request-sha256", os.environ["EXPECTED_REQUEST_SHA256"],
+              "--record-sha256", os.environ["EXPECTED_RECORD_SHA256"],
+              "--output", str(root / "record-verification.json"),
+          ], stdin=subprocess.DEVNULL, check=True)
+          sys.path.insert(0, str(repository / "tools"))
+          import check_required_gate_idempotence_entry_build_v0 as checker
+
+          request = checker.validate_request((evidence / "request.json").read_bytes(),
+              os.environ["EXPECTED_REQUEST_SHA256"], os.environ["EXPECTED_SOURCE_COMMIT"])
+          expected_context = {
+              "kind": "github_workflow", "repository": "HKati/pulse-release-gates-0.1",
+              "workflow_path": ".github/workflows/required_gate_idempotence_entry_build_v0.yml",
+              "source_commit": os.environ["EXPECTED_SOURCE_COMMIT"],
+              "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"], "ref": "refs/heads/main",
+              "run_id": int(os.environ["GITHUB_RUN_ID"]), "run_attempt": 1, "event_name": "workflow_dispatch",
+          }
+          checker.need(request["context"] == expected_context, "entry_build_workflow_context_mismatch")
+          PY
+
+      - name: Attest the checked closed build record
+        id: attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6
+        with:
+          subject-path: ${{ runner.temp }}/required-gate-entry-attestation-${{ github.run_id }}-${{ github.run_attempt }}/input/evidence/record.json
+          create-storage-record: false
+          show-summary: true
+
+      - name: Preserve the original attestation bundle and signer identity
+        id: bundle
+        env:
+          ATTESTATION_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import stat
+
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "required-gate-entry-attestation-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          )
+          fd = os.open(os.environ["ATTESTATION_BUNDLE_PATH"], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+          try:
+              before = os.fstat(fd)
+              if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= 16777216:
+                  raise ValueError("entry_attestation_bundle_invalid")
+              raw = bytearray()
+              while len(raw) <= before.st_size:
+                  chunk = os.read(fd, min(65536, before.st_size + 1 - len(raw)))
+                  if not chunk:
+                      break
+                  raw.extend(chunk)
+              after = os.fstat(fd)
+              if len(raw) != before.st_size or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+                      after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                  raise ValueError("entry_attestation_bundle_changed")
+          finally:
+              os.close(fd)
+          with (root / "attestation.bundle.json").open("xb") as output:
+              output.write(raw)
+          identity = {
+              "format": "required_gate_idempotence_entry_build_attestation_identity_v0",
+              "repository": os.environ["GITHUB_REPOSITORY"], "source_commit": os.environ["EXPECTED_SOURCE_COMMIT"],
+              "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"], "workflow_ref": os.environ["GITHUB_WORKFLOW_REF"],
+              "run_id": int(os.environ["GITHUB_RUN_ID"]), "run_attempt": 1,
+              "original_build_artifact_id": int(os.environ["BUILD_ARTIFACT_ID"]),
+              "request_sha256": os.environ["EXPECTED_REQUEST_SHA256"], "record_sha256": os.environ["EXPECTED_RECORD_SHA256"],
+              "attestation_id": os.environ["ATTESTATION_ID"], "attestation_url": os.environ["ATTESTATION_URL"],
+              "bundle_sha256": hashlib.sha256(raw).hexdigest(), "bundle_size_bytes": len(raw),
+              "authority_effect": "none",
+          }
+          with (root / "attestation-identity.json").open("x") as output:
+              output.write(json.dumps(identity, sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+
+      - name: Verify actual signature and exact source and signer identities
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PROMPT_DISABLED: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          signer_root="$RUNNER_TEMP/required-gate-entry-attestation-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          set +e
+          (
+            ulimit -f 1024
+            timeout --signal=KILL 120s gh attestation verify "$signer_root/input/evidence/record.json" \
+              --bundle "$signer_root/attestation.bundle.json" \
+              --repo HKati/pulse-release-gates-0.1 \
+              --signer-workflow HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml \
+              --signer-digest "$GITHUB_WORKFLOW_SHA" --source-digest "$EXPECTED_SOURCE_COMMIT" \
+              --source-ref refs/heads/main --predicate-type https://slsa.dev/provenance/v1 \
+              --cert-oidc-issuer https://token.actions.githubusercontent.com \
+              --deny-self-hosted-runners --format json
+          ) > "$signer_root/verification.stdout.json" 2> "$signer_root/verification.stderr.bin"
+          verification_exit_code=$?
+          set -e
+          printf '%s\n' "$verification_exit_code" > "$signer_root/verification.exit-code.txt"
+          exit "$verification_exit_code"
+
+      - name: Preserve the signer evidence even when verification fails
+        if: always() && steps.prefix.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: required-gate-idempotence-entry-attestation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/required-gate-entry-attestation-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+          retention-days: 90
+
+      - name: State the bounded build and verification scope
+        if: always() && steps.prefix.outcome == 'success'
+        shell: bash
+        run: |
+          printf '%s\n' \
+            'This workflow compiles the fixed containment entry twice and preserves build evidence.' \
+            'Neither produced entry, selected runtime, original operator nor actual reference is executed.' \
+            'Inspect the original build artifact, closed record, attestation bundle and raw signature-verification result.' \
+            'Record acceptance and a successful signature check do not prove compiler correctness, launcher closure or host containment.' \
+            'No static record flag is promoted by this workflow. B2 remains incomplete; authority_effect=none; keep #2879 open.' >> "$GITHUB_STEP_SUMMARY"

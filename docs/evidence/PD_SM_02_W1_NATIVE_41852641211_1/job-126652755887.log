@@ -1,0 +1,440 @@
+﻿2026-11-04T14:56:51.5933148Z Current runner version: '2.338.2'
+2026-11-04T14:56:51.5972599Z ##[group]Runner Image Provisioner
+2026-11-04T14:56:51.5973950Z Hosted Compute Agent
+2026-11-04T14:56:51.5975590Z Version: 20261021.618
+2026-11-04T14:56:51.5976609Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-04T14:56:51.5977735Z Build Date: 2026-10-21T00:45:21Z
+2026-11-04T14:56:51.5979009Z Worker ID: {f77078e3-edee-43f3-a00d-464c611f1aef}
+2026-11-04T14:56:51.5980291Z Region: northcentralus
+2026-11-04T14:56:51.5981324Z Cloud: Azure
+2026-11-04T14:56:51.5982430Z ##[endgroup]
+2026-11-04T14:56:51.5984687Z ##[group]Operating System
+2026-11-04T14:56:51.5985849Z Ubuntu
+2026-11-04T14:56:51.5986732Z 24.04.5
+2026-11-04T14:56:51.5987651Z LTS
+2026-11-04T14:56:51.5988537Z ##[endgroup]
+2026-11-04T14:56:51.5989420Z ##[group]Runner Image
+2026-11-04T14:56:51.5990567Z Image: ubuntu-24.04
+2026-11-04T14:56:51.5991602Z Version: 20261025.353.1
+2026-11-04T14:56:51.5993932Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261025.353/images/ubuntu/Ubuntu2404-Readme.md
+2026-11-04T14:56:51.5996552Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261025.353
+2026-11-04T14:56:51.5998526Z ##[endgroup]
+2026-11-04T14:56:51.6000716Z ##[group]GITHUB_TOKEN Permissions
+2026-11-04T14:56:51.6004020Z Contents: read
+2026-11-04T14:56:51.6004960Z Metadata: read
+2026-11-04T14:56:51.6005946Z ##[endgroup]
+2026-11-04T14:56:51.6009424Z Secret source: Actions
+2026-11-04T14:56:51.6011015Z Cache mode: write
+2026-11-04T14:56:51.6012425Z Prepare workflow directory
+2026-11-04T14:56:51.6761754Z Prepare all required actions
+2026-11-04T14:56:51.6836215Z Getting action download info
+2026-11-04T14:56:51.9540631Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-04T14:56:52.0710082Z Download action repository 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-04T14:56:52.2472996Z Complete job name: capture
+2026-11-04T14:56:52.3227912Z ##[group]Run set -euo pipefail
+2026-11-04T14:56:52.3228698Z [36;1mset -euo pipefail[0m
+2026-11-04T14:56:52.3229478Z [36;1mtest "$GITHUB_REPOSITORY" = HKati/pulse-release-gates-0.1[0m
+2026-11-04T14:56:52.3230373Z [36;1mtest "$GITHUB_EVENT_NAME" = workflow_dispatch[0m
+2026-11-04T14:56:52.3231116Z [36;1mtest "$GITHUB_REF" = refs/heads/main[0m
+2026-11-04T14:56:52.3231787Z [36;1mtest "$GITHUB_ACTOR" = HKati[0m
+2026-11-04T14:56:52.3232629Z [36;1mtest "$GITHUB_ACTOR_ID" = 128643840[0m
+2026-11-04T14:56:52.3233328Z [36;1mtest "$GITHUB_TRIGGERING_ACTOR" = HKati[0m
+2026-11-04T14:56:52.3234015Z [36;1mtest "$GITHUB_RUN_ATTEMPT" = 1[0m
+2026-11-04T14:56:52.3234717Z [36;1m[[ "$PD_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]][0m
+2026-11-04T14:56:52.3235441Z [36;1mtest "$PD_SOURCE_COMMIT" = "$GITHUB_SHA"[0m
+2026-11-04T14:56:52.3236172Z [36;1mtest "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"[0m
+2026-11-04T14:56:52.3237443Z [36;1mtest "$GITHUB_WORKFLOW_REF" = HKati/pulse-release-gates-0.1/.github/workflows/paradox_w1_native_v0.yml@refs/heads/main[0m
+2026-11-04T14:56:52.3238906Z [36;1mtest "$PD_REQUEST_SHA256" = 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a[0m
+2026-11-04T14:56:52.3240128Z [36;1mtest "$PD_NATIVE_ACKNOWLEDGEMENT" = "I_AUTHORIZE_PD_SM_02_W1:$PD_REQUEST_SHA256"[0m
+2026-11-04T14:56:52.3241010Z [36;1mumask 077[0m
+2026-11-04T14:56:52.3241591Z [36;1mmkdir "$RUNNER_TEMP/pd-sm-02-w1-native"[0m
+2026-11-04T14:56:52.3242677Z [36;1mprintf 'STARTED\n' > "$RUNNER_TEMP/pd-sm-02-w1-native/ACQUISITION_STATUS.txt"[0m
+2026-11-04T14:56:52.3269891Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-04T14:56:52.3270914Z env:
+2026-11-04T14:56:52.3271535Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:52.3272749Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:52.3274203Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:52.3275646Z ##[endgroup]
+2026-11-04T14:56:52.3635654Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-11-04T14:56:52.3636551Z with:
+2026-11-04T14:56:52.3637115Z   ref: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:52.3637809Z   path: tooling
+2026-11-04T14:56:52.3638323Z   persist-credentials: false
+2026-11-04T14:56:52.3638880Z   fetch-depth: 1
+2026-11-04T14:56:52.3639398Z   sparse-checkout-cone-mode: false
+2026-11-04T14:56:52.3641741Z   sparse-checkout: /tools/paradox_w1_hosted_native_v0.py
+/tools/run_paradox_w1_native_v0.py
+/tools/paradox_w1_docker_boundary_v0.py
+/tools/paradox_w1_native_runtime_v0.py
+/tools/paradox_w1_native_observer_v0.py
+/tools/check_paradox_w1_records_v0.py
+/docs/evidence/PD_SM_02_W1_NATIVE_REQUEST_v0/
+/.github/workflows/paradox_w1_native_v0.yml
+
+2026-11-04T14:56:52.3644583Z   repository: HKati/pulse-release-gates-0.1
+2026-11-04T14:56:52.3649117Z   token: ***
+2026-11-04T14:56:52.3649618Z   ssh-strict: true
+2026-11-04T14:56:52.3650143Z   ssh-user: git
+2026-11-04T14:56:52.3650682Z   clean: true
+2026-11-04T14:56:52.3651155Z   fetch-tags: false
+2026-11-04T14:56:52.3651686Z   show-progress: true
+2026-11-04T14:56:52.3652434Z   lfs: false
+2026-11-04T14:56:52.3652908Z   submodules: false
+2026-11-04T14:56:52.3653419Z   set-safe-directory: true
+2026-11-04T14:56:52.3653990Z   allow-unsafe-pr-checkout: false
+2026-11-04T14:56:52.3654565Z env:
+2026-11-04T14:56:52.3655139Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:52.3656121Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:52.3657473Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:52.3658540Z ##[endgroup]
+2026-11-04T14:56:52.5785302Z Syncing repository: HKati/pulse-release-gates-0.1
+2026-11-04T14:56:52.5788386Z ##[group]Getting Git version info
+2026-11-04T14:56:52.5790452Z Working directory is '/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling'
+2026-11-04T14:56:52.5793606Z [command]/usr/bin/git version
+2026-11-04T14:56:52.5847377Z git version 2.56.0
+2026-11-04T14:56:52.5879847Z ##[endgroup]
+2026-11-04T14:56:52.5901781Z Temporarily overriding HOME='/home/runner/work/_temp/2ed1c2c1-aa68-4ead-b8b8-84f77acb77db' before making global git config changes
+2026-11-04T14:56:52.5922511Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T14:56:52.5925860Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling
+2026-11-04T14:56:52.5990696Z ##[group]Determining repository object format
+2026-11-04T14:56:52.5992776Z ##[endgroup]
+2026-11-04T14:56:52.5994287Z ##[group]Initializing the repository
+2026-11-04T14:56:52.5996363Z [command]/usr/bin/git init /home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling
+2026-11-04T14:56:52.6089370Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-04T14:56:52.6091521Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-04T14:56:52.6093745Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-04T14:56:52.6095275Z hint: call:
+2026-11-04T14:56:52.6096011Z hint:
+2026-11-04T14:56:52.6096957Z hint: 	git config --global init.defaultBranch <name>
+2026-11-04T14:56:52.6098129Z hint:
+2026-11-04T14:56:52.6099228Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-04T14:56:52.6101099Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-04T14:56:52.6102675Z hint:
+2026-11-04T14:56:52.6103430Z hint: 	git branch -m <name>
+2026-11-04T14:56:52.6104292Z hint:
+2026-11-04T14:56:52.6105439Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-04T14:56:52.6107997Z Initialized empty Git repository in /home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git/
+2026-11-04T14:56:52.6119185Z [command]/usr/bin/git remote add origin https://github.com/HKati/pulse-release-gates-0.1
+2026-11-04T14:56:52.6198192Z ##[endgroup]
+2026-11-04T14:56:52.6199760Z ##[group]Disabling automatic garbage collection
+2026-11-04T14:56:52.6203053Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-04T14:56:52.6255764Z ##[endgroup]
+2026-11-04T14:56:52.6257191Z ##[group]Setting up auth
+2026-11-04T14:56:52.6258357Z Removing SSH command configuration
+2026-11-04T14:56:52.6264746Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T14:56:52.6316522Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-04T14:56:52.6738294Z Removing HTTP extra header
+2026-11-04T14:56:52.6747510Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T14:56:52.6799842Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-04T14:56:52.7074285Z Removing includeIf entries pointing to credentials config files
+2026-11-04T14:56:52.7080973Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T14:56:52.7133175Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-04T14:56:52.7421608Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-04T14:56:52.7479767Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git.path /home/runner/work/_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:52.7532558Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:52.7594871Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/tooling/.git.path /github/runner_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:52.7656905Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/tooling/.git/worktrees/*.path /github/runner_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:52.7705246Z ##[endgroup]
+2026-11-04T14:56:52.7706639Z ##[group]Fetching the repository
+2026-11-04T14:56:52.7714401Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --filter=blob:none --depth=1 origin 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:53.1138692Z From https://github.com/HKati/pulse-release-gates-0.1
+2026-11-04T14:56:53.1140691Z  * branch            9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0 -> FETCH_HEAD
+2026-11-04T14:56:53.1150227Z [command]/usr/bin/git rev-parse --verify --quiet 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0^{object}
+2026-11-04T14:56:53.1193727Z 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:53.1230746Z ##[endgroup]
+2026-11-04T14:56:53.1232690Z ##[group]Determining the checkout info
+2026-11-04T14:56:53.1234716Z ##[endgroup]
+2026-11-04T14:56:53.1236366Z ##[group]Setting up sparse checkout
+2026-11-04T14:56:53.1238243Z [command]/usr/bin/git config core.sparseCheckout true
+2026-11-04T14:56:53.1287657Z [command]/usr/bin/git rev-parse --git-path info/sparse-checkout
+2026-11-04T14:56:53.1326655Z .git/info/sparse-checkout
+2026-11-04T14:56:53.1334837Z ##[endgroup]
+2026-11-04T14:56:53.1336978Z ##[group]Checking out the ref
+2026-11-04T14:56:53.1340899Z [command]/usr/bin/git checkout --progress --force 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:53.4977324Z Note: switching to '9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0'.
+2026-11-04T14:56:53.4979629Z 
+2026-11-04T14:56:53.4980612Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-04T14:56:53.4983517Z changes and commit them, and you can discard any commits you make in this
+2026-11-04T14:56:53.4986632Z state without impacting any branches by switching back to a branch.
+2026-11-04T14:56:53.4988448Z 
+2026-11-04T14:56:53.4989709Z If you want to create a new branch to retain commits you create, you may
+2026-11-04T14:56:53.4992470Z do so (now or later) by using -c with the switch command. Example:
+2026-11-04T14:56:53.4993885Z 
+2026-11-04T14:56:53.4994689Z   git switch -c <new-branch-name>
+2026-11-04T14:56:53.4995896Z 
+2026-11-04T14:56:53.4996555Z Or undo this operation with:
+2026-11-04T14:56:53.4997463Z 
+2026-11-04T14:56:53.4998011Z   git switch -
+2026-11-04T14:56:53.4998699Z 
+2026-11-04T14:56:53.4999878Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-04T14:56:53.5001736Z 
+2026-11-04T14:56:53.5003210Z HEAD is now at 9d8e873 feat: add explicit Anchor JSON Pointer projection (#2982)
+2026-11-04T14:56:53.5009236Z ##[endgroup]
+2026-11-04T14:56:53.5060934Z [command]/usr/bin/git log -1 --format=%H
+2026-11-04T14:56:53.5104747Z 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:53.5115227Z ##[group]Removing auth
+2026-11-04T14:56:53.5116580Z Removing SSH command configuration
+2026-11-04T14:56:53.5119091Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T14:56:53.5168907Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-04T14:56:53.5443474Z Removing HTTP extra header
+2026-11-04T14:56:53.5447369Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T14:56:53.5498320Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-04T14:56:53.5770099Z Removing includeIf entries pointing to credentials config files
+2026-11-04T14:56:53.5773756Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T14:56:53.5818963Z includeif.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git.path
+2026-11-04T14:56:53.5824096Z includeif.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git/worktrees/*.path
+2026-11-04T14:56:53.5828132Z includeif.gitdir:/github/workspace/tooling/.git.path
+2026-11-04T14:56:53.5926345Z includeif.gitdir:/github/workspace/tooling/.git/worktrees/*.path
+2026-11-04T14:56:53.5931644Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git.path
+2026-11-04T14:56:53.5935967Z /home/runner/work/_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:53.5944858Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-67b0bcac\-ae87\-4cfc\-9a69\-13fab42a9931\.config
+2026-11-04T14:56:53.5955941Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git/worktrees/*.path
+2026-11-04T14:56:53.5998833Z /home/runner/work/_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:53.6010927Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-67b0bcac\-ae87\-4cfc\-9a69\-13fab42a9931\.config
+2026-11-04T14:56:53.6067861Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/tooling/.git.path
+2026-11-04T14:56:53.6106234Z /github/runner_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:53.6116126Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/tooling/.git.path \/github\/runner_temp\/git\-credentials\-67b0bcac\-ae87\-4cfc\-9a69\-13fab42a9931\.config
+2026-11-04T14:56:53.6168376Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/tooling/.git/worktrees/*.path
+2026-11-04T14:56:53.6207206Z /github/runner_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config
+2026-11-04T14:56:53.6217333Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/tooling/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-67b0bcac\-ae87\-4cfc\-9a69\-13fab42a9931\.config
+2026-11-04T14:56:53.6269444Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-04T14:56:53.6534514Z Removing credentials config '/home/runner/work/_temp/git-credentials-67b0bcac-ae87-4cfc-9a69-13fab42a9931.config'
+2026-11-04T14:56:53.6543739Z ##[endgroup]
+2026-11-04T14:56:53.6748483Z ##[group]Run set -euo pipefail
+2026-11-04T14:56:53.6749742Z [36;1mset -euo pipefail[0m
+2026-11-04T14:56:53.6750844Z [36;1mumask 077[0m
+2026-11-04T14:56:53.6752558Z [36;1mtest "$(git -C tooling rev-parse HEAD)" = "$PD_SOURCE_COMMIT"[0m
+2026-11-04T14:56:53.6754259Z [36;1mgit -C tooling diff --exit-code[0m
+2026-11-04T14:56:53.6755661Z [36;1mgit -C tooling diff --cached --exit-code[0m
+2026-11-04T14:56:53.6757448Z [36;1mpython3 -I -S -B -c 'import sys; assert sys.version_info >= (3, 11)'[0m
+2026-11-04T14:56:53.6759224Z [36;1mout="$RUNNER_TEMP/pd-sm-02-w1-native"[0m
+2026-11-04T14:56:53.6760601Z [36;1mcd "$GITHUB_WORKSPACE/tooling"[0m
+2026-11-04T14:56:53.6761835Z [36;1mset +e[0m
+2026-11-04T14:56:53.6763425Z [36;1mpython3 -I -S -B tools/paradox_w1_hosted_native_v0.py prepare \[0m
+2026-11-04T14:56:53.6765461Z [36;1m  --repo-root "$GITHUB_WORKSPACE/tooling" --output "$out" \[0m
+2026-11-04T14:56:53.6767167Z [36;1m  --source-commit "$PD_SOURCE_COMMIT" \[0m
+2026-11-04T14:56:53.6768761Z [36;1m  > "$out/prepare.stdout" 2> "$out/prepare.stderr"[0m
+2026-11-04T14:56:53.6770170Z [36;1mrc=$?[0m
+2026-11-04T14:56:53.6771099Z [36;1mset -e[0m
+2026-11-04T14:56:53.6772340Z [36;1mprintf '%s\n' "$rc" > "$out/prepare.exitcode"[0m
+2026-11-04T14:56:53.6773783Z [36;1mcat "$out/prepare.stdout"[0m
+2026-11-04T14:56:53.6774972Z [36;1mexit "$rc"[0m
+2026-11-04T14:56:53.6799862Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-04T14:56:53.6801296Z env:
+2026-11-04T14:56:53.6802705Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:53.6804760Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:53.6807606Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:53.6809876Z ##[endgroup]
+2026-11-04T14:56:53.7797531Z {"archive_bytes":444703,"archive_members":56,"archive_sha256":"dbb532a1447f6602f6a9dda53599bd8cbb163e60f94fc2c724178bb3700e8834","authority_effect":"none","bundle_manifest_sha256":"85707f79e68e5b59c18110038cb3eaba7b7ad1543c0368e33cf5589c32524e7d","execution_authorized":false,"host_context_sha256":"0419a59f0e4f2800b7dd936ac8bcdc1e1997eb8edb78dafaa3862a86250f1532","hosted_sources":{"paradox_w1_hosted_native_v0.py":{"bytes":26522,"sha256":"db63dfbbc29dacef5a76643ca351422db43fbe45359d54e14936a27ae0fef790"},"paradox_w1_native_v0.yml":{"bytes":12319,"sha256":"eb2a51fe696b98238694d3fa0bf7506ce0f6956c73abd63f0254292c0ee93669"}},"new_candidate_executions":0,"original_preparation_source":"6343d4e54ec8628f033400518fe08a81aa75d9b9","package_files":21,"request_run_id":"pd-sm-02-w1-native-after-41362257003-01","request_sha256":"655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a","source_commit":"9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0","status":"PRESERVED_REQUEST_PREPARED_NOT_AUTHORIZED"}
+2026-11-04T14:56:53.7885605Z ##[group]Run set -euo pipefail
+2026-11-04T14:56:53.7886817Z [36;1mset -euo pipefail[0m
+2026-11-04T14:56:53.7887997Z [36;1mout="$RUNNER_TEMP/pd-sm-02-w1-native"[0m
+2026-11-04T14:56:53.7889360Z [36;1mcd "$GITHUB_WORKSPACE/tooling"[0m
+2026-11-04T14:56:53.7890566Z [36;1mset +e[0m
+2026-11-04T14:56:53.7891999Z [36;1mpython3 -I -S -B tools/run_paradox_w1_native_v0.py verify \[0m
+2026-11-04T14:56:53.7893948Z [36;1m  --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \[0m
+2026-11-04T14:56:53.7895740Z [36;1m  > "$out/verify.stdout" 2> "$out/verify.stderr"[0m
+2026-11-04T14:56:53.7897092Z [36;1mrc=$?[0m
+2026-11-04T14:56:53.7898023Z [36;1mset -e[0m
+2026-11-04T14:56:53.7899115Z [36;1mprintf '%s\n' "$rc" > "$out/verify.exitcode"[0m
+2026-11-04T14:56:53.7900475Z [36;1mexit "$rc"[0m
+2026-11-04T14:56:53.7924773Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-04T14:56:53.7926205Z env:
+2026-11-04T14:56:53.7927379Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:53.7929349Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:53.7932209Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:53.7934375Z ##[endgroup]
+2026-11-04T14:56:53.9289652Z ##[group]Run set -euo pipefail
+2026-11-04T14:56:53.9290880Z [36;1mset -euo pipefail[0m
+2026-11-04T14:56:53.9292186Z [36;1mumask 077[0m
+2026-11-04T14:56:53.9293252Z [36;1mout="$RUNNER_TEMP/pd-sm-02-w1-native"[0m
+2026-11-04T14:56:53.9295097Z [36;1mpython3 -I -S -B - "$out/package/request.json" "$out/image_selection.json" <<'PY'[0m
+2026-11-04T14:56:53.9296952Z [36;1mimport hashlib, json, pathlib, sys[0m
+2026-11-04T14:56:53.9298338Z [36;1mraw = pathlib.Path(sys.argv[1]).read_bytes()[0m
+2026-11-04T14:56:53.9300570Z [36;1massert hashlib.sha256(raw).hexdigest() == '655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a'[0m
+2026-11-04T14:56:53.9302972Z [36;1mrequest = json.loads(raw)[0m
+2026-11-04T14:56:53.9304125Z [36;1mexpected = {[0m
+2026-11-04T14:56:53.9306238Z [36;1m    'pull_reference': 'docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718',[0m
+2026-11-04T14:56:53.9309273Z [36;1m    'image_id': 'sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3',[0m
+2026-11-04T14:56:53.9311192Z [36;1m    'platform': 'linux/amd64',[0m
+2026-11-04T14:56:53.9312452Z [36;1m}[0m
+2026-11-04T14:56:53.9313568Z [36;1massert request['image_id'] == expected['image_id'][0m
+2026-11-04T14:56:53.9315239Z [36;1mwith open(sys.argv[2], 'x', encoding='utf-8') as handle:[0m
+2026-11-04T14:56:53.9317099Z [36;1m    json.dump(expected, handle, sort_keys=True, separators=(',', ':'))[0m
+2026-11-04T14:56:53.9318732Z [36;1m    handle.write('\n')[0m
+2026-11-04T14:56:53.9319810Z [36;1mPY[0m
+2026-11-04T14:56:53.9321109Z [36;1mpd_docker_config="$RUNNER_TEMP/pd-sm-02-w1-native-docker-config"[0m
+2026-11-04T14:56:53.9322915Z [36;1mmkdir "$pd_docker_config"[0m
+2026-11-04T14:56:53.9324115Z [36;1mpd_docker="$(command -v docker)"[0m
+2026-11-04T14:56:53.9326410Z [36;1mpd_image_reference=docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718[0m
+2026-11-04T14:56:53.9329427Z [36;1mpd_expected_image=sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3[0m
+2026-11-04T14:56:53.9331315Z [36;1mset +e[0m
+2026-11-04T14:56:53.9332542Z [36;1mtimeout --signal=TERM --kill-after=10s 240s \[0m
+2026-11-04T14:56:53.9334138Z [36;1m  env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \[0m
+2026-11-04T14:56:53.9336078Z [36;1m  "$pd_docker" --host unix:///var/run/docker.sock --config "$pd_docker_config" \[0m
+2026-11-04T14:56:53.9338082Z [36;1m  image pull --platform linux/amd64 "$pd_image_reference" \[0m
+2026-11-04T14:56:53.9339848Z [36;1m  > "$out/image-pull.stdout" 2> "$out/image-pull.stderr"[0m
+2026-11-04T14:56:53.9341582Z [36;1mrc=$?[0m
+2026-11-04T14:56:53.9342691Z [36;1mset -e[0m
+2026-11-04T14:56:53.9343815Z [36;1mprintf '%s\n' "$rc" > "$out/image-pull.exitcode"[0m
+2026-11-04T14:56:53.9345172Z [36;1mtest "$rc" = 0[0m
+2026-11-04T14:56:53.9346167Z [36;1mset +e[0m
+2026-11-04T14:56:53.9347225Z [36;1mtimeout --signal=TERM --kill-after=5s 20s \[0m
+2026-11-04T14:56:53.9348827Z [36;1m  env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \[0m
+2026-11-04T14:56:53.9350753Z [36;1m  "$pd_docker" --host unix:///var/run/docker.sock --config "$pd_docker_config" \[0m
+2026-11-04T14:56:53.9352838Z [36;1m  image inspect --format '{{.Id}}' "$pd_image_reference" \[0m
+2026-11-04T14:56:53.9354626Z [36;1m  > "$out/image-inspect.stdout" 2> "$out/image-inspect.stderr"[0m
+2026-11-04T14:56:53.9356126Z [36;1mrc=$?[0m
+2026-11-04T14:56:53.9357027Z [36;1mset -e[0m
+2026-11-04T14:56:53.9358187Z [36;1mprintf '%s\n' "$rc" > "$out/image-inspect.exitcode"[0m
+2026-11-04T14:56:53.9359587Z [36;1mtest "$rc" = 0[0m
+2026-11-04T14:56:53.9360931Z [36;1mtest "$(cat "$out/image-inspect.stdout")" = "$pd_expected_image"[0m
+2026-11-04T14:56:53.9363004Z [36;1mprintf 'EXACT_IMAGE_ID_MATCH\n' > "$out/image-binding.status"[0m
+2026-11-04T14:56:53.9388662Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-04T14:56:53.9390040Z env:
+2026-11-04T14:56:53.9391413Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:53.9393466Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:53.9396077Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:53.9398173Z ##[endgroup]
+2026-11-04T14:56:56.9378210Z ##[group]Run set -euo pipefail
+2026-11-04T14:56:56.9378600Z [36;1mset -euo pipefail[0m
+2026-11-04T14:56:56.9378901Z [36;1mout="$RUNNER_TEMP/pd-sm-02-w1-native"[0m
+2026-11-04T14:56:56.9379230Z [36;1mcd "$GITHUB_WORKSPACE/tooling"[0m
+2026-11-04T14:56:56.9379535Z [36;1mset +e[0m
+2026-11-04T14:56:56.9379871Z [36;1mpython3 -I -S -B tools/paradox_w1_hosted_native_v0.py capture \[0m
+2026-11-04T14:56:56.9380337Z [36;1m  --output "$out" --source-commit "$PD_SOURCE_COMMIT" \[0m
+2026-11-04T14:56:56.9380735Z [36;1m  --request-sha256 "$PD_REQUEST_SHA256" \[0m
+2026-11-04T14:56:56.9381106Z [36;1m  --authorize "$PD_NATIVE_ACKNOWLEDGEMENT" \[0m
+2026-11-04T14:56:56.9381472Z [36;1m  > "$out/capture.stdout" 2> "$out/capture.stderr"[0m
+2026-11-04T14:56:56.9381792Z [36;1mrc=$?[0m
+2026-11-04T14:56:56.9382299Z [36;1mset -e[0m
+2026-11-04T14:56:56.9382567Z [36;1mprintf '%s\n' "$rc" > "$out/capture.exitcode"[0m
+2026-11-04T14:56:56.9382899Z [36;1mcat "$out/capture.stdout"[0m
+2026-11-04T14:56:56.9383202Z [36;1mexit "$rc"[0m
+2026-11-04T14:56:56.9404291Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-04T14:56:56.9404665Z env:
+2026-11-04T14:56:56.9404953Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:56:56.9405459Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:56.9406139Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:56:56.9406662Z ##[endgroup]
+2026-11-04T14:57:02.9900372Z {"acquisition_authenticity":"PROJECT_LOCAL_UNATTESTED","authority_effect":"none","candidate_tokens_sent":5,"completed_case_records":5,"containment_observed":null,"native_witness_observed":null,"owner_command_acknowledged":true,"reason":null,"request_sha256":"655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a","status":"CAPTURE_COMPLETED_UNATTESTED","supervision_controls_completed":["probe-time","probe-output"]}
+2026-11-04T14:57:02.9969837Z ##[group]Run set -euo pipefail
+2026-11-04T14:57:02.9970213Z [36;1mset -euo pipefail[0m
+2026-11-04T14:57:02.9970511Z [36;1mout="$RUNNER_TEMP/pd-sm-02-w1-native"[0m
+2026-11-04T14:57:02.9970861Z [36;1mif [ ! -d "$out/package/capture" ]; then[0m
+2026-11-04T14:57:02.9971418Z [36;1m  printf 'NOT_RUN_NO_CAPTURE\n' > "$out/replay.status"[0m
+2026-11-04T14:57:02.9971753Z [36;1m  exit 0[0m
+2026-11-04T14:57:02.9972283Z [36;1mfi[0m
+2026-11-04T14:57:02.9972560Z [36;1mcd "$GITHUB_WORKSPACE/tooling"[0m
+2026-11-04T14:57:02.9972889Z [36;1mset +e[0m
+2026-11-04T14:57:02.9973269Z [36;1mpython3 -I -S -B tools/run_paradox_w1_native_v0.py verify-capture \[0m
+2026-11-04T14:57:02.9973775Z [36;1m  --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \[0m
+2026-11-04T14:57:02.9974217Z [36;1m  > "$out/replay.stdout" 2> "$out/replay.stderr"[0m
+2026-11-04T14:57:02.9974544Z [36;1mrc=$?[0m
+2026-11-04T14:57:02.9974761Z [36;1mset -e[0m
+2026-11-04T14:57:02.9975059Z [36;1mprintf '%s\n' "$rc" > "$out/replay.exitcode"[0m
+2026-11-04T14:57:02.9975387Z [36;1mcat "$out/replay.stdout"[0m
+2026-11-04T14:57:02.9975650Z [36;1mexit "$rc"[0m
+2026-11-04T14:57:02.9996195Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-04T14:57:02.9996561Z env:
+2026-11-04T14:57:02.9996846Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:57:02.9997333Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:57:02.9997976Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:57:02.9998503Z ##[endgroup]
+2026-11-04T14:57:03.1997040Z {"acquisition_authenticity":"NOT_EXTERNALLY_VERIFIED","authority_effect":"none","containment_observed":null,"execution_authorized":false,"manifest_members":269,"native_witness_observed":null,"new_candidate_executions":0,"record_status":"RECORDS_CONSISTENT","request_sha256":"655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a","status":"CAPTURE_RECORDS_REPLAYED"}
+2026-11-04T14:57:03.2042818Z ##[group]Run set -euo pipefail
+2026-11-04T14:57:03.2043230Z [36;1mset -euo pipefail[0m
+2026-11-04T14:57:03.2043532Z [36;1mout="$RUNNER_TEMP/pd-sm-02-w1-native"[0m
+2026-11-04T14:57:03.2044027Z [36;1mif [ ! -f "$GITHUB_WORKSPACE/tooling/tools/paradox_w1_hosted_native_v0.py" ]; then[0m
+2026-11-04T14:57:03.2044509Z [36;1m  python3 -I -S -B - "$out" <<'PY'[0m
+2026-11-04T14:57:03.2044846Z [36;1mimport hashlib, json, os, pathlib, sys[0m
+2026-11-04T14:57:03.2045179Z [36;1mout = pathlib.Path(sys.argv[1])[0m
+2026-11-04T14:57:03.2045495Z [36;1mstatus = 'INCOMPLETE_OR_BLOCKED'[0m
+2026-11-04T14:57:03.2045908Z [36;1moutcomes = {name: os.environ.get('PD_' + name.upper() + '_OUTCOME', '')[0m
+2026-11-04T14:57:03.2046442Z [36;1m            for name in ('checkout', 'prepare', 'verify', 'image', 'capture', 'replay')}[0m
+2026-11-04T14:57:03.2046860Z [36;1mresult = {[0m
+2026-11-04T14:57:03.2047199Z [36;1m    'status': status, 'source_commit': os.environ['PD_SOURCE_COMMIT'],[0m
+2026-11-04T14:57:03.2047688Z [36;1m    'request_sha256': os.environ['PD_REQUEST_SHA256'],[0m
+2026-11-04T14:57:03.2048163Z [36;1m    'step_outcomes': outcomes, 'reason': 'hosted_helper_unavailable',[0m
+2026-11-04T14:57:03.2048660Z [36;1m    'candidate_tokens_sent': None, 'completed_case_records': None,[0m
+2026-11-04T14:57:03.2049127Z [36;1m    'native_witness_observed': None, 'containment_observed': None,[0m
+2026-11-04T14:57:03.2049550Z [36;1m    'model_native_correspondence': 'UNRESOLVED',[0m
+2026-11-04T14:57:03.2049964Z [36;1m    'execution_authorized': False, 'authority_effect': 'none',[0m
+2026-11-04T14:57:03.2050321Z [36;1m}[0m
+2026-11-04T14:57:03.2050747Z [36;1m(out / 'RESULT.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n', encoding='utf-8')[0m
+2026-11-04T14:57:03.2051362Z [36;1m(out / 'ACQUISITION_STATUS.txt').write_text(status + '\n', encoding='ascii')[0m
+2026-11-04T14:57:03.2051771Z [36;1mfiles = {}[0m
+2026-11-04T14:57:03.2052230Z [36;1mfor path in sorted(out.rglob('*')):[0m
+2026-11-04T14:57:03.2052660Z [36;1m    if path.is_file() and path.relative_to(out).as_posix() != 'MANIFEST.json':[0m
+2026-11-04T14:57:03.2053082Z [36;1m        raw = path.read_bytes()[0m
+2026-11-04T14:57:03.2053794Z [36;1m        files[path.relative_to(out).as_posix()] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}[0m
+2026-11-04T14:57:03.2054331Z [36;1m(out / 'MANIFEST.json').write_text(json.dumps({[0m
+2026-11-04T14:57:03.2054740Z [36;1m    'schema_version': 'pd_sm_02_w1_hosted_failure_manifest_v0',[0m
+2026-11-04T14:57:03.2055291Z [36;1m    'files': files, 'authority_effect': 'none'}, sort_keys=True, indent=2) + '\n', encoding='utf-8')[0m
+2026-11-04T14:57:03.2055884Z [36;1mwith open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as handle:[0m
+2026-11-04T14:57:03.2056421Z [36;1m    handle.write('## W1 native capture\n\nStatus: `INCOMPLETE_OR_BLOCKED`.\n\n'[0m
+2026-11-04T14:57:03.2057028Z [36;1m                 'The reviewed hosted helper was unavailable. Inspect the retained failure evidence. '[0m
+2026-11-04T14:57:03.2057525Z [36;1m                 'Authority effect: `none`.\n')[0m
+2026-11-04T14:57:03.2057862Z [36;1mprint(json.dumps(result, sort_keys=True))[0m
+2026-11-04T14:57:03.2058173Z [36;1mPY[0m
+2026-11-04T14:57:03.2058390Z [36;1m  exit 1[0m
+2026-11-04T14:57:03.2058604Z [36;1mfi[0m
+2026-11-04T14:57:03.2058831Z [36;1mcd "$GITHUB_WORKSPACE/tooling"[0m
+2026-11-04T14:57:03.2059223Z [36;1mpython3 -I -S -B tools/paradox_w1_hosted_native_v0.py finalize \[0m
+2026-11-04T14:57:03.2059672Z [36;1m  --output "$out" --source-commit "$PD_SOURCE_COMMIT"[0m
+2026-11-04T14:57:03.2081302Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-04T14:57:03.2081683Z env:
+2026-11-04T14:57:03.2082175Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:57:03.2082674Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:57:03.2083549Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:57:03.2084095Z   PD_CHECKOUT_OUTCOME: success
+2026-11-04T14:57:03.2084381Z   PD_PREPARE_OUTCOME: success
+2026-11-04T14:57:03.2084658Z   PD_VERIFY_OUTCOME: success
+2026-11-04T14:57:03.2084912Z   PD_IMAGE_OUTCOME: success
+2026-11-04T14:57:03.2085168Z   PD_CAPTURE_OUTCOME: success
+2026-11-04T14:57:03.2085427Z   PD_REPLAY_OUTCOME: success
+2026-11-04T14:57:03.2085684Z ##[endgroup]
+2026-11-04T14:57:03.4803412Z {"acquisition_authenticity":"NOT_EXTERNALLY_VERIFIED","archive_sha256":"dbb532a1447f6602f6a9dda53599bd8cbb163e60f94fc2c724178bb3700e8834","artifact_upload":"NOT_OBSERVED_BY_THIS_PREUPLOAD_RECORD","authority_effect":"none","candidate_tokens_sent":5,"completed_case_records":5,"containment_observed":null,"execution_authorized":false,"github_run_id":"41852641211","model_native_correspondence":"UNRESOLVED","native_witness_observed":null,"reason":null,"request_run_id":"pd-sm-02-w1-native-after-41362257003-01","request_sha256":"655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a","schema_version":"pd_sm_02_w1_hosted_result_v0","source_commit":"9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0","status":"CAPTURE_COMPLETED_UNATTESTED","step_outcomes":{"capture":"success","checkout":"success","image":"success","prepare":"success","replay":"success","verify":"success"}}
+2026-11-04T14:57:03.4995243Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+2026-11-04T14:57:03.4995680Z with:
+2026-11-04T14:57:03.4995927Z   name: pd-sm-02-w1-native-41852641211-1
+2026-11-04T14:57:03.4996264Z   path: /home/runner/work/_temp/pd-sm-02-w1-native/
+2026-11-04T14:57:03.4996596Z   if-no-files-found: error
+2026-11-04T14:57:03.4996846Z   overwrite: false
+2026-11-04T14:57:03.4997076Z   retention-days: 30
+2026-11-04T14:57:03.4997319Z   compression-level: 6
+2026-11-04T14:57:03.4997579Z   include-hidden-files: false
+2026-11-04T14:57:03.4997840Z   archive: true
+2026-11-04T14:57:03.4998055Z env:
+2026-11-04T14:57:03.4998322Z   PD_SOURCE_COMMIT: 9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0
+2026-11-04T14:57:03.4998799Z   PD_REQUEST_SHA256: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:57:03.4999669Z   PD_NATIVE_ACKNOWLEDGEMENT: I_AUTHORIZE_PD_SM_02_W1:655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+2026-11-04T14:57:03.5000211Z ##[endgroup]
+2026-11-04T14:57:03.7343412Z With the provided path, there will be 322 files uploaded
+2026-11-04T14:57:03.7344445Z Artifact name is valid!
+2026-11-04T14:57:03.7345760Z Root directory input is valid!
+2026-11-04T14:57:03.9714574Z Uploading artifact: pd-sm-02-w1-native-41852641211-1.zip
+2026-11-04T14:57:03.9750809Z Beginning upload of artifact content to blob storage
+2026-11-04T14:57:04.4616791Z Uploaded bytes 905066
+2026-11-04T14:57:04.4931149Z Finished uploading artifact content to blob storage!
+2026-11-04T14:57:04.4932166Z SHA256 digest of uploaded artifact is 16c65c69115cdc0c5445f4e471c7c723fc3b6414eb74b5258b84ddc093d2e4c7
+2026-11-04T14:57:04.4932770Z Finalizing artifact upload
+2026-11-04T14:57:04.9440288Z Artifact pd-sm-02-w1-native-41852641211-1 successfully finalized. Artifact ID 13334174596
+2026-11-04T14:57:04.9441551Z Artifact pd-sm-02-w1-native-41852641211-1 has been successfully uploaded! Final size is 905066 bytes. Artifact ID is 13334174596
+2026-11-04T14:57:04.9445651Z Artifact download URL: https://github.com/HKati/pulse-release-gates-0.1/actions/runs/41852641211/artifacts/13334174596
+2026-11-04T14:57:04.9695241Z Post job cleanup.
+2026-11-04T14:57:05.0620127Z [command]/usr/bin/git version
+2026-11-04T14:57:05.0698006Z git version 2.56.0
+2026-11-04T14:57:05.0735366Z Temporarily overriding HOME='/home/runner/work/_temp/77fc934b-de22-4583-bece-8b669a9e3060' before making global git config changes
+2026-11-04T14:57:05.0736639Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T14:57:05.0742000Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pulse-release-gates-0.1/pulse-release-gates-0.1/tooling
+2026-11-04T14:57:05.0786218Z Removing SSH command configuration
+2026-11-04T14:57:05.0800727Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T14:57:05.0848700Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-04T14:57:05.1133592Z Removing HTTP extra header
+2026-11-04T14:57:05.1140964Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T14:57:05.1186066Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-04T14:57:05.1479610Z Removing includeIf entries pointing to credentials config files
+2026-11-04T14:57:05.1486182Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T14:57:05.1542380Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-04T14:57:05.1968211Z Cleaning up orphan processes

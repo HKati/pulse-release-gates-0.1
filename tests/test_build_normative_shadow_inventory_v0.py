@@ -1,7 +1,10 @@
+import hashlib
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -867,3 +870,449 @@ def test_q3_native_carrier_changed_bytes_do_not_inherit_exemption(tmp_path):
     item = mod.classify_workflow(path, repo_root=tmp_path)
     assert item['authority_impacting'] == 'conditional'
     assert item['carrier_class'] == 'advisory'
+
+
+def test_q3_continuation_carrier_exact_bytes_are_non_authorizing(tmp_path):
+    inventory, _ = run_builder(tmp_path)
+    relative = '.github/workflows/q3_reference_acquisition_v1.yml'
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'non-authorizing Q3 bounded continuation preflight and capture'
+    assert item['authority_impacting'] == 'no'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert not item['required_gate_participation']
+    assert not item['attestation_participation']
+    assert not item['release_path_participation']
+    assert 'zero-generation preflight or bounded 203-task continuation' in item['authority_boundary']
+    assert 'historical session remains incomplete' in item['notes']
+    assert not [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+@pytest.mark.parametrize('fault', ['name', 'permission', 'trigger', 'retention',
+                                 'newline', 'line_endings', 'symlink'])
+def test_q3_continuation_changed_carrier_requires_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/q3_reference_acquisition_v1.yml'
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / relative).read_bytes()
+    replacements = {
+        'name': (b'Q3 bounded continuation preflight and capture v1', b'Renamed Q3 continuation'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'retention': (b'retention-days: 30', b'retention-days: 90'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        path.write_bytes(original.replace(old, new))
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    else:
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert item['carrier_class'] == 'advisory'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+def test_q3_continuation_exact_bytes_do_not_classify_another_path(tmp_path):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/other_q3_reference_acquisition_v1.yml'
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / '.github/workflows/q3_reference_acquisition_v1.yml').read_bytes())
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+def test_admission_verification_exact_carrier_has_no_release_authority(tmp_path):
+    inventory, _ = run_builder(tmp_path)
+    relative = '.github/workflows/pulsemech_admission_rejection_verification_v0.yml'
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'non-authorizing independent admission-rejection verification'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert item['authority_impacting'] == 'no'
+    assert not item['required_gate_participation']
+    assert not item['attestation_participation']
+    assert not item['release_path_participation']
+    assert 'no subject dispatch, model inference or release admission' in item['authority_boundary']
+    assert 'Historical rejection remains' in item['notes']
+    assert not [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+@pytest.mark.parametrize('fault', ['name', 'permission', 'trigger', 'newline', 'line_endings', 'symlink', 'alias'])
+def test_admission_verification_changed_carrier_requires_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    original_path = '.github/workflows/pulsemech_admission_rejection_verification_v0.yml'
+    relative = (original_path.replace('/pulsemech_', '/other_pulsemech_')
+                if fault == 'alias' else original_path)
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / original_path).read_bytes()
+    replacements = {
+        'name': (b'PULSEmech independent admission-rejection verification v0', b'Renamed admission verification'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        path.write_bytes(original.replace(old, new))
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    elif fault == 'symlink':
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    else:
+        path.write_bytes(original)
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+ENTRY_BUILD_WORKFLOW = '.github/workflows/required_gate_idempotence_entry_build_v0.yml'
+ENTRY_BUILD_WORKFLOW_SHA256 = 'cff2855863498f015564318ce0adda218e62d6d204a96ced343a473452252e88'
+
+
+def test_entry_build_exact_carrier_records_attestation_without_release_authority(tmp_path):
+    assert hashlib.sha256((REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes()).hexdigest() == ENTRY_BUILD_WORKFLOW_SHA256
+    inventory, _ = run_builder(tmp_path)
+    item = entry_by_path(inventory, ENTRY_BUILD_WORKFLOW)
+    assert item['primary_role'] == 'non-authorizing fixed entry-build provenance workflow'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert item['authority_impacting'] == 'no'
+    assert item['required_gate_participation'] is False
+    assert item['attestation_participation'] is True
+    assert item['release_path_participation'] is False
+    assert 'no produced-entry or selected-runtime execution' in item['authority_boundary']
+    assert 'original GitHub SLSA provenance bundle' in ' '.join(item['writes_artifacts'])
+    assert 'github_build_provenance_verified=false' in item['notes']
+    assert 'B2 remains incomplete' in item['notes']
+    assert not [finding for finding in inventory['drift_findings'] if finding['path'] == ENTRY_BUILD_WORKFLOW]
+
+
+@pytest.mark.parametrize('fault', [
+    'name', 'permission', 'trigger', 'python', 'subject', 'verifier',
+    'newline', 'line_endings', 'symlink',
+])
+def test_entry_build_changed_carrier_requires_exact_source_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    path = repo / ENTRY_BUILD_WORKFLOW
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes()
+    replacements = {
+        'name': (b'PULSEmech idempotence entry build provenance v0', b'Renamed entry build'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'python': (b"python-version: '3.11.16'", b"python-version: '3.11'"),
+        'subject': (b'/input/evidence/record.json', b'/input/evidence/other.json'),
+        'verifier': (b'--deny-self-hosted-runners --format json', b'--format json'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        path.write_bytes(original.replace(old, new))
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    else:
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, ENTRY_BUILD_WORKFLOW)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == ENTRY_BUILD_WORKFLOW]
+
+
+@pytest.mark.parametrize('filename', [
+    'other_required_gate_idempotence_entry_build_v0.yml',
+    'required_gate_idempotence_entry_build_v0.yaml',
+])
+def test_entry_build_exact_bytes_do_not_classify_a_different_path(tmp_path, filename):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/' + filename
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes())
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+def test_entry_build_classification_does_not_hide_an_unclassified_neighbor(tmp_path):
+    repo = tmp_path / 'repo'
+    path = repo / ENTRY_BUILD_WORKFLOW
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes())
+    other = '.github/workflows/unreviewed_neighbor.yml'
+    write_workflow(repo / other, name='Unreviewed neighboring workflow')
+    inventory = run_builder_for_repo(repo, tmp_path)
+    assert entry_by_path(inventory, ENTRY_BUILD_WORKFLOW)['attestation_participation'] is True
+    assert entry_by_path(inventory, other)['primary_role'] == 'unclassified workflow'
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': other,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]
+
+
+TWO_SLOT_QUALIFICATION_WORKFLOW = (
+    '.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml'
+)
+TWO_SLOT_QUALIFICATION_WORKFLOW_SHA256 = (
+    'b0b889a3b6b8f8fa863e3ffba295dd9c295254ea7fdddb2066017f8c5d1e59ef'
+)
+
+
+def test_two_slot_qualification_exact_carrier_attests_without_release_authority(tmp_path):
+    original = (REPO_ROOT / TWO_SLOT_QUALIFICATION_WORKFLOW).read_bytes()
+    assert hashlib.sha256(original).hexdigest() == TWO_SLOT_QUALIFICATION_WORKFLOW_SHA256
+    inventory, markdown = run_builder(tmp_path)
+    item = entry_by_path(inventory, TWO_SLOT_QUALIFICATION_WORKFLOW)
+    assert item['primary_role'] == 'non-authorizing synthetic loader two-slot qualification workflow'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert item['authority_impacting'] == 'no'
+    assert item['required_gate_participation'] is False
+    assert item['attestation_participation'] is True
+    assert item['release_path_participation'] is False
+    assert 'one fixed synthetic probe' in item['authority_boundary']
+    assert 'no original-launcher or model execution' in item['authority_boundary']
+    assert 'independent data-only replay' in item['authority_boundary']
+    assert 'original GitHub attestation' in ' '.join(item['writes_artifacts'])
+    assert '90-day retention' in ' '.join(item['publishes_artifacts'])
+    assert 'Incomplete prefixes remain incomplete' in item['notes']
+    assert 'physical execution authentication' in item['notes']
+    assert 'future-host admission' in item['notes']
+    assert 'metric_pass=null; authority_effect=none' in item['notes']
+    assert 'keep #2879 open with its complete whole-runtime scope' in item['notes']
+    assert TWO_SLOT_QUALIFICATION_WORKFLOW in markdown
+    assert not [finding for finding in inventory['drift_findings']
+                if finding['path'] == TWO_SLOT_QUALIFICATION_WORKFLOW]
+
+
+@pytest.mark.parametrize('fault', [
+    'name', 'permission', 'trigger', 'action_pin', 'acknowledgement', 'source_guard',
+    'acquisition_command', 'attestation_subject', 'retention', 'newline',
+    'line_endings', 'symlink', 'directory',
+])
+def test_two_slot_qualification_changed_carrier_requires_exact_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    path = repo / TWO_SLOT_QUALIFICATION_WORKFLOW
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / TWO_SLOT_QUALIFICATION_WORKFLOW).read_bytes()
+    replacements = {
+        'name': (b'PULSEmech loader two-slot qualification v0', b'Renamed two-slot qualification'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'action_pin': (b'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+                       b'actions/checkout@' + b'0' * 40),
+        'acknowledgement': (b'QUALIFY_LOADER_TWO_SLOT_ONLY', b'QUALIFY_CHANGED'),
+        'source_guard': (b'test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_SHA"',
+                         b'test "$EXPECTED_SOURCE_COMMIT" != "$GITHUB_SHA"'),
+        'acquisition_command': (b'tools/required_gate_idempotence_loader_two_slot_hosted_v0.py acquire',
+                                b'tools/required_gate_idempotence_loader_two_slot_hosted_v0.py verify'),
+        'attestation_subject': (b'/verified-binding.json', b'/other-binding.json'),
+        'retention': (b'retention-days: 90', b'retention-days: 91'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        changed = original.replace(old, new)
+        assert changed != original
+        path.write_bytes(changed)
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    elif fault == 'symlink':
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    else:
+        path.mkdir()
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, TWO_SLOT_QUALIFICATION_WORKFLOW)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['carrier_class'] == 'advisory'
+    assert item['authority_impacting'] == 'conditional'
+    assert item['required_gate_participation'] is False
+    assert item['attestation_participation'] is False
+    assert item['release_path_participation'] is False
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': TWO_SLOT_QUALIFICATION_WORKFLOW,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]
+
+
+@pytest.mark.parametrize('filename', [
+    'other_required_gate_idempotence_loader_two_slot_qualification_v0.yml',
+    'required_gate_idempotence_loader_two_slot_qualification_v0.yaml',
+])
+def test_two_slot_qualification_exact_bytes_do_not_classify_another_path(tmp_path, filename):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/' + filename
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / TWO_SLOT_QUALIFICATION_WORKFLOW).read_bytes())
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': relative,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]
+
+
+def test_two_slot_qualification_classification_keeps_unknown_neighbor_warning(tmp_path):
+    repo = tmp_path / 'repo'
+    path = repo / TWO_SLOT_QUALIFICATION_WORKFLOW
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / TWO_SLOT_QUALIFICATION_WORKFLOW).read_bytes())
+    other = '.github/workflows/unreviewed_neighbor.yml'
+    write_workflow(repo / other, name='Unreviewed neighboring workflow')
+    inventory = run_builder_for_repo(repo, tmp_path)
+    assert entry_by_path(inventory, TWO_SLOT_QUALIFICATION_WORKFLOW)['attestation_participation'] is True
+    assert entry_by_path(inventory, other)['primary_role'] == 'unclassified workflow'
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': other,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]
+
+
+LOADER_RESOLUTION_OBSERVATION_WORKFLOW = (
+    '.github/workflows/required_gate_idempotence_loader_resolution_v0.yml'
+)
+LOADER_RESOLUTION_OBSERVATION_WORKFLOW_SHA256 = (
+    'ef4b6622ef0443452062e872f8d960658f0647723677ca8c1e5d0f2f8b4b7f97'
+)
+
+
+def test_loader_resolution_observation_exact_carrier_attests_without_release_authority(tmp_path):
+    original = (REPO_ROOT / LOADER_RESOLUTION_OBSERVATION_WORKFLOW).read_bytes()
+    assert hashlib.sha256(original).hexdigest() == LOADER_RESOLUTION_OBSERVATION_WORKFLOW_SHA256
+    inventory, markdown = run_builder(tmp_path)
+    item = entry_by_path(inventory, LOADER_RESOLUTION_OBSERVATION_WORKFLOW)
+    assert item['primary_role'] == 'non-authorizing bounded original-loader resolution observation workflow'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert item['authority_impacting'] == 'no'
+    assert item['required_gate_participation'] is False
+    assert item['attestation_participation'] is True
+    assert item['release_path_participation'] is False
+    assert 'nine selected dependency returns and entry' in item['authority_boundary']
+    assert 'no continuation after entry, model execution' in item['authority_boundary']
+    assert 'fresh guard and two-slot' in item['authority_boundary']
+    assert 'original GitHub attestation' in ' '.join(item['writes_artifacts'])
+    assert '90-day retention' in ' '.join(item['publishes_artifacts'])
+    assert 'Incomplete prefixes remain incomplete' in item['notes']
+    assert 'physical execution authentication' in item['notes']
+    assert 'future-host admission' in item['notes']
+    assert 'metric_pass=null; authority_effect=none' in item['notes']
+    assert 'keep #2879 open with its complete whole-runtime scope' in item['notes']
+    assert LOADER_RESOLUTION_OBSERVATION_WORKFLOW in markdown
+    assert not [finding for finding in inventory['drift_findings']
+                if finding['path'] == LOADER_RESOLUTION_OBSERVATION_WORKFLOW]
+
+
+@pytest.mark.parametrize('fault', [
+    'name', 'permission', 'trigger', 'action_pin', 'acknowledgement', 'source_guard',
+    'acquisition_command', 'policy_selection', 'attestation_subject', 'retention', 'newline',
+    'line_endings', 'symlink', 'directory',
+])
+def test_loader_resolution_observation_changed_carrier_requires_exact_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    path = repo / LOADER_RESOLUTION_OBSERVATION_WORKFLOW
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / LOADER_RESOLUTION_OBSERVATION_WORKFLOW).read_bytes()
+    replacements = {
+        'name': (b'PULSEmech original loader resolution observation v0', b'Renamed loader resolution observation'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'action_pin': (b'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+                       b'actions/checkout@' + b'0' * 40),
+        'acknowledgement': (b'OBSERVE_ORIGINAL_LOADER_NINE_RETURNS_AND_ENTRY_STOP_ONLY', b'QUALIFY_CHANGED'),
+        'source_guard': (b'test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_SHA"',
+                         b'test "$EXPECTED_SOURCE_COMMIT" != "$GITHUB_SHA"'),
+        'acquisition_command': (b'tools/required_gate_idempotence_loader_resolution_hosted_v0.py acquire',
+                                b'tools/required_gate_idempotence_loader_resolution_hosted_v0.py verify'),
+        'policy_selection': (b'1b1e4f414ffa7e56a8494f8a6d6051594c800cae978fa90585c4a02041bed953', b'0' * 64),
+        'attestation_subject': (b'/verified-binding.json', b'/other-binding.json'),
+        'retention': (b'retention-days: 90', b'retention-days: 91'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        changed = original.replace(old, new)
+        assert changed != original
+        path.write_bytes(changed)
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    elif fault == 'symlink':
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    else:
+        path.mkdir()
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, LOADER_RESOLUTION_OBSERVATION_WORKFLOW)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['carrier_class'] == 'advisory'
+    assert item['authority_impacting'] == 'conditional'
+    assert item['required_gate_participation'] is False
+    assert item['attestation_participation'] is False
+    assert item['release_path_participation'] is False
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': LOADER_RESOLUTION_OBSERVATION_WORKFLOW,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]
+
+
+@pytest.mark.parametrize('filename', [
+    'other_required_gate_idempotence_loader_resolution_v0.yml',
+    'required_gate_idempotence_loader_resolution_v0.yaml',
+])
+def test_loader_resolution_observation_exact_bytes_do_not_classify_another_path(tmp_path, filename):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/' + filename
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / LOADER_RESOLUTION_OBSERVATION_WORKFLOW).read_bytes())
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': relative,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]
+
+
+def test_loader_resolution_observation_classification_keeps_unknown_neighbor_warning(tmp_path):
+    repo = tmp_path / 'repo'
+    path = repo / LOADER_RESOLUTION_OBSERVATION_WORKFLOW
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / LOADER_RESOLUTION_OBSERVATION_WORKFLOW).read_bytes())
+    other = '.github/workflows/unreviewed_neighbor.yml'
+    write_workflow(repo / other, name='Unreviewed neighboring workflow')
+    inventory = run_builder_for_repo(repo, tmp_path)
+    assert entry_by_path(inventory, LOADER_RESOLUTION_OBSERVATION_WORKFLOW)['attestation_participation'] is True
+    assert entry_by_path(inventory, other)['primary_role'] == 'unclassified workflow'
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': other,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]

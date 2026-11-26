@@ -570,7 +570,7 @@ def test_manual_workflow_three_inputs_pins_permissions_retention():
     assert [s['uses'] for s in steps if 'uses' in s]==[
         'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
         'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0',
-        'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a']
+        'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9']
     assert steps[2]['with']=={'python-version':'3.11.16'}
     assert steps[3]['env']=={S.TOKEN:'${{ github.token }}'} and steps[-1]['if']=='always()'
     assert steps[-1]['with']['retention-days']=='30' and steps[-1]['with']['overwrite']=='false'
@@ -598,13 +598,13 @@ COUNT_CONSUMERS=(
 def test_both_programs_once_and_all_seven_manifest_consumers():
     entries=[l.split('#',1)[0].strip() for l in (ROOT/'ci/tools-tests.list').read_text().splitlines()]
     entries=[l for l in entries if l]
-    assert len(entries)==len(set(entries))==167
+    assert len(entries)==len(set(entries))==190
     for n in ('tests/test_q2_release_host_worker_protocol_v0.py','tests/test_q2_release_host_worker_v0.py'):
         assert entries.count(n)==1 and n not in (ROOT/'ci/pytest-tests.list').read_text()
         assert 'pytest.main([__file__])' in (ROOT/n).read_text()
     for n in COUNT_CONSUMERS:
         text=(ROOT/'tests'/n).read_text()
-        assert re.search(r'==\s*167\b',text) and not re.search(r'==\s*165\b',text)
+        assert re.search(r'==\s*190\b',text) and not re.search(r'==\s*165\b',text)
 
 
 @pytest.fixture(scope='module')

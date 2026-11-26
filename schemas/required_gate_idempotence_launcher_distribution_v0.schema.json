@@ -1,0 +1,1479 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-launcher-distribution:v0",
+  "title": "Externally selected detached-Release launcher distribution relationships v0",
+  "description": "Authenticates the selected distribution chain under an explicit external trust policy; preserves all former host, execution, build-origin and authority boundaries.",
+  "$ref": "#/$defs/selection",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "fingerprint": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 40,
+      "pattern": "^[0-9A-F]{40}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[A-Za-z0-9_.+~\\-]+(?:/[A-Za-z0-9_.+~\\-]+)*$"
+    },
+    "absolute_path": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 500,
+      "pattern": "^/[A-Za-z0-9_.+~\\-]+(?:/[A-Za-z0-9_.+~\\-]+)*$"
+    },
+    "control_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      }
+    },
+    "launch_host_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304
+        }
+      }
+    },
+    "release_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      }
+    },
+    "signature_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        }
+      }
+    },
+    "keyring_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      }
+    },
+    "compressed_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        }
+      }
+    },
+    "decoded_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 134217728
+        }
+      }
+    },
+    "package_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        }
+      }
+    },
+    "launcher_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin",
+        "label",
+        "suite",
+        "codename",
+        "version",
+        "component",
+        "architecture"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[ -~]+$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[ -~]+$"
+        },
+        "suite": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[ -~]+$"
+        },
+        "codename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[ -~]+$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[ -~]+$"
+        },
+        "component": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+\\-]*$"
+        }
+      }
+    },
+    "compressed_index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        }
+      }
+    },
+    "decoded_index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 134217728
+        }
+      }
+    },
+    "index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compressed",
+        "decoded"
+      ],
+      "properties": {
+        "compressed": {
+          "$ref": "#/$defs/compressed_index"
+        },
+        "decoded": {
+          "$ref": "#/$defs/decoded_index"
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "architecture",
+        "filename",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9][a-z0-9+.\\-]*$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[ -~]+$"
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+\\-]*$"
+        },
+        "filename": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        }
+      }
+    },
+    "signer_pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signing_fingerprint",
+        "primary_fingerprint"
+      ],
+      "properties": {
+        "signing_fingerprint": {
+          "$ref": "#/$defs/fingerprint"
+        },
+        "primary_fingerprint": {
+          "$ref": "#/$defs/fingerprint"
+        }
+      }
+    },
+    "signers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/signer_pair"
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "gpg"
+        },
+        "path": {
+          "$ref": "#/$defs/absolute_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        }
+      }
+    },
+    "verification_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_signers",
+        "evaluation_time",
+        "max_release_age_seconds",
+        "require_valid_until"
+      ],
+      "properties": {
+        "required_signers": {
+          "$ref": "#/$defs/signers"
+        },
+        "evaluation_time": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4102444800
+        },
+        "max_release_age_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31622400
+        },
+        "require_valid_until": {
+          "type": "boolean"
+        }
+      }
+    },
+    "signature_fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signing_fingerprint",
+        "primary_fingerprint",
+        "signature_created_epoch",
+        "signature_expires_epoch",
+        "pubkey_algorithm",
+        "hash_algorithm",
+        "signature_class",
+        "signature_version"
+      ],
+      "properties": {
+        "signing_fingerprint": {
+          "$ref": "#/$defs/fingerprint"
+        },
+        "primary_fingerprint": {
+          "$ref": "#/$defs/fingerprint"
+        },
+        "signature_created_epoch": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4102444800
+        },
+        "signature_expires_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4102444800
+        },
+        "pubkey_algorithm": {
+          "type": "integer",
+          "enum": [
+            1,
+            19,
+            22
+          ]
+        },
+        "hash_algorithm": {
+          "type": "integer",
+          "enum": [
+            8,
+            9,
+            10
+          ]
+        },
+        "signature_class": {
+          "type": "string",
+          "const": "00"
+        },
+        "signature_version": {
+          "type": "integer",
+          "const": 4
+        }
+      }
+    },
+    "pending_obligations": {
+      "type": "array",
+      "const": [
+        "upstream_source_and_launcher_build_origin",
+        "same_attempt_host_and_actual_mapped_native_identity",
+        "strict_namespaces_and_read_only_execution_view",
+        "intended_syscall_filter_and_denied_operations",
+        "descriptor_closure_and_resource_limits",
+        "bounded_stdout_stderr_and_failure_preservation",
+        "reviewed_selected_bootstrap_integration",
+        "separate_execution_authorization"
+      ]
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "verified_signatures"
+      ],
+      "properties": {
+        "backend": {
+          "$ref": "#/$defs/verifier"
+        },
+        "verified_signatures": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/signature_fact"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release",
+        "index",
+        "package"
+      ],
+      "properties": {
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "identity",
+            "date_epoch",
+            "valid_until_epoch"
+          ],
+          "properties": {
+            "identity": {
+              "$ref": "#/$defs/repository"
+            },
+            "date_epoch": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4102444800
+            },
+            "valid_until_epoch": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4102444800
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "index": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "compressed",
+            "decoded",
+            "package_paragraphs"
+          ],
+          "properties": {
+            "compressed": {
+              "$ref": "#/$defs/compressed_index"
+            },
+            "decoded": {
+              "$ref": "#/$defs/decoded_index"
+            },
+            "package_paragraphs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 250000
+            }
+          }
+        },
+        "package": {
+          "$ref": "#/$defs/package"
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "profile",
+        "record_status",
+        "launch_host_plan",
+        "trust_policy",
+        "release",
+        "release_signature",
+        "repository",
+        "index",
+        "package",
+        "diagnostic_only",
+        "runtime_execution_authenticated",
+        "restored_bootstrap_qualified",
+        "loader_resolution_verified",
+        "python_import_closure_verified",
+        "host_environment_qualified",
+        "runtime_closure_verified",
+        "execution_ready",
+        "execution_authorized",
+        "observed_acquisition_supported",
+        "property_semantics_verified",
+        "metric_pass",
+        "actual_reference_claimed",
+        "production_gate_eligible",
+        "authority_effect",
+        "operator_applications",
+        "model_calls",
+        "containment_enforced",
+        "bootstrap_execution_observed",
+        "entry_binary_executed",
+        "compiler_closure_verified",
+        "source_binary_equivalence_verified",
+        "github_build_provenance_verified",
+        "host_launcher_runtime_verified",
+        "toolchain_execution_authenticated",
+        "launcher_executed",
+        "launcher_origin_authenticated",
+        "host_observation_authenticated",
+        "distribution_trust_freshness_verified",
+        "current_repository_freshness_verified",
+        "verifier_runtime_closure_verified",
+        "launcher_build_origin_verified"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_launcher_distribution_selection_v0"
+        },
+        "profile": {
+          "type": "string",
+          "const": "debian_detached_release_launcher_distribution_v0"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "selected"
+          ]
+        },
+        "launch_host_plan": {
+          "$ref": "#/$defs/launch_host_binding"
+        },
+        "trust_policy": {
+          "$ref": "#/$defs/control_binding"
+        },
+        "release": {
+          "$ref": "#/$defs/release_binding"
+        },
+        "release_signature": {
+          "$ref": "#/$defs/signature_binding"
+        },
+        "repository": {
+          "$ref": "#/$defs/repository"
+        },
+        "index": {
+          "$ref": "#/$defs/index"
+        },
+        "package": {
+          "$ref": "#/$defs/package"
+        },
+        "diagnostic_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "runtime_execution_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "restored_bootstrap_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "python_import_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_environment_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "runtime_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_ready": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_authorized": {
+          "type": "boolean",
+          "const": false
+        },
+        "observed_acquisition_supported": {
+          "type": "boolean",
+          "const": false
+        },
+        "property_semantics_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "metric_pass": {
+          "type": "null",
+          "const": null
+        },
+        "actual_reference_claimed": {
+          "type": "boolean",
+          "const": false
+        },
+        "production_gate_eligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "authority_effect": {
+          "type": "string",
+          "const": "none"
+        },
+        "operator_applications": {
+          "type": "integer",
+          "const": 0
+        },
+        "model_calls": {
+          "type": "integer",
+          "const": 0
+        },
+        "containment_enforced": {
+          "type": "boolean",
+          "const": false
+        },
+        "bootstrap_execution_observed": {
+          "type": "boolean",
+          "const": false
+        },
+        "entry_binary_executed": {
+          "type": "boolean",
+          "const": false
+        },
+        "compiler_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "source_binary_equivalence_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "github_build_provenance_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "toolchain_execution_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_executed": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_origin_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "distribution_trust_freshness_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "current_repository_freshness_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "verifier_runtime_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_build_origin_verified": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "trust_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "profile",
+        "keyring",
+        "verifier",
+        "required_signers",
+        "evaluation_time",
+        "max_release_age_seconds",
+        "require_valid_until"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_distribution_trust_policy_v0"
+        },
+        "profile": {
+          "type": "string",
+          "const": "gpg_detached_release_trust_v0"
+        },
+        "keyring": {
+          "$ref": "#/$defs/keyring_binding"
+        },
+        "verifier": {
+          "$ref": "#/$defs/verifier"
+        },
+        "required_signers": {
+          "$ref": "#/$defs/signers"
+        },
+        "evaluation_time": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4102444800
+        },
+        "max_release_age_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31622400
+        },
+        "require_valid_until": {
+          "type": "boolean"
+        }
+      }
+    },
+    "implementation_sources": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": false,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/check_required_gate_idempotence_launcher_distribution_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "schemas/required_gate_idempotence_launcher_distribution_v0.schema.json"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/required_gate_idempotence_debian_metadata_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/required_gate_idempotence_distribution_signature_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/required_gate_idempotence_process_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          }
+        }
+      ]
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "distribution_selection",
+        "trust_policy",
+        "launch_host_plan",
+        "launch_host_verification",
+        "release",
+        "release_signature",
+        "packages_compressed",
+        "packages_decoded",
+        "keyring",
+        "launcher_package",
+        "launcher"
+      ],
+      "properties": {
+        "distribution_selection": {
+          "$ref": "#/$defs/control_binding"
+        },
+        "trust_policy": {
+          "$ref": "#/$defs/control_binding"
+        },
+        "launch_host_plan": {
+          "$ref": "#/$defs/launch_host_binding"
+        },
+        "launch_host_verification": {
+          "$ref": "#/$defs/launch_host_binding"
+        },
+        "release": {
+          "$ref": "#/$defs/release_binding"
+        },
+        "release_signature": {
+          "$ref": "#/$defs/signature_binding"
+        },
+        "packages_compressed": {
+          "$ref": "#/$defs/compressed_binding"
+        },
+        "packages_decoded": {
+          "$ref": "#/$defs/decoded_binding"
+        },
+        "keyring": {
+          "$ref": "#/$defs/keyring_binding"
+        },
+        "launcher_package": {
+          "$ref": "#/$defs/package_binding"
+        },
+        "launcher": {
+          "$ref": "#/$defs/launcher_binding"
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "profile",
+        "record_status",
+        "bindings",
+        "verification_policy",
+        "signature",
+        "metadata",
+        "implementation_sources",
+        "pending_obligations",
+        "diagnostic_only",
+        "runtime_execution_authenticated",
+        "restored_bootstrap_qualified",
+        "loader_resolution_verified",
+        "python_import_closure_verified",
+        "host_environment_qualified",
+        "runtime_closure_verified",
+        "execution_ready",
+        "execution_authorized",
+        "observed_acquisition_supported",
+        "property_semantics_verified",
+        "metric_pass",
+        "actual_reference_claimed",
+        "production_gate_eligible",
+        "authority_effect",
+        "operator_applications",
+        "model_calls",
+        "containment_enforced",
+        "bootstrap_execution_observed",
+        "entry_binary_executed",
+        "compiler_closure_verified",
+        "source_binary_equivalence_verified",
+        "github_build_provenance_verified",
+        "host_launcher_runtime_verified",
+        "toolchain_execution_authenticated",
+        "launcher_executed",
+        "launcher_origin_authenticated",
+        "host_observation_authenticated",
+        "distribution_trust_freshness_verified",
+        "current_repository_freshness_verified",
+        "verifier_runtime_closure_verified",
+        "launcher_build_origin_verified"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_launcher_distribution_record_v0"
+        },
+        "profile": {
+          "type": "string",
+          "const": "debian_detached_release_launcher_distribution_v0"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "selected"
+          ]
+        },
+        "bindings": {
+          "$ref": "#/$defs/bindings"
+        },
+        "verification_policy": {
+          "$ref": "#/$defs/verification_policy"
+        },
+        "signature": {
+          "$ref": "#/$defs/signature"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "implementation_sources": {
+          "$ref": "#/$defs/implementation_sources"
+        },
+        "pending_obligations": {
+          "$ref": "#/$defs/pending_obligations"
+        },
+        "diagnostic_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "runtime_execution_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "restored_bootstrap_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "python_import_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_environment_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "runtime_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_ready": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_authorized": {
+          "type": "boolean",
+          "const": false
+        },
+        "observed_acquisition_supported": {
+          "type": "boolean",
+          "const": false
+        },
+        "property_semantics_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "metric_pass": {
+          "type": "null",
+          "const": null
+        },
+        "actual_reference_claimed": {
+          "type": "boolean",
+          "const": false
+        },
+        "production_gate_eligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "authority_effect": {
+          "type": "string",
+          "const": "none"
+        },
+        "operator_applications": {
+          "type": "integer",
+          "const": 0
+        },
+        "model_calls": {
+          "type": "integer",
+          "const": 0
+        },
+        "containment_enforced": {
+          "type": "boolean",
+          "const": false
+        },
+        "bootstrap_execution_observed": {
+          "type": "boolean",
+          "const": false
+        },
+        "entry_binary_executed": {
+          "type": "boolean",
+          "const": false
+        },
+        "compiler_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "source_binary_equivalence_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "github_build_provenance_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "toolchain_execution_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_executed": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_origin_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "distribution_trust_freshness_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "current_repository_freshness_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "verifier_runtime_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_build_origin_verified": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "profile",
+        "status",
+        "record_status",
+        "record_sha256",
+        "selection_sha256",
+        "trust_policy_sha256",
+        "launch_host_plan_sha256",
+        "distribution_signature_verified",
+        "release_index_binding_verified",
+        "index_package_binding_verified",
+        "package_launcher_binding_verified",
+        "launcher_distribution_authenticated",
+        "verification_policy",
+        "signature",
+        "pending_obligations",
+        "diagnostic_only",
+        "runtime_execution_authenticated",
+        "restored_bootstrap_qualified",
+        "loader_resolution_verified",
+        "python_import_closure_verified",
+        "host_environment_qualified",
+        "runtime_closure_verified",
+        "execution_ready",
+        "execution_authorized",
+        "observed_acquisition_supported",
+        "property_semantics_verified",
+        "metric_pass",
+        "actual_reference_claimed",
+        "production_gate_eligible",
+        "authority_effect",
+        "operator_applications",
+        "model_calls",
+        "containment_enforced",
+        "bootstrap_execution_observed",
+        "entry_binary_executed",
+        "compiler_closure_verified",
+        "source_binary_equivalence_verified",
+        "github_build_provenance_verified",
+        "host_launcher_runtime_verified",
+        "toolchain_execution_authenticated",
+        "launcher_executed",
+        "launcher_origin_authenticated",
+        "host_observation_authenticated",
+        "distribution_trust_freshness_verified",
+        "current_repository_freshness_verified",
+        "verifier_runtime_closure_verified",
+        "launcher_build_origin_verified"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_launcher_distribution_verification_v0"
+        },
+        "profile": {
+          "type": "string",
+          "const": "debian_detached_release_launcher_distribution_v0"
+        },
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "selected"
+          ]
+        },
+        "record_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "selection_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "trust_policy_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "launch_host_plan_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "distribution_signature_verified": {
+          "type": "boolean",
+          "const": true
+        },
+        "release_index_binding_verified": {
+          "type": "boolean",
+          "const": true
+        },
+        "index_package_binding_verified": {
+          "type": "boolean",
+          "const": true
+        },
+        "package_launcher_binding_verified": {
+          "type": "boolean",
+          "const": true
+        },
+        "launcher_distribution_authenticated": {
+          "type": "boolean",
+          "const": true
+        },
+        "verification_policy": {
+          "$ref": "#/$defs/verification_policy"
+        },
+        "signature": {
+          "$ref": "#/$defs/signature"
+        },
+        "pending_obligations": {
+          "$ref": "#/$defs/pending_obligations"
+        },
+        "diagnostic_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "runtime_execution_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "restored_bootstrap_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "python_import_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_environment_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "runtime_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_ready": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_authorized": {
+          "type": "boolean",
+          "const": false
+        },
+        "observed_acquisition_supported": {
+          "type": "boolean",
+          "const": false
+        },
+        "property_semantics_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "metric_pass": {
+          "type": "null",
+          "const": null
+        },
+        "actual_reference_claimed": {
+          "type": "boolean",
+          "const": false
+        },
+        "production_gate_eligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "authority_effect": {
+          "type": "string",
+          "const": "none"
+        },
+        "operator_applications": {
+          "type": "integer",
+          "const": 0
+        },
+        "model_calls": {
+          "type": "integer",
+          "const": 0
+        },
+        "containment_enforced": {
+          "type": "boolean",
+          "const": false
+        },
+        "bootstrap_execution_observed": {
+          "type": "boolean",
+          "const": false
+        },
+        "entry_binary_executed": {
+          "type": "boolean",
+          "const": false
+        },
+        "compiler_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "source_binary_equivalence_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "github_build_provenance_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "toolchain_execution_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_executed": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_origin_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "distribution_trust_freshness_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "current_repository_freshness_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "verifier_runtime_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "launcher_build_origin_verified": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    }
+  }
+}

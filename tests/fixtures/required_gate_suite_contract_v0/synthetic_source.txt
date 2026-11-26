@@ -1,0 +1,2 @@
+SYNTHETIC B1 CONTRACT FIXTURE
+Source identity anchor. No real source revision, implementation, workflow or execution is represented.

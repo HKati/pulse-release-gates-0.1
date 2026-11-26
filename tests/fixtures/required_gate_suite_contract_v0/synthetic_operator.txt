@@ -1,0 +1,2 @@
+SYNTHETIC B1 CONTRACT FIXTURE
+Operator declaration only. This text is never executed and does not implement any substantive gate predicate.

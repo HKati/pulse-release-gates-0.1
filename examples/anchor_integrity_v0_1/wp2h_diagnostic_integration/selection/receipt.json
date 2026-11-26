@@ -1,0 +1,59 @@
+{
+  "authority_effect": "none",
+  "binding_profile": "wp2b-json-pointer-v1",
+  "bindings": {
+    "carriers": {
+      "path": "carriers.json",
+      "sha256": "70a4d15ee35db21a605ef283c531724d921658fa8bc46ca68f6867925b2c91c4"
+    },
+    "input": {
+      "path": "input.json",
+      "sha256": "d7d16dfccf2dce237060e6b77fbb7da907227b1bd56f1275cfb623ce81cd59a8"
+    },
+    "observer_policy": {
+      "path": "policy.json",
+      "sha256": "e0168bb0d71baaf65077b89752af853b5f003dc63dccb6e943e29b93e98def55"
+    },
+    "receipt": {
+      "path": "execution/receipt.json",
+      "sha256": "fe766b25a1d9e520844dce3ef43ec1f1275407ba878e3738bb11811a0711222c"
+    },
+    "receipt_signature": {
+      "path": "execution/receipt-signature.json",
+      "sha256": "38d64ec24c866c774f3ddaff85d20996cbcb8599b9290a563e9938de3edd6499"
+    },
+    "record_set": {
+      "path": "record-set.json",
+      "sha256": "232d6a0c0ddaed97f6d9a4f175f3105a45a5edc5c105fff1c04111884c7b4756"
+    },
+    "request": {
+      "path": "execution/request.json",
+      "sha256": "ebcc2dbee3f1b70f9715de82ec04ce607902a2974b30daa27475419295f2ac6a"
+    },
+    "signatures": {
+      "path": "signatures.json",
+      "sha256": "5773836e21bd75b543a20acd42d5207e360486cf16330da96d4370a19348c07a"
+    },
+    "trust_policy": {
+      "path": "policy.json",
+      "sha256": "c49350c60de03b58e2ce10579ac9b8013665e5d4ad7c1f91ba158e5c7add970f"
+    }
+  },
+  "candidate_status": "diagnostic_only",
+  "cycle_profile": "not_requested",
+  "pipeline": "receipt-signatures",
+  "profile": "fresh-anchor-diagnostic-v1",
+  "receipt_context": {
+    "challenge": "1515151515151515151515151515151515151515151515151515151515151515",
+    "execution_id": "synthetic-execution-001",
+    "execution_profile": "single-record-execution-contract-v1",
+    "observer_id": "synthetic-observer-NOT-EXECUTED",
+    "receipt_signature_profile": "pinned-ed25519-execution-observers-v1",
+    "record_id": "synthetic-record-1",
+    "signature_profile": "pinned-ed25519-record-signers-v1",
+    "trust_domain": "TEST",
+    "verification_time_epoch": 1793836800
+  },
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_diagnostic_selection_v0_1"
+}

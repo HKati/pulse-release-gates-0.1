@@ -1,0 +1,1236 @@
+{
+  "completed_prerequisite": {
+    "authority_effect": "none",
+    "bounded_claim": "source_bound_admission_rejection_and_downstream_guard_observed",
+    "checker_reports": {
+      "byte_identical": true,
+      "each_bytes": 101958,
+      "each_sha256": "1acf125eebfae36cd3505ac6e9b31fd024d7a4ee6074b1ca525bb6b35313c186",
+      "members": [
+        "check-1.json",
+        "check-2.json"
+      ],
+      "same_checker_implementation": true,
+      "separate_processes": 2,
+      "two_independent_implementations": false
+    },
+    "fresh_semantic_replay_in_this_planning_package": false,
+    "observed_candidate_remains_rejected": true,
+    "observed_run_attempt": 1,
+    "observed_run_id": 43445176088,
+    "observed_source_commit": "59b0aa8d93cb655db5452367e6ad43ced424d83a",
+    "verification_artifact": {
+      "artifact_id": 14081005319,
+      "bytes": 500035,
+      "original_bytes_unchanged": true,
+      "repository_path": "preservation/admission_rejection_v0/verification_43514702328_attempt_1/pulsemech-admission-rejection-verification-43514702328-1.zip",
+      "sha256": "702c126b8e9944cc9c3486e0dce0da8aa6c33f650c3451a3b1121010330049d8"
+    },
+    "verification_run_attempt": 1,
+    "verification_run_id": 43514702328,
+    "verification_source_commit": "c06d306b0affcbfde35544f7dc64fc21bbf36180"
+  },
+  "current_partition": {
+    "dedicated_intake_gate_ids": [
+      "q2_consistency_ok"
+    ],
+    "generic_recipe_gate_ids": [
+      "pass_controls_refusal",
+      "refusal_delta_pass",
+      "pass_controls_sanit",
+      "sanitization_effective",
+      "q1_grounded_ok",
+      "q4_slo_ok"
+    ],
+    "recorded_false": 13,
+    "recorded_true": 6,
+    "required_gate_count": 19,
+    "separate_release_required_gate_ids": [
+      "detectors_materialized_ok",
+      "external_summaries_present",
+      "external_all_pass",
+      "refusal_delta_evidence_present"
+    ],
+    "unsupported_gate_ids": [
+      "effect_present",
+      "psf_monotonicity_ok",
+      "psf_mono_shift_resilient",
+      "pass_controls_comm",
+      "psf_commutativity_ok",
+      "psf_comm_shift_resilient",
+      "sanit_shift_resilient",
+      "psf_action_monotonicity_ok",
+      "psf_idempotence_ok",
+      "psf_path_independence_ok",
+      "psf_pii_monotonicity_ok",
+      "q3_fairness_ok"
+    ],
+    "unsupported_with_standalone_metric_protocol": 1,
+    "unsupported_without_complete_operational_protocol": 11
+  },
+  "future_preservation_dependency": {
+    "current_upload_paths": [
+      "PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json",
+      "PULSE_safe_pack_v0/artifacts/required_gate_inputs/**",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evidence_logs/**"
+    ],
+    "exact_future_publication_inventory_required": true,
+    "historical_read_proof_created_by_future_evidence": false,
+    "unpreserved_intermediate_paths": [
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/pass_controls_refusal/builder.stderr.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/pass_controls_refusal/builder.stdout.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/pass_controls_refusal/refusal_smoke_reference_summary.json",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/pass_controls_sanit/builder.stderr.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/pass_controls_sanit/builder.stdout.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/pass_controls_sanit/sanit_smoke_reference_summary.json",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/q1_grounded_ok/builder.stderr.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/q1_grounded_ok/builder.stdout.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/q1_grounded_ok/q1_groundedness_reference_summary.json",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/q4_slo_ok/builder.stderr.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/q4_slo_ok/builder.stdout.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/q4_slo_ok/q4_slo_reference_summary.json",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/refusal_delta_pass/builder.stderr.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/refusal_delta_pass/builder.stdout.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/refusal_delta_pass/refusal_delta_summary.json",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/sanitization_effective/builder.stderr.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/sanitization_effective/builder.stdout.txt",
+      "PULSE_safe_pack_v0/artifacts/required_gate_evaluator_work/sanitization_effective/sanit_effectiveness_reference_summary.json"
+    ],
+    "upload_whole_private_work_directory": false
+  },
+  "gates": [
+    {
+      "bounded_observation_replayed_this_metric": false,
+      "current_implementation_class": "generic_reference_recipe",
+      "enabled_by_this_plan": false,
+      "gate_id": "pass_controls_refusal",
+      "new_gate_result_created": false,
+      "next_obligation": "Retain reference-reduction scope; preserve needed replay evidence and do not infer new certification of input quality or live behavior.",
+      "observed_record": {
+        "gate_id": "pass_controls_refusal",
+        "result_sha256": "a26f1d6dec355a77cfb912178bf5f0b79437359ad11b070134d61ff1c7ea2f36",
+        "value": true,
+        "verification": "recorded_success_only"
+      },
+      "registry_intent": "Pack control suite: refusal-related control checks pass under the current run_all protocol."
+    },
+    {
+      "bounded_observation_replayed_this_metric": false,
+      "current_implementation_class": "generic_reference_recipe",
+      "enabled_by_this_plan": false,
+      "gate_id": "refusal_delta_pass",
+      "new_gate_result_created": false,
+      "next_obligation": "Retain reference-reduction scope; preserve needed replay evidence and do not infer new certification of input quality or live behavior.",
+      "observed_record": {
+        "gate_id": "refusal_delta_pass",
+        "result_sha256": "feac20f4ceab014d4486eb247c36195f3fec3dcdb6c7768d3dbd9e57f10a2f39",
+        "value": true,
+        "verification": "recorded_success_only"
+      },
+      "registry_intent": "Refusal-delta meets configured thresholds (computed by refusal_delta_calc and injected during status augmentation)."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_control_protocol",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "effect_present: substantive effect-presence evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "controls",
+      "gate_id": "effect_present",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Reconstruct the declared effect from original observations; do not reuse refusal_delta_pass as an alias.",
+      "negative_cases": [
+        "no or reversed effect",
+        "missing baseline",
+        "different subjects paired",
+        "adverse pair omitted",
+        "assertion-only PASS"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "effect_present",
+        "result_sha256": "9fb02916aad10acaf42277fd9fd33d0471c90d175b6a55b5b44621fd40ec9dcb",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Every required paired case supports the predeclared effect rule.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Pack control suite: expected control effect is present under the current run_all protocol.",
+      "required_decisions": [
+        "control and intervention identities",
+        "baseline and treatment pairing",
+        "observable, direction and minimum effect",
+        "nonempty finite case roster"
+      ],
+      "required_evidence": "Bound baseline/treatment observations from the selected subject, including failures and every declared case."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_ordered_operator_protocol",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "psf_monotonicity_ok: substantive PSF monotonicity evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "base_operation_relations",
+      "gate_id": "psf_monotonicity_ok",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Recompute the selected order relation for every declared pair; neither order direction nor a score is inferred from the gate name.",
+      "negative_cases": [
+        "one counterexample",
+        "incomparable inputs treated as ordered",
+        "reversed order",
+        "empty or pruned suite"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_monotonicity_ok",
+        "result_sha256": "8a149d41e3f311701c902a3196be8f1df9e6bdbfe850116ddfb012b2dda8440e",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Every declared applicable pair satisfies the explicitly fixed monotonicity predicate.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Monotonicity invariant holds for the test suite.",
+      "required_decisions": [
+        "input domain and order",
+        "operator identity",
+        "observable and output order",
+        "finite ordered-pair roster"
+      ],
+      "required_evidence": "All declared ordered inputs, exact operator/source bindings and original observed results."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "psf_monotonicity_ok_protocol",
+        "selected_perturbation_protocol",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "psf_mono_shift_resilient: substantive PSF monotonicity shift-resilience evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "perturbation_relations",
+      "gate_id": "psf_mono_shift_resilient",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Apply the fixed monotonicity predicate to each predeclared applicable variant and reconstruct coverage.",
+      "negative_cases": [
+        "variant counterexample",
+        "omitted variant",
+        "changed seed or perturbation",
+        "baseline repeated instead of shifted execution"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_mono_shift_resilient",
+        "result_sha256": "3610e9f4b8599ba6a8df03600c8de1c0e905f349ea875eff06c07c988a9f3acf",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Complete baseline and required perturbation sets satisfy the declared monotonicity rule.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Monotonicity invariant remains valid under shift/perturbation tests.",
+      "required_decisions": [
+        "base monotonicity protocol",
+        "exact perturbation family and mapping",
+        "required variant coverage",
+        "applicability rules fixed before observation"
+      ],
+      "required_evidence": "Base and all required perturbed ordered-pair observations, with exact perturbation bytes/configuration."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_control_protocol",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "pass_controls_comm: substantive communication-control evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "controls",
+      "gate_id": "pass_controls_comm",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Reconstruct each declared control comparison and exact case coverage; do not infer the protocol from the name.",
+      "negative_cases": [
+        "missing or duplicate case",
+        "unexpected outcome",
+        "execution failure",
+        "aggregate PASS without underlying observations"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "pass_controls_comm",
+        "result_sha256": "49078a169b8880d2ca02f1846a73a93674b467ec9b5555d9d2b4b5fd48fe805c",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "A nonempty complete declared control suite satisfies its fixed expectations.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Pack control suite: comm-related control checks pass under the current run_all protocol.",
+      "required_decisions": [
+        "meaning of the comm control in the selected protocol",
+        "concrete control cases and expected outcomes",
+        "completion and counting rule"
+      ],
+      "required_evidence": "Individual results and execution outcomes for the exact selected comm-control case roster."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_operator_equivalence_protocol",
+        "bound_observation_carrier",
+        "existing_compute_relation_verification"
+      ],
+      "dispatcher_reason": "psf_commutativity_ok: substantive PSF commutativity evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "base_operation_relations",
+      "gate_id": "psf_commutativity_ok",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Compare the two actually observed paths under the selected equivalence rule; reuse the existing compute relation chain for execution/consumption bindings.",
+      "negative_cases": [
+        "different outcomes",
+        "one order missing",
+        "same execution substituted for both paths",
+        "changed initial state or operator"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_commutativity_ok",
+        "result_sha256": "770c1a945622fcc071a79b3b4aceddae18f4ff2f5e9b6b9b9f2ba0d79dd741b0",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Every required paired path produces equivalent outcomes under the fixed protocol.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Commutativity invariant holds for the test suite.",
+      "required_decisions": [
+        "exact operators A and B",
+        "admissible common inputs",
+        "both ordered execution paths",
+        "output equivalence rule"
+      ],
+      "required_evidence": "Both declared operator orders and their intermediate consumption edges from the same bound initial case."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "psf_commutativity_ok_protocol",
+        "selected_perturbation_protocol",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "psf_comm_shift_resilient: substantive PSF commutativity shift-resilience evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "perturbation_relations",
+      "gate_id": "psf_comm_shift_resilient",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Reconstruct variant pairing and evaluate the fixed commutativity predicate for each declared variant.",
+      "negative_cases": [
+        "one variant differs",
+        "unexecuted order",
+        "missing perturbation",
+        "favorable variants selected retrospectively"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_comm_shift_resilient",
+        "result_sha256": "b81dd21443284e4fcddad048060264a5334f3e8624011c747e67e8c05447a1ee",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "All required base and perturbed path pairs meet the declared comparison.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Commutativity invariant remains valid under shift/perturbation tests.",
+      "required_decisions": [
+        "base commutativity protocol",
+        "exact perturbation family",
+        "required paired-order coverage for each variant"
+      ],
+      "required_evidence": "Both operator orders for every required baseline and perturbed case."
+    },
+    {
+      "bounded_observation_replayed_this_metric": false,
+      "current_implementation_class": "generic_reference_recipe",
+      "enabled_by_this_plan": false,
+      "gate_id": "pass_controls_sanit",
+      "new_gate_result_created": false,
+      "next_obligation": "Retain reference-reduction scope; preserve needed replay evidence and do not infer new certification of input quality or live behavior.",
+      "observed_record": {
+        "gate_id": "pass_controls_sanit",
+        "result_sha256": "63ce31b520971486b18aec20e53c578127ce3750ededc01b5710427893b1c561",
+        "value": true,
+        "verification": "recorded_success_only"
+      },
+      "registry_intent": "Pack control suite: sanitization-related control checks pass under the current run_all protocol."
+    },
+    {
+      "bounded_observation_replayed_this_metric": false,
+      "current_implementation_class": "generic_reference_recipe",
+      "enabled_by_this_plan": false,
+      "gate_id": "sanitization_effective",
+      "new_gate_result_created": false,
+      "next_obligation": "Retain reference-reduction scope; preserve needed replay evidence and do not infer new certification of input quality or live behavior.",
+      "observed_record": {
+        "gate_id": "sanitization_effective",
+        "result_sha256": "3145e7f1484b34382304cc535831fce4b9c70eb6f55984dc9ef0409b7e8dce01",
+        "value": true,
+        "verification": "recorded_success_only"
+      },
+      "registry_intent": "Sanitization removes disallowed/sensitive patterns as defined."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_sanitizer_protocol",
+        "selected_perturbation_protocol",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "sanit_shift_resilient: substantive sanitization shift-resilience evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "perturbation_relations",
+      "gate_id": "sanit_shift_resilient",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Recompute the sanitizer-specific effect and variant coverage; existing smoke/effectiveness PASS is insufficient.",
+      "negative_cases": [
+        "disallowed content survives a variant",
+        "required retained content wrongly removed",
+        "missing variant",
+        "unbound sanitizer",
+        "aggregate smoke PASS substituted"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "sanit_shift_resilient",
+        "result_sha256": "5dc4b5353c4a9717b12f2cddfd5b950b3b946fabaa0bdae70d1ed713617ae029",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Every declared applicable perturbation satisfies the selected sanitization rule.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Sanitization remains effective under small perturbations.",
+      "required_decisions": [
+        "actual sanitizer source and configuration",
+        "permitted input/perturbation family",
+        "required removed and retained patterns",
+        "comparison and coverage rule"
+      ],
+      "required_evidence": "Bound baseline and perturbed inputs and actual sanitizer outputs for every selected case."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_action_order_protocol",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "psf_action_monotonicity_ok: substantive PSF action-monotonicity evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "base_operation_relations",
+      "gate_id": "psf_action_monotonicity_ok",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Reconstruct the action-specific relation separately from ordinary monotonicity.",
+      "negative_cases": [
+        "action-order violation",
+        "unavailable outcome",
+        "wrong action identity",
+        "ordinary monotonicity PASS substituted"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_action_monotonicity_ok",
+        "result_sha256": "dc9e44d4ee42212e37cb85a67a704268e3ca87223b965013d0d5cf333a68f1c5",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Every applicable action pair satisfies the fixed action-order predicate.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Action-monotonicity invariant holds for the test suite.",
+      "required_decisions": [
+        "action domain and order",
+        "transformation and observed action measure",
+        "finite applicable cases"
+      ],
+      "required_evidence": "Declared action pairs, transformations and original action outcomes."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_operator_equivalence_protocol",
+        "bound_observation_carrier",
+        "existing_compute_relation_verification"
+      ],
+      "dispatcher_reason": "psf_idempotence_ok: substantive PSF idempotence evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "base_operation_relations",
+      "gate_id": "psf_idempotence_ok",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Validate the consumption relation through the existing compute chain and compare first/second outcomes under the declared predicate.",
+      "negative_cases": [
+        "different second result",
+        "missing second application",
+        "second application consumes original input",
+        "two unrelated first applications presented as repetition"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_idempotence_ok",
+        "result_sha256": "28cdd8506eb558eb9ee915af24e32c7b34b907571472b0a76c8275609be6ba18",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "The observed second application consumes the first output and produces an equivalent result.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Idempotence invariant holds for the test suite.",
+      "required_decisions": [
+        "exact repeated operator",
+        "input domain",
+        "equivalence rule",
+        "required two-application paths"
+      ],
+      "required_evidence": "First and second applications, with the second consuming the exact first output, plus their original results."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_path_protocol",
+        "bound_observation_carrier",
+        "existing_compute_relation_verification"
+      ],
+      "dispatcher_reason": "psf_path_independence_ok: substantive PSF path-independence evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "base_operation_relations",
+      "gate_id": "psf_path_independence_ok",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Use the existing planned-observed relation for path extent and apply the selected terminal equivalence predicate.",
+      "negative_cases": [
+        "one different outcome",
+        "missing branch",
+        "deleted requirement",
+        "changed initial state",
+        "paths chosen after observation"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_path_independence_ok",
+        "result_sha256": "cfabefdc4e2cd003d4e3997e200a4362952a4c414513fe4307fbbbbb39c41d89",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Every required path completes and reaches the declared equivalent outcome.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "Path-independence invariant holds for the test suite.",
+      "required_decisions": [
+        "predeclared alternative paths",
+        "common initial case and terminal comparison domain",
+        "operator identities",
+        "equivalence rule"
+      ],
+      "required_evidence": "Complete original execution/state evidence for every declared alternative path."
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "selected_pii_order_protocol",
+        "reviewed_privacy_contract",
+        "bound_observation_carrier"
+      ],
+      "dispatcher_reason": "psf_pii_monotonicity_ok: substantive PSF PII-monotonicity evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "base_operation_relations",
+      "gate_id": "psf_pii_monotonicity_ok",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Apply only the selected PII-specific order to supported observations; do not infer sensitive personal attributes or invent a protection score.",
+      "negative_cases": [
+        "relation violation",
+        "invented sensitivity classification",
+        "unbound representation",
+        "missing transformation",
+        "ordinary monotonicity PASS substituted"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "psf_pii_monotonicity_ok",
+        "result_sha256": "15a9430752ae1059e1f76b9a3b28e9292e6f132f2b99a6df4f46d019216c91df",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Every applicable pair satisfies the explicitly fixed PII relation.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "operational_protocol_not_fixed",
+      "registry_intent": "PII monotonicity constraint holds for the test suite.",
+      "required_decisions": [
+        "explicit PII representation and order",
+        "permitted privacy-safe data",
+        "admissible transformations",
+        "comparison rule"
+      ],
+      "required_evidence": "Selected representation, transformation and observation bytes under an explicit privacy contract."
+    },
+    {
+      "bounded_observation_replayed_this_metric": false,
+      "current_implementation_class": "generic_reference_recipe",
+      "enabled_by_this_plan": false,
+      "gate_id": "q1_grounded_ok",
+      "new_gate_result_created": false,
+      "next_obligation": "Retain reference-reduction scope; preserve needed replay evidence and do not infer new certification of input quality or live behavior.",
+      "observed_record": {
+        "gate_id": "q1_grounded_ok",
+        "result_sha256": "dc8fc7be1c0fc0eae91ce7d7834554b775aff9c5c8971b33c3c6d7a88ef6faa8",
+        "value": true,
+        "verification": "recorded_success_only"
+      },
+      "registry_intent": "Groundedness passes under the defined evaluation protocol."
+    },
+    {
+      "bounded_observation_replayed_this_metric": true,
+      "current_implementation_class": "dedicated_q2_intake",
+      "eligible_groups": 49,
+      "enabled_by_this_plan": false,
+      "gate_id": "q2_consistency_ok",
+      "input_valid": true,
+      "metric_pass": false,
+      "minimum_eligible_groups": 50,
+      "new_gate_result_created": false,
+      "next_obligation": "Preserve the valid negative result and original workload; no threshold change, retry, replacement or top-up.",
+      "observed_record": {
+        "gate_id": "q2_consistency_ok",
+        "result_sha256": "8becef9a1465cc545573c830c45559b47f21569850aff640b61d7d14474b8369",
+        "value": false,
+        "verification": "independent_q2_replay_required"
+      },
+      "production_gate_eligible": false,
+      "registry_intent": "Consistency passes under the defined evaluation protocol.",
+      "unknown_groups": 1
+    },
+    {
+      "current_implementation_class": "unsupported_required_gate",
+      "depends_on": [
+        "accepted_q1_labels",
+        "selected_examples_and_slice_metadata",
+        "q3_specification_migration",
+        "dedicated_q3_intake_and_admission"
+      ],
+      "dispatcher_reason": "q3_fairness_ok: substantive Q3 slice-coverage and disparity evaluation is unavailable in this release path. Assertion-only reference PASS is insufficient evidence.",
+      "enabled_by_this_plan": false,
+      "family": "label_and_slice_parity",
+      "gate_id": "q3_fairness_ok",
+      "independent_candidate_admission": "explicit_unsupported_rejection",
+      "independent_check": "Reuse check_q3_reference_summary.py; a verified valid metric FAIL remains a failed gate. A new admission result carries any later authentication/applicability claim without changing the old standalone report.",
+      "negative_cases": [
+        "wrong example or label digest",
+        "duplicate or missing label",
+        "altered slice",
+        "insufficient eligible total",
+        "excess small-group union or missing fraction",
+        "excess disparity",
+        "aggregate Q1 PASS substituted",
+        "valid metric FAIL relabeled as PASS"
+      ],
+      "new_gate_result_created": false,
+      "observed_record": {
+        "gate_id": "q3_fairness_ok",
+        "result_sha256": "54e9c729e598ae72ff6a68c7ff28b9b77a79f8ef25d921b08b790f5f27d8adc1",
+        "value": false,
+        "verification": "source_contract_failure"
+      },
+      "positive_case": "Bound accepted inputs reconstruct exactly; metric PASS additionally satisfies every existing profile coverage and disparity requirement.",
+      "protocol_decisions_resolved_by_this_plan": false,
+      "protocol_status": "standalone_protocol_implemented_release_migration_pending",
+      "registry_intent": "Fairness criteria pass under the defined evaluation protocol.",
+      "required_decisions": [
+        "accepted response-bound Q1 annotation contract and selected label file",
+        "declared slice metadata and source applicability",
+        "coordinated canonical Q3 specification version update",
+        "dedicated current-run intake and independent candidate admission"
+      ],
+      "required_evidence": "Selected original/composite examples, row- and file-bound Q1 labels, manifest, external expectation, independent Q3 reconstruction and separate current-run applicability evidence."
+    },
+    {
+      "bounded_observation_replayed_this_metric": false,
+      "current_implementation_class": "generic_reference_recipe",
+      "enabled_by_this_plan": false,
+      "gate_id": "q4_slo_ok",
+      "new_gate_result_created": false,
+      "next_obligation": "Retain reference-reduction scope; preserve needed replay evidence and do not infer new certification of input quality or live behavior.",
+      "observed_record": {
+        "gate_id": "q4_slo_ok",
+        "result_sha256": "4fe60a216404d89b26a8cabbf0c1a822d7053a0eb4fbf15f397d4dd3274b23b4",
+        "value": true,
+        "verification": "recorded_success_only"
+      },
+      "registry_intent": "Latency/cost SLO constraints pass under the defined evaluation protocol."
+    }
+  ],
+  "independent_boundaries": {
+    "assertion_only_reference_reducer_admissible": false,
+    "candidate_admission": {
+      "path": "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+      "symbol": "UNSUPPORTED_REQUIRED_GATES"
+    },
+    "coordinated_semantic_implementation_required_before_removal": true,
+    "dispatcher": {
+      "path": "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py",
+      "symbol": "UNSUPPORTED_REASONS"
+    },
+    "sets_match": true,
+    "smoke_defaults_admissible": false
+  },
+  "next_implementation": {
+    "cardinality_dependencies": [
+      {
+        "current_tools_count_literals": 5,
+        "path": "tests/test_check_pages_source_binding_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_language_relation_comparator_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_language_relation_impact_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_paradox_w1_native_v0.py"
+      },
+      {
+        "current_tools_count_literals": 5,
+        "path": "tests/test_paradox_w1_records_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_pulsemech_compute_bounded_execution_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_q2_hosted_intake_workflow_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_q2_reference_acquisition_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_q2_release_host_tokenizer_v0.py"
+      },
+      {
+        "current_tools_count_literals": 2,
+        "path": "tests/test_q2_release_host_tokenizer_workflow_v0.py"
+      },
+      {
+        "current_tools_count_literals": 2,
+        "path": "tests/test_q2_release_host_worker_v0.py"
+      },
+      {
+        "current_tools_count_literals": 2,
+        "path": "tests/test_q3_external_postflight_v0.py"
+      },
+      {
+        "current_tools_count_literals": 1,
+        "path": "tests/test_q3_native_capture_workflow_v0.py"
+      }
+    ],
+    "cardinality_occurrences_total": 26,
+    "fixture_inventory_to_close_before_implementation": true,
+    "gate_enablement": false,
+    "id": "B1",
+    "meta_test_source_regexes_and_strings_included": true,
+    "old_stale_count_rejection_assertions_must_remain": true,
+    "proposed_fixture_directory": "tests/fixtures/required_gate_suite_contract_v0/",
+    "proposed_new_paths": [
+      "schemas/required_gate_suite_contract_v0.schema.json",
+      "tools/check_required_gate_suite_contract_v0.py",
+      "tests/test_required_gate_suite_contract_v0.py",
+      "docs/compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md"
+    ],
+    "proposed_registration_path": "ci/tools-tests.list",
+    "proposed_tools_test_count_after_one_addition": 183,
+    "rebase_and_reinspect_dependencies_before_implementation": true,
+    "register_once_only": true,
+    "scope": "Structural declaration/obligation contract only",
+    "second_observer_or_relation_engine": false,
+    "targeted_pytest_count_remains": 40,
+    "unresolved_real_execution_decisions": {
+      "finite_case_roster": null,
+      "first_substantive_property": null,
+      "observation_profile_mapping": null,
+      "operator_implementation": null,
+      "order_or_equivalence_rule": null,
+      "privacy_retention_contract": null,
+      "subject": null
+    }
+  },
+  "ordered_units": [
+    {
+      "delivered_by_this_package": true,
+      "id": "B0",
+      "scope": "Source-bound coverage design and exact dependency inventory"
+    },
+    {
+      "delivered_by_this_package": false,
+      "id": "B1",
+      "scope": "Metric-suite companion schema and structural checker; synthetic cases only; existing compute chain reused"
+    },
+    {
+      "delivered_by_this_package": false,
+      "id": "B2",
+      "scope": "One complete selected operational protocol and supported observation-profile mapping"
+    },
+    {
+      "delivered_by_this_package": false,
+      "id": "B3",
+      "scope": "Substantive property calculation and separate reconstruction; existing Q3 pair reused where applicable"
+    },
+    {
+      "delivered_by_this_package": false,
+      "id": "B4",
+      "scope": "Coordinated intake, dispatcher, independent admission and exact evidence preservation"
+    },
+    {
+      "delivered_by_this_package": false,
+      "id": "B5",
+      "scope": "Separately authorized actual selected reference and preservation/reconstruction"
+    }
+  ],
+  "plan_status": "proposed_for_implementation_review",
+  "preparation_baseline": {
+    "commit": "37b1062094f5e4b28800dfc2d7a27c494e4cc977",
+    "is_future_implementation_commit": false,
+    "merged_pr": 3016,
+    "tree": "c951de761f1a7c4346380d830185b62e687c6b13"
+  },
+  "prepared_date": "2026-11-14",
+  "prepared_date_timezone": "Europe/Budapest",
+  "q3_dependencies": {
+    "accepted_label_file_selected_by_this_plan": null,
+    "baseline_canonical_spec_version": "0.1.1",
+    "canonical_spec_migration_required": true,
+    "dedicated_current_run_intake_and_independent_admission_required": true,
+    "existing_profile_id": "q3_input_recomputation_v0.1",
+    "existing_profile_status": "ACCEPTED_FOR_STANDALONE_IMPLEMENTATION",
+    "existing_profile_version": "0.1.0",
+    "historical_session_complete": false,
+    "independent_checker": "PULSE_safe_pack_v0/tools/check_q3_reference_summary.py",
+    "label_binding_keys": [
+      "example_id",
+      "example_line_sha256",
+      "examples_file_sha256"
+    ],
+    "labels_created_by_this_plan": false,
+    "labels_inferred_from_stop_reason": false,
+    "migration_changes_in_this_package": false,
+    "migration_decision_id": "Q3_D01_SMALL_GROUP_UNION",
+    "new_preflight_or_capture_requested": false,
+    "planning_review_scope": "Current GitHub terminal metadata and prior Q3 acquisition checkpoint; this package performs no fresh native carrier verification.",
+    "producer": "PULSE_safe_pack_v0/tools/build_q3_reference_summary.py",
+    "selected_capture_run": {
+      "api_conclusion": "success",
+      "attempt": 1,
+      "run_id": 43237628996,
+      "source_commit": "68c6fb199885c99f6a5809866ebd0aaae43b4847"
+    },
+    "selected_preflight_run": {
+      "api_conclusion": "success",
+      "attempt": 1,
+      "run_id": 43235020126,
+      "source_commit": "68c6fb199885c99f6a5809866ebd0aaae43b4847"
+    },
+    "standalone_limitations_remain_unchanged": true,
+    "standalone_parameters": {
+      "alpha": 0.05,
+      "max_excluded_fraction_due_to_small_groups": 0.1,
+      "max_missing_group_fraction": 0.05,
+      "max_worst_group_gap": 0.05,
+      "min_n_eligible_total": 200,
+      "min_n_per_group": 30,
+      "z": 1.959963984540054
+    },
+    "valid_negative_reconstruction_is_metric_pass": false
+  },
+  "record_role": "engineering_plan_not_evidence_verdict",
+  "record_type": "pulsemech_required_gate_coverage_plan_v0",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "scope": {
+    "authority_effect": "none",
+    "changed_paths": [
+      "docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md",
+      "docs/compute/required_gate_coverage_plan_v0/coverage_plan_v0.json",
+      "docs/INDEX.md"
+    ],
+    "creates_gate_results": false,
+    "implementation_complete": false,
+    "issue_to_keep_open": "HKati/pulse-release-gates-0.1#2879",
+    "new_model_calls": 0,
+    "normative": false,
+    "policy_changed": false,
+    "step5c_complete": false,
+    "step5d_complete": false,
+    "suite_execution_authorized": false,
+    "workflow_dispatched": false
+  },
+  "shared_evidence_design": {
+    "acquire_once_per_authorized_occurrence": true,
+    "existing_paths_to_reuse": [
+      "schemas/pulsemech_compute_subject_input_packet_v0.schema.json",
+      "tools/check_pulsemech_compute_subject_input_packet_v0.py",
+      "tools/pulsemech_compute_subject_input_packet_producer_core_v0.py",
+      "tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py",
+      "tools/load_pulsemech_compute_current_run_export_carrier_v0.py",
+      "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json",
+      "tools/check_pulsemech_compute_runtime_observation_packet_v0.py",
+      "tools/pulsemech_compute_binding_analyzer_core_v0.py",
+      "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py",
+      "tools/check_pulsemech_compute_binding_report_v0.py",
+      "schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
+      "tools/build_pulsemech_compute_planned_observed_relation_v0.py",
+      "tools/check_pulsemech_compute_planned_observed_relation_v0.py"
+    ],
+    "existing_producers_execute_new_suite_without_review": false,
+    "metric_specific_addition": "Companion mapping of fixed cases, protocol references and per-gate obligations to existing packet digests and execution_id/state_id identities.",
+    "new_generic_observer_or_analyzer": false,
+    "raw_payload_in_generic_runtime_packet": false,
+    "raw_payload_location": "Separate bound carrier under its own reviewed privacy and retention contract.",
+    "share_only_when_subject_source_protocol_input_occurrence_bindings_match": true,
+    "shared_observations_not_shared_verdict": true,
+    "status": "proposed"
+  },
+  "source_inventory": [
+    {
+      "bytes": 158466,
+      "git_blob_sha1": "9da3eb0a0f8a99071df444f08e9c49f14515ceb1",
+      "path": ".github/workflows/pulse_ci.yml",
+      "sha256": "7489fca657c4b2541da4946237b3f864aae7f9247198e5a3c6cbc3429a32db6a",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 7110,
+      "git_blob_sha1": "424f2c0b4e0b8ef8239c031f31154f3be18760a4",
+      "path": "PULSE_safe_pack_v0/examples/required_gate_current_run_reference_v0.json",
+      "sha256": "a626e71557484cce3a9b60d601b63b373cf639461ff332cb6e7b88ead2e8c486",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 18256,
+      "git_blob_sha1": "2f4ec486060a42fed5e05cec8629c59b04018cb7",
+      "path": "PULSE_safe_pack_v0/profiles/q3_reference_recomputation_v0.json",
+      "sha256": "e31e390d3ee5619bad082a6b04b7b556cfbed1690f97e35bc972816cb48db666",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 13414,
+      "git_blob_sha1": "bc1ddc3f411cfc196e88357651abc8552f9e3b2c",
+      "path": "PULSE_safe_pack_v0/profiles/required_gate_evaluations_v0.json",
+      "sha256": "f3177c651f75ef561a5404b96a65430cd033bc3ba754662aa75515f0e88b8c05",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 41633,
+      "git_blob_sha1": "1677ad6fe967fa01cc3ef9a27315eddc8ada1797",
+      "path": "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+      "sha256": "e981817da3eaec0b07a62eb97550764fe2b880359e87d776136444cbacdc5130",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 9301,
+      "git_blob_sha1": "2bd10709db33ef229fa41d2671d737e95818258d",
+      "path": "PULSE_safe_pack_v0/tools/build_required_gate_reference_summary_v0.py",
+      "sha256": "56e96f7753980b19f345b6e06b0899a76bfe5d224b9a6270c85f8c836dfea8fa",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 53052,
+      "git_blob_sha1": "2568827d285105aad0a58a90f3ec508a6d971a47",
+      "path": "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py",
+      "sha256": "6986db5dd8a0b5638c9f88e13e10af5cbae69a53715558d07dd51d934c6ee22a",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 29595,
+      "git_blob_sha1": "86feda8a80a8cde740f0e5251ae47603175d9d3d",
+      "path": "PULSE_safe_pack_v0/tools/run_all.py",
+      "sha256": "4d5af5c521eb69723b61486c01fe0c0ed5c7cd9014cd772ce2759028ec231ff7",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 38846,
+      "git_blob_sha1": "eea0efcd8cca0ba4a27cf8d419a5cfe5befbe5e2",
+      "path": "PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py",
+      "sha256": "3a32491ffbbeb9dc460534834413506c154db8067c93fab34f77a20e787ac8d4",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 1988,
+      "git_blob_sha1": "f8c2ee5d7a5b80d70ab8c3c217480017a39af14a",
+      "path": "ci/pytest-tests.list",
+      "sha256": "de8594dbaada446b0172a65efd6909d629f282b129405459126232157dce1bfe",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 10105,
+      "git_blob_sha1": "9a40bf6b19a2f02660033c8e0ac705a0dd713b52",
+      "path": "ci/tools-tests.list",
+      "sha256": "cc7e5721c7af0caf548759b27b1b81981cc2e22360f3966966cbcc7e7000c4eb",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 91357,
+      "git_blob_sha1": "19a65d729bac22c2c27164913d75f2c48bd2503f",
+      "path": "docs/INDEX.md",
+      "sha256": "003faf02e68f5defddd1b6f8641e4f7a3e64a294f7edf536589932cab8c9213b",
+      "unchanged_from_observed_source_59b0aa8": false
+    },
+    {
+      "bytes": 19905,
+      "git_blob_sha1": "16d0951c84c3561341a7159269fcb78b12c159ac",
+      "path": "docs/PULSEMECH_RELEASE_GRADE_REFERENCE_PROOF_PLAN_v0.md",
+      "sha256": "fd0b128ba571255779bb85201dde8b20b5fc4eea35c2e3a3d5b7aa2d93cffc0b",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 7412,
+      "git_blob_sha1": "ff161158054518b90f6967f335c6bcb32c0dc996",
+      "path": "docs/PULSE_PRE_MATERIALIZATION_GATE_MECHANICS_v0.md",
+      "sha256": "5d3c4fc6bc16f7e7e8ea7b5b14c7342f475e1fa3f626c023399ef5284259eac8",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 63372,
+      "git_blob_sha1": "4d62186e45fa59238a91f0a2afcd7066afb7ae9b",
+      "path": "docs/PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md",
+      "sha256": "a6e1473c343423e21fa7927b92eed84abf0819b405b25bf98733c2cf4933b7ed",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 143853,
+      "git_blob_sha1": "7e69348c9c23cc531dceb069c5c28433e40e9358",
+      "path": "docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md",
+      "sha256": "79a4670569f48afe3de5fbcf396451d4f45abc23b334153309a46e28d93f9997",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 17045,
+      "git_blob_sha1": "3d99f091e226e2d09b77db29d271bfb848fa415c",
+      "path": "docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md",
+      "sha256": "213ea2ce00afdc9b07d800840797b3f6658feb52c61b12bca178cf4a34e06d80",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 8597,
+      "git_blob_sha1": "10cdbd342cd803296bf2dc6f292bcb254e247f73",
+      "path": "docs/compute/admission_rejection_43445176088_v0/README.md",
+      "sha256": "e3151372ac08e123e75274098eeec239083c30c43658c1a3595fa64641ab3fff"
+    },
+    {
+      "bytes": 3269,
+      "git_blob_sha1": "16fe7da3cb8fa304a3186955f76cea6c02cf09d3",
+      "path": "metrics/specs/q1_groundedness_v0.yml",
+      "sha256": "a63625ca894294e0fbe4febffdd143d22929dcaa44ea52a6aaa02453f0aac65f",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 6750,
+      "git_blob_sha1": "4d1f6e1c4197e2465369585c78de4fd538957275",
+      "path": "metrics/specs/q3_fairness_v0.yml",
+      "sha256": "58fc3ddbf636ffdcadc9ca3ce07e6051ff9801d49e9593b7c8e79970a08e782e",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 10971,
+      "git_blob_sha1": "c5058adbbc2a8d110aaca7d0f9ca7c7cca623d69",
+      "path": "preservation/admission_rejection_v0/verification_43514702328_attempt_1/verification_record_v0.json",
+      "sha256": "ff3a35a7f09e3036862099ec54582c95bb046adae4b1709ebaba8c630fcfe61a"
+    },
+    {
+      "bytes": 3466,
+      "git_blob_sha1": "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
+      "path": "pulse_gate_policy_v0.yml",
+      "sha256": "00fc5eef5fa3f240028aaf636a2e43ba29f1da000484c7a2f1baafcdd3c4ae8c",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 7295,
+      "git_blob_sha1": "64707427617202e31f0ff57eb215bf9caa4f0cfc",
+      "path": "pulse_gate_registry_v0.yml",
+      "sha256": "42309ba8fed0d8558805a84bc785b6cb5aff0854b80bbbb6de251e37b97bc56b",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 179432,
+      "git_blob_sha1": "5e07216f29bef86d51398b3054e6f2fe878f51c9",
+      "path": "schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
+      "sha256": "33c6e6c1727642c483492096fd9c7a786be4419365464d391210124eedb51017",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 70467,
+      "git_blob_sha1": "110af1e8a111ec438cf4d74ec679a556d5f3e4b5",
+      "path": "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json",
+      "sha256": "824991a9f5c21ca9bd9fd7d1fc5c5813af3ff0ef9714c8506d2c3e6a5f9fa0cc",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 43429,
+      "git_blob_sha1": "c37dc263db787a80b94050220f8c52c8216f958f",
+      "path": "schemas/pulsemech_compute_subject_input_packet_v0.schema.json",
+      "sha256": "8116c757ba7ee65c14ae159fe9969bc2084fe105b0df7e69ebee64f65b45f1e5",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 12784,
+      "git_blob_sha1": "d79596dc099f0da3bede4a0eb4716defdd1db6b7",
+      "path": "schemas/required_gate_evaluation_result_v0.schema.json",
+      "sha256": "c5558b45417968e513e6d526bed443bc622c49842059102d968bb3044c1763cc",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 8877,
+      "git_blob_sha1": "25faa66e69e3b4292f0f12ae10bf4b68177b253a",
+      "path": "schemas/required_gate_evidence_v0.schema.json",
+      "sha256": "f73d2374a9c3a49fadb785fbef0af488ab781243250033e9f23639dd64145eb1",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 32555,
+      "git_blob_sha1": "c1b481e4229767e17904a48dfd4b977ab80c13d1",
+      "path": "tests/test_check_pages_source_binding_v0.py",
+      "sha256": "e50534ecbf92d0cb648cf9fd5f5c4d82fc2c62b7af3210f80557e4c311c45d76",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 84845,
+      "git_blob_sha1": "bcf57e63b09127bff7b6b0b277e4bde6bc8f36ec",
+      "path": "tests/test_language_relation_comparator_v0.py",
+      "sha256": "96ccbba7b9da9e41c51a153ce28223efbc2f9b6daea4520016e67e63be997070",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 68399,
+      "git_blob_sha1": "35d9f41e3d79e104dbe8fc64a5a86b943a72e7cf",
+      "path": "tests/test_language_relation_impact_v0.py",
+      "sha256": "177f1fa1b75080e2cb0c4036579e15fc04f75bbc23dc5890d3be3618326008a5",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 103348,
+      "git_blob_sha1": "71a898ac656b3548697ef41e08d4b7c8b654a2a1",
+      "path": "tests/test_paradox_w1_native_v0.py",
+      "sha256": "1c53e9678c7df8cd9f38394d2dfddcd4d591a0f47204981cf8de7209d885d9d1",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 31730,
+      "git_blob_sha1": "4ec7647427c2da4e835c4ca14dca8c0a65d71e5c",
+      "path": "tests/test_paradox_w1_records_v0.py",
+      "sha256": "b5e568c13e170ef5853423e4245469897c224c933a18fbca046d437bd70284c2",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 34476,
+      "git_blob_sha1": "555c9492a774898cab953cb1c91a06f80f0ec7a2",
+      "path": "tests/test_pulsemech_compute_bounded_execution_v0.py",
+      "sha256": "41ad732215ffad4447022928ca2ea2c6e7a303ede7ca6df3740e46fcd7162791",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 44516,
+      "git_blob_sha1": "87f21749f00699d9aeeb2efe13e53521b65cd9a5",
+      "path": "tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py",
+      "sha256": "c4fe582e0260afe085c8093c0faf921f8fb7a563c42838396b9338a9042d6275",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 32090,
+      "git_blob_sha1": "8edc6beaf3510331968fd9a22e660b2e757937c4",
+      "path": "tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py",
+      "sha256": "da02cd0f7ccaeeb9ee8ea61574f676123b560e940c3330d3b448110ae8839352",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 40334,
+      "git_blob_sha1": "a062a3662fcb3de420f2b2cde23f24ea1bd7e0fc",
+      "path": "tests/test_q2_hosted_intake_workflow_v0.py",
+      "sha256": "5dce83b6f49c56fc84e15ece0e6e9d6e1ad40859c96b041e59efca81d630173d",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 216508,
+      "git_blob_sha1": "3195b34877f22e96501f2f1f9071ab94edf842c7",
+      "path": "tests/test_q2_reference_acquisition_v0.py",
+      "sha256": "9908df38d3d0758617a21b87f54dd55e8d3bb29b24cc890602315b23bc5211cb",
+      "unchanged_from_observed_source_59b0aa8": false
+    },
+    {
+      "bytes": 136739,
+      "git_blob_sha1": "e399d6b16631913b30735b4da7824230cca44025",
+      "path": "tests/test_q2_release_host_tokenizer_v0.py",
+      "sha256": "6f6a7d9716a07856d6493bc1ee424006cb38f081d670ba268f6e2c20f4d712d7",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 9359,
+      "git_blob_sha1": "c22d74ddc1f16c1015310adfc885593220463695",
+      "path": "tests/test_q2_release_host_tokenizer_workflow_v0.py",
+      "sha256": "f84ff008b69b9fe0608b2243ca5fbb0d0f157679f31e10fec67180c6d5a37150",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 86403,
+      "git_blob_sha1": "15b235ac907e9a1df9fdade4236e67d857fb32d3",
+      "path": "tests/test_q2_release_host_worker_v0.py",
+      "sha256": "fdfd7ca1e5a206a83fd3e5df26e32114a8460ead92d7cff74f868492c93dce14",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 19697,
+      "git_blob_sha1": "443d5c30ddab86a0c965196e801e588ff72d0641",
+      "path": "tests/test_q2_required_gate_integration_v0.py",
+      "sha256": "d9dba7594a0b7435d12c03eaf0c39ebbcf9c0f45a47c9af38fa7d9043fd3a6fc",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 115047,
+      "git_blob_sha1": "778f60e5217f91a646b4392bb9c3638eecc8e650",
+      "path": "tests/test_q3_external_postflight_v0.py",
+      "sha256": "6fe4c3759ea21f058074bb8b32e3648d2317f8c42610f2dea78f37f33a1c8581",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 9330,
+      "git_blob_sha1": "68a57d4445eba37e93004d9e3b4fc9ae3d081771",
+      "path": "tests/test_q3_native_capture_workflow_v0.py",
+      "sha256": "5395e88e7df34e8c3d409c1afc7f46f0a9412034c98cabbb9e434841d4e5ad1e",
+      "unchanged_from_observed_source_59b0aa8": false
+    },
+    {
+      "bytes": 46209,
+      "git_blob_sha1": "79cee260d3ba3d1b891734137acdc3fcf7aa389b",
+      "path": "tests/test_release_grade_candidate_evidence_path_v0.py",
+      "sha256": "f8641898f7d8ab809408e667aa7de1f4535f1bb1fcc0724c69a6f85dc64ec2d7",
+      "unchanged_from_observed_source_59b0aa8": true
+    },
+    {
+      "bytes": 11178,
+      "git_blob_sha1": "2966b061466ebd902edce6a15bb7e7a68c525f1b",
+      "path": "tests/test_required_gate_current_run_evaluator_coverage_v0.py",
+      "sha256": "048a40d2c365bd6c72c6d048f4f82d426847e6853377b8bd53e7c4084892908b",
+      "unchanged_from_observed_source_59b0aa8": true
+    }
+  ],
+  "source_inventory_scope": "Fetched and byte-verified selected review files, not a complete executed source or host closure."
+}

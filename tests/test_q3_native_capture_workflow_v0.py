@@ -40,7 +40,13 @@ def test_exact_manual_owner_scoped_workflow():
 def test_workflow_cannot_publish_workspace_models_or_hidden_logs():
     text=(ROOT/WF).read_text();d=workflow()
     up=[s for s in d['jobs']['acquire']['steps'] if s.get('uses','').startswith('actions/upload-artifact@')]
-    assert len(up)==1 and 'always()' in up[0]['if']
+    assert len(up)==2
+    assert 'always()' in up[0]['if']
+    assert up[1]['if']=="failure() && steps.image_initial.outcome != 'skipped'"
+    assert {s['with']['name'] for s in up} == {
+        'q3-reference-capture-${{ github.run_id }}-${{ github.run_attempt }}',
+        'q3-runner-image-${{ github.run_id }}-${{ github.run_attempt }}'}
+    up=[s for s in up if s['with']['name'].startswith('q3-reference-capture-')]
     assert up[0]['with']['retention-days']=='30' and up[0]['with']['overwrite']=='false'
     assert [x.rsplit('/',1)[-1] for x in up[0]['with']['path'].splitlines()]==['evidence.zip','receipt.json','failure.json']
     for forbidden in ['contents: write','id-token: write','actions: write','git push','gh pr','secrets.','pull_request_target']:
@@ -60,7 +66,8 @@ def guard_run(tmp_path,fault=None):
     (tmp_path/'environment.yml').write_text('dependencies: [python=3.11]\n')
     names=['q2_reference_acquisition_v0.yml','pulse_ci.yml','q2_release_capsule_publication_v0.yml',
            'q2_release_host_tokenizer_verification_v0.yml','q2_release_host_worker_verification_v0.yml',
-           'q3_reference_acquisition_v0.yml','paradox_compatibility_v0.yml']
+           'q3_reference_acquisition_v0.yml','q3_reference_acquisition_v1.yml','paradox_compatibility_v0.yml',
+           'pulsemech_admission_rejection_verification_v0.yml','required_gate_idempotence_entry_build_v0.yml']
     for n in names:(tmp_path/'.github/workflows'/n).write_bytes((ROOT/'.github/workflows'/n).read_bytes())
     path=tmp_path/WF;d=workflow();j=d['jobs']['acquire'];steps=j['steps']
     setup=next(x for x in steps if x.get('uses','').startswith('actions/setup-python@'))
@@ -111,7 +118,7 @@ def test_all_four_programs_registered_once_tools_manifest_unchanged():
         name='tests/test_q3_native_capture_'+suffix+'v0.py'
         assert entries.count(name)==1 and (ROOT/name).is_file()
     tools=[x.strip() for x in (ROOT/'ci/tools-tests.list').read_text().splitlines() if x.strip() and not x.startswith('#')]
-    assert len(tools)==len(set(tools))==167
+    assert len(tools)==len(set(tools))==190
     assert not [x for x in tools if 'q3_native_capture' in x]
 
 

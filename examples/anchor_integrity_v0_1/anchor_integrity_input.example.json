@@ -1,0 +1,41 @@
+{
+  "authority_effect": "none",
+  "baseline_commit": "34431ec8ebe305a83273ffd39b78f083219f03e6",
+  "candidate_status": "diagnostic_only",
+  "legacy_overlay": {
+    "is_claim_evidence_coverage": false,
+    "path": "PULSE_safe_pack_v0/artifacts/anchor_integrity_v0.json",
+    "schema_version": "anchor_integrity_v0",
+    "semantic_class": "operational_proxy",
+    "sha256": "7576be44026abaf0ff968d77d4f3f2d86cc016bd3b8bc0a29f05f0cee87b2343"
+  },
+  "packet_bindings": {
+    "claim_packet": {
+      "path": "examples/anchor_integrity_v0_1/claim_packet.example.json",
+      "schema_version": "anchor_integrity_claim_packet_v0_1",
+      "sha256": "820d3ea8f5b80b3bb93fcbe142554ebf1342a0b7d0c0619738edad0ecbab2f2b"
+    },
+    "evidence_packet": {
+      "path": "examples/anchor_integrity_v0_1/evidence_packet.example.json",
+      "schema_version": "anchor_integrity_evidence_packet_v0_1",
+      "sha256": "f704a71a0c5dd298297b5bed8cb857288a033140b6999761c7090bd690bd4429"
+    },
+    "relation_verification_packet": {
+      "path": "examples/anchor_integrity_v0_1/relation_verification_packet.example.json",
+      "schema_version": "anchor_integrity_relation_verification_packet_v0_1",
+      "sha256": "166048ee5b1881c9483994a0320d3f50315bc080f7a6c0f1485489a00f4d1a2d"
+    }
+  },
+  "paradox_graph_binding": null,
+  "release_authority_activation": false,
+  "requested_checks": {
+    "claim_evidence_binding": true,
+    "response_mode_recommendation": true,
+    "typed_evidence_cycle_check": true
+  },
+  "schema_version": "anchor_integrity_input_v0_1",
+  "subject": {
+    "run_id": "run-example-001",
+    "subject_id": "anchor-integrity-example-001"
+  }
+}

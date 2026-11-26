@@ -1,0 +1,316 @@
+{
+  "record_type": "q3_runtime_source_notice_evidence_index_v1",
+  "schema_version": 1,
+  "prepared_at_utc": "2026-11-06T16:41:36.152003+00:00",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "documentation_scope": {
+    "change_kind": "three_new_documentation_files",
+    "paths": [
+      "docs/compute/q3_runtime_source_notice_v1/README.md",
+      "docs/compute/q3_runtime_source_notice_v1/RESULT.json",
+      "docs/compute/q3_runtime_source_notice_v1/EVIDENCE_INDEX.json"
+    ],
+    "existing_files_to_modify_or_delete": [],
+    "runtime_payload_included": false,
+    "source_archives_included": false,
+    "executable_or_workflow_or_test_changes": false,
+    "private_custody_urls_included": false,
+    "authority_effect": "none"
+  },
+  "preparation_repository_observation": {
+    "observed_at_utc": "2026-11-06T16:37:26+00:00",
+    "main_sha": "625aa536ab1f5e3adc695c1a2d2ed9d11ca74101",
+    "main_commit_url": "https://github.com/HKati/pulse-release-gates-0.1/commit/625aa536ab1f5e3adc695c1a2d2ed9d11ca74101",
+    "ref_read_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/git/ref/heads/main",
+    "tree_read_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/git/trees/625aa536ab1f5e3adc695c1a2d2ed9d11ca74101?recursive=1",
+    "tree_response_truncated": false,
+    "target_directory_absent_at_observed_main": true,
+    "scope": "Read-only ref/tree lookup and static controller descriptor inspection; no native run listing or new CI conclusion asserted.",
+    "controller": {
+      "path": "PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py",
+      "url": "https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/625aa536ab1f5e3adc695c1a2d2ed9d11ca74101/PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py",
+      "size_bytes": 67450,
+      "sha256": "3a50f4cd1b05998fad6dcd7a7a5935813e453a8162c7c5eb93d27020fe856ffc",
+      "git_blob_sha": "297fccd181d64888329f254cbaa3db22bd85c526",
+      "literal_descriptor": {
+        "RUNTIME_TRANSPORT": {
+          "kind": "github-repository-parts-v0",
+          "repository": "HKati/pulse-release-gates-0.1",
+          "commit": null,
+          "prefix": null
+        }
+      },
+      "read_only_ast_inspection": true
+    }
+  },
+  "retained_result": {
+    "repository_path": "docs/compute/q3_runtime_source_notice_v1/RESULT.json",
+    "size_bytes": 4809,
+    "sha256": "88c4bb567b013f535bec8b7ecb786e6e3b7809ea3089a6db8b6d2ce9c9d7b0e4",
+    "source_archive_member": "RESULT.json",
+    "copied_without_reformatting": true,
+    "prepared_at_utc": "2026-11-06T01:12:24.630646+00:00",
+    "reviewed_main": "003d25b15dbac62bac247e70900260aaab8b0012",
+    "meaning": "Historical companion-preparation result, not a live configuration or a claim about a later documentation PR."
+  },
+  "selected_original": {
+    "filename": "q2-runtime-preparation-37148637546-1.zip",
+    "size_bytes": 508460811,
+    "sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+    "original_run": 37148637546,
+    "original_attempt": 1,
+    "original_artifact_id": 11282419957,
+    "original_source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c",
+    "archive_repacked": false
+  },
+  "companion_archive": {
+    "filename": "Q3_RUNTIME_SOURCE_NOTICE_COMPANION_v1.zip",
+    "size_bytes": 30470832,
+    "sha256": "7a72828947d276060b28b3668ad6a569771aefe837e8c50f94833c6f4f2ff54c",
+    "file_count": 1253,
+    "member_paths_relative_to_archive_root": true,
+    "retained_separately_from_repository": true,
+    "public_download_url": null,
+    "public_runner_source_selected": false,
+    "public_access_established_by_this_index": false,
+    "original_runtime_payload_included": false,
+    "full_gnu_source_rpms_included": false,
+    "retrieval": "Use the separately retained companion with this exact filename, byte count and SHA-256. The identifiers do not constitute a public download endpoint or fulfilled source-conveyance arrangement."
+  },
+  "companion_evidence": [
+    {
+      "archive_member": "RESULT.json",
+      "size_bytes": 4809,
+      "sha256": "88c4bb567b013f535bec8b7ecb786e6e3b7809ea3089a6db8b6d2ce9c9d7b0e4",
+      "purpose": "Unchanged result record also copied into this repository documentation directory."
+    },
+    {
+      "archive_member": "VALIDATION.json",
+      "size_bytes": 380,
+      "sha256": "be723ca8da945a439202b4ffbcbaa96b5fa5c536836efeefd88f5b6f0ce5aa93",
+      "purpose": "Historical 548-check validation record for the companion preparation."
+    },
+    {
+      "archive_member": "FILE_MANIFEST.json",
+      "size_bytes": 255944,
+      "sha256": "1b02b035824844ef5628de5737af40d1d37eacc9f6b2a52b58bd90ad7722ffc3",
+      "purpose": "Whole-companion file inventory; its own non-recursive identity is bound here and by the outer ZIP."
+    },
+    {
+      "archive_member": "README_HU.txt",
+      "size_bytes": 7885,
+      "sha256": "87a7675e9d4ba0b3d60b181857371d631ea4e04565bff8e1396f3364828f023f",
+      "purpose": "Full Hungarian explanation of the completed source and notice preparation."
+    },
+    {
+      "archive_member": "GNU_SOURCE_ARCHIVES.json",
+      "size_bytes": 4003,
+      "sha256": "6a35ff0cc6ee38ea007b4fc2bcb5858a16eedda03132a2032d0f61138916457a",
+      "purpose": "Retained full GNU source-archive records; the public fields needed here are selected below."
+    },
+    {
+      "archive_member": "SOURCE_AVAILABILITY.txt",
+      "size_bytes": 7301,
+      "sha256": "eeb41e2a91d55566855956bf28219c3480b83721843523b67dc4c0ee5119e66b",
+      "purpose": "Prepared source-availability and notice companion text; future conveyance remains pending."
+    },
+    {
+      "archive_member": "THIRD_PARTY_NOTICES_v1.txt",
+      "size_bytes": 1305567,
+      "sha256": "5d08b92c802eb761778dd4275b188edc5d9dbc67f4d89851136932d84622c713",
+      "purpose": "Full retained notice texts, with exact original byte ranges indexed separately."
+    },
+    {
+      "archive_member": "NOTICE_INDEX.json",
+      "size_bytes": 110817,
+      "sha256": "2beb19ee889575240717d6b3ffcc17375f85497132e64c1f80522d3c0a1c8a54",
+      "purpose": "Origins, components, sizes, hashes and byte ranges of 154 unique notice texts."
+    },
+    {
+      "archive_member": "SELECTED_ARCHIVE_CONTENTS.tsv",
+      "size_bytes": 11760,
+      "sha256": "c56a4d6e41a64af25958066b26cf8694be503014e78823b68071f26ce70c1201",
+      "purpose": "Exact 78-member selected runtime inventory for a separate owner disclosure decision."
+    },
+    {
+      "archive_member": "evidence/GNU_RPM_COMPARISONS.json",
+      "size_bytes": 62440,
+      "sha256": "90b76308950d1d9ee2dee2e22f3ee1b7e62eeb6fe36b2d644197f3f56bb891d5",
+      "purpose": "Static GNU ELF build-ID and section comparisons against official distribution packages."
+    },
+    {
+      "archive_member": "evidence/GNU_LOADER_METADATA_COMPARISONS.json",
+      "size_bytes": 911987,
+      "sha256": "c9b03a2a1763f214610384a1a91e8faff26c939332a21da49ab8104e853756ae",
+      "purpose": "Recorded loader metadata differences and normalized dynamic-symbol comparisons."
+    },
+    {
+      "archive_member": "evidence/GNU_SOURCE_MATERIALS.json",
+      "size_bytes": 100700,
+      "sha256": "200b7e1f5eb7181dc76d0098caf688f5c4a0fb1ed565d810d1e73f52855c2d6d",
+      "purpose": "274 source specification, patch and legal-material records."
+    },
+    {
+      "archive_member": "evidence/FFI_MARKER_FOLLOWUP.json",
+      "size_bytes": 5667,
+      "sha256": "e2f614e5f5cde3d8d90e057dcd05f06888e36f8bde9db691b920f266632fe7fe",
+      "purpose": "Evidence for the additional AWS-LC and Oniguruma source companions."
+    },
+    {
+      "archive_member": "evidence/TOKENIZERS_OBSERVED_LOCK_CROSSCHECK.json",
+      "size_bytes": 10645,
+      "sha256": "1531250db2e3617e9c4abf21795e6cbdb6f9ddbc14964da4d9a40548c4a51192",
+      "purpose": "39 observed Tokenizers crate checksums compared with the pinned source lock."
+    },
+    {
+      "archive_member": "evidence/MODEL_NOTICE_BINDING.json",
+      "size_bytes": 2350,
+      "sha256": "5d9c6e72f0daacf672009539e0d6957bb1d8801e682d3d69b1e35f7eb3e882e3",
+      "purpose": "Exact model-revision and model-card notice binding."
+    },
+    {
+      "archive_member": "evidence/SELECTED_ARCHIVE_DISCLOSURE_INVENTORY.json",
+      "size_bytes": 21187,
+      "sha256": "e7d44d9e35fb777261d3ce6dc61a7b7f3ce0ad60ceffacaadcc3a90850a49380",
+      "purpose": "78 original member sizes, digests and CRCs; does not authorize publication."
+    },
+    {
+      "archive_member": "evidence/original_wheel_materials/INDEX.json",
+      "size_bytes": 53096,
+      "sha256": "7e68f796377c4a169a8dd5421c688cc3052b96177f37169690778df1f147ad40",
+      "purpose": "Original wheel metadata and preserved legal-material inventory."
+    },
+    {
+      "archive_member": "evidence/GITHUB_READONLY_STATE.json",
+      "size_bytes": 17318,
+      "sha256": "9130424641c516023f5d3933ca9900231d412e8a2b74a18fae58240852618155",
+      "purpose": "Historical main and transport-merge CI observations from companion preparation."
+    },
+    {
+      "archive_member": "upstream/rust/OBSERVED_RUST_MATERIALS.json",
+      "size_bytes": 424498,
+      "sha256": "08eea94e56fdf097f2771a4fa460de2f44edb325d027d361b68b79801927e127",
+      "purpose": "113 observed crate source archives, registry checksums and legal materials."
+    },
+    {
+      "archive_member": "upstream/rust/SUPPLEMENTAL_NATIVE_MATERIALS.json",
+      "size_bytes": 6333,
+      "sha256": "98c3f890a89f3977d87f1ee54e5383c0c926e38711755c9c7804bfd2bb2882f8",
+      "purpose": "Two additional evidenced native source crates and their legal materials."
+    },
+    {
+      "archive_member": "upstream/openblas/GNU_ORIGINAL_COMPARISONS.json",
+      "size_bytes": 28786,
+      "sha256": "2e5c006c719181423f580cad1082dd60b4b64b94b1675212a87c0d884adb07aa",
+      "purpose": "OpenBLAS intermediate-wheel GNU object comparison."
+    },
+    {
+      "archive_member": "baseline/PREPARATION_SCOPE_RESULT.json",
+      "size_bytes": 81487,
+      "sha256": "08bb9a6af69663681abfdc383c7d3e10374b3a5949b065e70cd1102567cce787",
+      "purpose": "Unchanged earlier publication-scope assessment; historical LFS plan is not an instruction."
+    },
+    {
+      "archive_member": "baseline/POST_MERGE_SCOPE_OBSERVATIONS.json",
+      "size_bytes": 32229,
+      "sha256": "4ee646366cece1e51837ff9889f7944496ebb602c0759dc98e81b30623d025eb",
+      "purpose": "Unchanged post-merge scope observations."
+    },
+    {
+      "archive_member": "baseline/redistribution_review_v0.json",
+      "size_bytes": 1331653,
+      "sha256": "f7b583cba156f8de355b3627754beb71996123d4a3ed02fbac62b154b2c3b78c",
+      "purpose": "Unchanged earlier component and redistribution review."
+    },
+    {
+      "archive_member": "baseline/THIRD_PARTY_NOTICES_v0.txt",
+      "size_bytes": 140935,
+      "sha256": "4eb28d75574664ea1eb7e746cddc8d822c29b45f29da4014ae31cc9faaef10ec",
+      "purpose": "Unchanged earlier notice companion."
+    },
+    {
+      "archive_member": "baseline/Q3_RUNTIME_RESZEK.json",
+      "size_bytes": 7014,
+      "sha256": "67eff809f8cf000f82b8365f1fc535ca82ffea167e2834488166915454c87f37",
+      "purpose": "Exact original twenty-part split manifest."
+    }
+  ],
+  "gnu_source_archives": [
+    {
+      "filename": "gcc-8.5.0-26.el8_10.alma.1.src.rpm",
+      "size_bytes": 65714006,
+      "sha256": "0911864c260a75ae030f3144616e7e5e1359e04ce1c9730ab83906486e3bc79f",
+      "upstream_url": "https://vault.almalinux.org/8.10/BaseOS/Source/Packages/gcc-8.5.0-26.el8_10.alma.1.src.rpm",
+      "original_runtime_member": "torch/lib/libgomp.so.1",
+      "upstream_full_download_verified_at_companion_preparation": true,
+      "full_copy_retained_separately_from_companion_zip": true,
+      "included_in_this_repository_delivery": false,
+      "internal_digests": {
+        "header_sha1": true,
+        "header_payload_md5": true
+      },
+      "signature_cryptographically_verified": false
+    },
+    {
+      "filename": "gcc-4.8.5-44.el7.src.rpm",
+      "size_bytes": 79314655,
+      "sha256": "642c4085f6af9565e39583e54a9d7a5d9e6b93dd8c8e9474aec8a892d6c7aa36",
+      "upstream_url": "https://vault.centos.org/7.9.2009/os/Source/SPackages/gcc-4.8.5-44.el7.src.rpm",
+      "original_runtime_member": "numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0",
+      "upstream_full_download_verified_at_companion_preparation": true,
+      "full_copy_retained_separately_from_companion_zip": true,
+      "included_in_this_repository_delivery": false,
+      "internal_digests": {
+        "header_sha1": true,
+        "header_payload_md5": true
+      },
+      "signature_cryptographically_verified": false
+    },
+    {
+      "filename": "gcc-libraries-8.3.1-2.1.1.el7.src.rpm",
+      "size_bytes": 137336608,
+      "sha256": "cf2a1d2c2e5a56eb2e495c2638e64769b73db07555e1f7ce34cbd9feff6891f5",
+      "upstream_url": "https://vault.centos.org/7.9.2009/os/Source/SPackages/gcc-libraries-8.3.1-2.1.1.el7.src.rpm",
+      "original_runtime_member": "numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0",
+      "upstream_full_download_verified_at_companion_preparation": true,
+      "full_copy_retained_separately_from_companion_zip": true,
+      "included_in_this_repository_delivery": false,
+      "internal_digests": {
+        "header_sha1": true,
+        "header_payload_md5": true
+      },
+      "signature_cryptographically_verified": false
+    }
+  ],
+  "upstream_availability_scope": "The URLs and successful source downloads belong to the retained companion inspection. They are not a fresh availability check in this documentation preparation and are not a guarantee of future availability.",
+  "recorded_companion_validation": {
+    "checked_at_utc": "2026-11-06T01:12:24.630646+00:00",
+    "byte_checks": 548,
+    "passed": 548,
+    "failed_count": 0,
+    "unique_notice_texts": 154,
+    "gnu_source_attributions": 3,
+    "original_wheels_and_metadata": 30,
+    "original_notice_files": 54,
+    "observed_rust_crates": 113,
+    "additional_native_source_crates": 2,
+    "gnu_spec_patch_and_legal_materials": 274,
+    "verification_scope": "Static byte and metadata checks, not runtime execution, a full native SBOM, a rebuild, or legal clearance."
+  },
+  "continuation_boundaries": {
+    "owner_local_part_downloads_reported": 20,
+    "owner_local_part_hashes_verified": false,
+    "runtime_transport_ready": false,
+    "actual_runner_retrieval_verified": false,
+    "source_host_selected": false,
+    "runtime_publication_authorized": false,
+    "capture_handoff_approved": false,
+    "repository_write_performed_by_documentation_preparation": false,
+    "workflow_dispatched_by_documentation_preparation": false,
+    "generation_calls_by_documentation_preparation": 0,
+    "new_spend_authorized": 0,
+    "label_correctness": "not_verified",
+    "issue_2879_remains_open": true,
+    "authority_effect": "none"
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "evidence": [
+    {
+      "kind": "input_diagnostic",
+      "message": "paradox_metadata_present; cycle_check_not_run; no_risk_inferred"
+    },
+    {
+      "kind": "measurement_boundary",
+      "message": "claim/evidence, cycle and contradiction checks: not_run; results: null"
+    },
+    {
+      "kind": "operational_signal",
+      "message": "external_all_pass=true; unverified gate declaration, not claim evidence"
+    },
+    {
+      "kind": "operational_signal",
+      "message": "q1_grounded_ok=true; unverified gate declaration, not claim evidence"
+    },
+    {
+      "kind": "operational_signal",
+      "message": "q2_consistency_ok=true; unverified gate declaration, not claim evidence"
+    },
+    {
+      "kind": "operational_signal",
+      "message": "q3_fairness_ok=true; unverified gate declaration, not claim evidence"
+    },
+    {
+      "kind": "operational_signal",
+      "message": "q4_slo_ok=true; unverified gate declaration, not claim evidence"
+    },
+    {
+      "kind": "producer_profile",
+      "message": "legacy-v0-unmeasured-boundary-v1"
+    }
+  ],
+  "inputs": {
+    "paradox_source_path": "paradox.json",
+    "scanned_paths": [
+      "status.json",
+      "paradox.json"
+    ],
+    "status_path": "status.json"
+  },
+  "invariants": {
+    "anchor_coverage": null,
+    "anchor_presence": null,
+    "contradiction_risk": null,
+    "loop_risk": null,
+    "notes": "legacy-v0-unmeasured-boundary-v1; diagnostic_only; authority_effect=none; all evidence measurements not_run; no gate ratio emitted"
+  },
+  "meta": {
+    "commit": "fixture-not-a-source-commit",
+    "generator": "scripts/anchor_integrity_adapter_v0.py",
+    "run_id": "synthetic-wp2j",
+    "source_date_epoch": 0
+  },
+  "recommendation": {
+    "gate_action": "CLOSED",
+    "rationale": "Unmeasured legacy diagnostic: claim/evidence and cycle checks were not run. UNKNOWN/SILENCE/CLOSED are non-enforcing compatibility placeholders, not anchor-loss findings, response enforcement or a release decision. Use tools/build_anchor_integrity_diagnostic_v0_1.py with explicit evidence.",
+    "response_mode": "SILENCE"
+  },
+  "schema": "anchor_integrity_v0",
+  "state": "UNKNOWN"
+}

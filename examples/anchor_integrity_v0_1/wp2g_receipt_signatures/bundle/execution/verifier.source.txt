@@ -1,0 +1,2 @@
+SYNTHETIC VERIFIER SOURCE IDENTITY FIXTURE.
+No verifier was executed.

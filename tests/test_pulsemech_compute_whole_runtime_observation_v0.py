@@ -186,7 +186,7 @@ def test_action_pins_and_handoff_selector():
     expected = {
         'actions/checkout': '3d3c42e5aac5ba805825da76410c181273ba90b1',
         'actions/setup-python': '6d4fd22b20465ccc0f7354476588e8df7c9ca0e0',
-        'actions/upload-artifact': '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+        'actions/upload-artifact': 'cf430e030ddbb5b0abf93d22962f4752f3646cd9',
         'actions/download-artifact':  '9000827ccba6bdab643e8b6fd33ac0654aef8333',
     }
     for job in JOBS.values():
@@ -5298,20 +5298,43 @@ _HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
 
 
 def _workflow_before_setup_python_v710(raw):
-    """Test-only inverse of the exact reviewed action-pin refresh.
+    """Remove only the reviewed setup-python delta from current test inputs.
 
-    This restores historical test input bytes, never runtime admission.
-    Reject any other change before removing the dependency-only delta.
+    Keep the independently reviewed upload-artifact update intact for its
+    existing inverse; both intermediate and historical byte identities bind.
     """
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
+        'd80f7b77ef710d4797a6127c7b28727eba1e961d'
     ), 'unreviewed hosted-order workflow bytes'
     current = b'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
     previous = b'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
+    assert raw.count(current) == 6
     restored = raw.replace(current, previous)
     assert hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest() == (
-        '51636b49744e82879cd20cd968ef3e299afb1d11'
+        '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
     ), 'pre-setup-python-v7.1.0 workflow checkpoint mismatch'
+    return restored
+
+
+def _workflow_before_upload_artifact_v702(raw):
+    """Test-only inverse of the exact reviewed upload-artifact pin refresh.
+
+    Restore historical test input bytes, never runtime admission. Check both
+    the current and the historical Git blob before accepting the conversion.
+    """
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
+    ), 'unreviewed hosted-order workflow bytes'
+    current = b'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
+    previous = b'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+    reviewed_comment = current + b' # v7.0.2'
+    historical_comment = previous + b' # v7.0.1'
+    assert raw.count(reviewed_comment) == 3
+    restored = raw.replace(reviewed_comment, historical_comment)
+    restored = restored.replace(current, previous)
+    assert hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest() == (
+        '51636b49744e82879cd20cd968ef3e299afb1d11'
+    ), 'pre-upload-artifact-v7.0.2 workflow checkpoint mismatch'
     return restored
 
 
@@ -5320,6 +5343,7 @@ def _workflow_before_q2_smoke_runtime(raw=None):
     if raw is None:
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     raw = _workflow_before_setup_python_v710(raw)
+    raw = _workflow_before_upload_artifact_v702(raw)
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
         '51636b49744e82879cd20cd968ef3e299afb1d11'
     ), 'unreviewed hosted-order workflow bytes'
@@ -5371,7 +5395,7 @@ def _workflow_before_hosted_evidence_ordering(raw=None):
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     # Inversion must not erase an unreviewed edit inside a replaced region.
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
+        'd80f7b77ef710d4797a6127c7b28727eba1e961d'
     ), 'unreviewed hosted-order workflow bytes'
     raw = _workflow_before_q2_intake(raw)
     for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
@@ -5485,7 +5509,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
+    assert current == 'd80f7b77ef710d4797a6127c7b28727eba1e961d'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5498,7 +5522,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
+    assert current == 'd80f7b77ef710d4797a6127c7b28727eba1e961d'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -7475,7 +7499,7 @@ def test_report_publication_preserves_four_selectors_and_unresolved_membership(r
     assert facts['ordered_selectors'] == [tree, 'badges/*.svg', 'reports/junit.xml', 'reports/sarif.json']
     assert facts['artifact_name'] == 'pulse-report'
     assert facts['artifact_tree_root'] == 'PULSE_safe_pack_v0/artifacts/'
-    assert facts['action_uses'] == 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+    assert facts['action_uses'] == 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
     assert facts['if_no_files_found'] == 'error' and facts['retention_days'] == 30
     assert sorted(facts['locators']) == _REPORT_PUBLICATION_ROLES
     assert facts['tree_roles'] == ['recorded-release-candidate-envelopes', 'release-authority-audit-bundle']
@@ -12634,7 +12658,7 @@ def test_downstream_closed_inventory_and_container_failures(downstream_real_outp
         VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
 
 # Provider identity renewal follows the separately approved exact workflow bytes.
-_IDENTITY_PROVIDER_BLOB = "c9316f326e95073d05fb1b8171febb635082c7ad"
+_IDENTITY_PROVIDER_BLOB = "bf0baf78f2e0230b5e027be7f61ec6a97556ff6f"
 _IDENTITY_PROVIDER_OLD_BLOB = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
 
 
@@ -13170,16 +13194,39 @@ def _r2c2_index_oracle(files):
     return canonical({'source_kind': 'uncommitted_git_tree', 'files': rows}), subtree('')
 
 
-@pytest.fixture(scope='module')
-def r2c2_sources():
+_R2C2_PRESERVED_CARRIER = (
+    'preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip'
+)
+
+
+def _r2c2_source_files(root):
+    # This synthetic source tree does not consume the separate owner-run input
+    # archive. Exclude only that carrier, never files by size or all ZIPs.
+    # A future declared dependency must fail here rather than disappear.
+    required_paths = {
+        path
+        for module in (BUILDER, PLAN_CHECKER)
+        for roles in (module._LOCAL_R2_SOURCE_ROLES, module.PUBLIC_R2_SOURCE_ROLES)
+        for _, path in roles
+    }
+    assert _R2C2_PRESERVED_CARRIER not in required_paths, 'required R2 source cannot be excluded'
     files = {}
-    for path in ROOT.rglob('*'):
-        if any(part in {'.git', '__pycache__', '.pytest_cache'} for part in path.relative_to(ROOT).parts):
+    for path in root.rglob('*'):
+        relative = path.relative_to(root)
+        if any(part in {'.git', '__pycache__', '.pytest_cache'} for part in relative.parts):
+            continue
+        if relative.as_posix() == _R2C2_PRESERVED_CARRIER:
             continue
         if path.is_dir():
             continue
         assert not path.is_symlink()
-        files[path.relative_to(ROOT).as_posix()] = ('100755' if path.stat().st_mode & 0o111 else '100644', path.read_bytes())
+        files[relative.as_posix()] = ('100755' if path.stat().st_mode & 0o111 else '100644', path.read_bytes())
+    return files
+
+
+@pytest.fixture(scope='module')
+def r2c2_sources():
+    files = _r2c2_source_files(ROOT)
     index_raw, tree = _r2c2_index_oracle(files)
     return SimpleNamespace(files=files, index_raw=index_raw, tree=tree,
         sources={path: files[path][1] for _, path in PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES},
@@ -13236,6 +13283,47 @@ def test_r2c2_source_index_and_tree_match_an_independent_oracle(r2c2_sources):
     checked = PLAN_CHECKER._local_r2_checked_sources(raw, f.sources, **f.pins)
     assert set(checked) == set(f.sources)
     assert all(checked[path].data == data for path, data in f.sources.items())
+
+
+def test_r2c2_source_fixture_excludes_only_the_original_input_carrier(tmp_path):
+    carrier = 'preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip'
+    oversized = b'x' * (8 * 1024 * 1024 + 1)
+    expected = {
+        'preservation/required_gate_idempotence_exec_stop_v0/ORIGINAL_INPUTS.json': ('100644', b'{}\n'),
+        'preservation/required_gate_idempotence_exec_stop_v0/other_inputs.zip': ('100644', oversized),
+        'fixtures/original_inputs_v0.zip': ('100644', b'another carrier'),
+        'tools/example.py': ('100755', b'print("example")\n'),
+    }
+    for relative, (mode, raw) in {**expected, carrier: ('100644', oversized)}.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        path.chmod(0o755 if mode == '100755' else 0o644)
+    assert _r2c2_source_files(tmp_path) == expected
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER], ids=['builder', 'checker'])
+@pytest.mark.parametrize('roles_name', ['_LOCAL_R2_SOURCE_ROLES', 'PUBLIC_R2_SOURCE_ROLES'])
+def test_r2c2_source_fixture_cannot_exclude_a_declared_dependency(tmp_path, module, roles_name):
+    carrier = 'preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip'
+    roles = (*getattr(module, roles_name), ('required_preserved_input', carrier))
+    with patch.object(module, roles_name, roles):
+        with pytest.raises(AssertionError, match='required R2 source cannot be excluded'):
+            _r2c2_source_files(tmp_path)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_r2c2_oversized_source_entry_still_rejects_with_fresh_pins(r2c2_sources, side):
+    f = r2c2_sources
+    files = {**f.files, 'tests/oversized_source.txt': ('100644', b'x' * (8 * 1024 * 1024 + 1))}
+    index_raw, tree = _r2c2_index_oracle(files)
+    pins = {'expected_source_tree': tree, 'expected_source_index_sha256': digest(index_raw)}
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError, match='r2_source_entry_invalid'):
+        if side == 'builder':
+            BUILDER._build_local_r2_plan(files, **pins)
+        else:
+            PLAN_CHECKER._local_r2_checked_sources(index_raw, f.sources, **pins)
 
 
 @pytest.mark.parametrize('side', ['builder', 'checker'])

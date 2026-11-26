@@ -1,0 +1,19 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "input_sha256": "1e3a63612f274b9c3e3f518f0e9528386806403783d10fbd395b3348d8dc2574",
+  "json_pointer_profile": "rfc6901_source_spans_v1",
+  "schema_version": "anchor_integrity_local_carriers_v0_2",
+  "source_response": {
+    "path": "response.json",
+    "source_response_id": "wp2b-response"
+  },
+  "sources": [
+    {
+      "canonical_identifier": "fixture:anchor-wp2b:source-1",
+      "path": "source.json",
+      "revision": null,
+      "source_id": "source-1"
+    }
+  ]
+}

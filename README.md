@@ -21,6 +21,10 @@ boundary.
 
 **[Q2 native worker and offline verification](#q2-native-worker-and-offline-verification)**
 
+**[Q3 runtime input companion and immutable release](#q3-runtime-input-companion)**
+
+**[Current development checkpoint — B2 and LRM](#current-development-checkpoint--2026-11-20)**
+
 ## From AI output to an enforceable release decision
 
 A model can propose a change. Release permission comes from verified evidence.
@@ -38,6 +42,7 @@ current development boundaries are documented below.
 
 [Implementation and verified results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)
  · [Preserved transition cases and original execution evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md)
+ · [PD-SM-02 bounded pre-execution result](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md)
 
 ## PULSEmech Transition Meter — The Missing Instrument Between Measured States
 
@@ -217,6 +222,97 @@ later source revision.
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
 | Paradoxon PD-SM-01-E2 interpreter compatibility | Completed and preserved through #2950: CPython 3.11.14, 3.12.12, 3.13.5 and 3.14.3 on Linux x86_64; `MATRIX MATCH`; [execution record and original evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md); `authority_effect = none` |
+| Paradoxon PD-SM-01-E1 finite checks and MON-1 local enforcement | Completed local evidence preserved through #2954 / `a9de035d1b3ac227359ca78a98274abe4c9ee186`: 8192 F1 rows, 4096 F2 rows and 17 selected MON-1 cases; original archive and nested E0 retained; E2 compatibility and production authority remain separate; [result and original evidence](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md); `authority_effect = none` |
+| Paradoxon PD-SM-02 source-bound pre-execution impact | Implementation merged through #2957 / `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905`; bounded local scratch result preserved through #2958 / `5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be`: 112 recorded regressions, 24/24 declared outcomes, 4/4 eligible exact effects and 20/20 non-eligible attempts stopped before output creation; CPython 3.13.5/Linux x86_64 only; [result and evidence](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md); `authority_effect = none` |
+
+<a id="current-development-checkpoint--2026-11-20"></a>
+
+### Current development checkpoint — 2026-11-23
+
+This checkpoint describes source
+[`624713608bcf5467c6d4be44cd026f906c45f274`](https://github.com/HKati/pulse-release-gates-0.1/tree/624713608bcf5467c6d4be44cd026f906c45f274),
+including the completed original entry observation and the selected synthetic
+two-slot qualification in
+[owner-dispatched run `45253188286/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286).
+Implementation, original execution, independent reconstruction and reference
+acceptance are recorded separately. Historical results retain their original
+run and source identities.
+
+| Workstream | State at this checkpoint | Source and evidence |
+|---|---|---|
+| Bounded admission-rejection verification | Completed and preserved: `43514702328/1`. Two executions of the same independent checker accepted the frozen evidence and produced byte-identical reports. The original candidate remains rejected. | [Preserved verification record](docs/compute/admission_rejection_43445176088_v0/README.md) |
+| B2 original launcher exec-stop | Completed and preserved: `44375052171/1`. The selected kernel exec checkpoint, independent capture reconstruction and hosted attestation verification succeeded. The child was stopped before the interpreter's first userspace instruction. | [Completed exec-stop observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md) |
+| B2 guarded original entry collector | Completed bounded hosted observation: `44740993943/1`. Both prerequisite capability qualifications completed before one fresh original cp0-to-entry attempt; the child was terminated at executable entry without a further continuation. | [Collector and verification contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_v0.md) |
+| B2 hosted entry-stop workflow | Acquisition and separate verification succeeded in `44740993943/1`, including preserved capture reconstruction, outer-container cleanup and hosted attestation verification. The original artifacts and bounded repository selection retain separate custody and replay meanings. | [Completed hosted observation and preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md#completed-hosted-observation-447409939431) |
+| B2 synthetic loader two-slot qualification | Completed and preserved: `45253188286/1`. One fixed native probe, four byte-identical hosted checker reports, separate replay, owned-container cleanup and hosted attestation verification completed in the selected context. The bounded repository selection omits only the Docker base-save payload; complete original ZIPs retain separate custody. | [Completed qualification and preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861) |
+| LRM-02–04 measurement core | Source/representation verification, finite relation comparison and finite support/impact evaluation are implemented within their declared evidence and representation boundaries. | [Input verification](docs/PULSEMECH_LANGUAGE_RELATION_INPUT_VERIFIER_v0.md), [relation comparison](docs/PULSEMECH_LANGUAGE_RELATION_COMPARATOR_v0.md), [support and impact](docs/PULSEMECH_LANGUAGE_RELATION_IMPACT_v0.md) |
+| LRM-05 candidate evaluation | Saved candidate-response import and fixed HU/EN source-request evaluation are implemented. The adapter runs LRM-02 verification and publishes inputs for separately invoked LRM-03/04 measurement. | [Candidate import and evaluation](docs/PULSEMECH_LANGUAGE_RELATION_ADAPTER_EVALUATION_v0.md) |
+
+The selected original executable-entry observation and the separate synthetic
+two-slot qualification are complete within their recorded contexts. The next B2
+obligations include an accepted original source/build route, fresh original
+admission and actual per-consumer loader-resolution reconstruction. Observed
+provider mappings alone do not establish consumer resolution, and the synthetic
+probe does not admit a future original-loader host. Complete containment,
+selected-bootstrap integration and actual reference acceptance remain separate.
+B2 remains incomplete, with `metric_pass = null` and `authority_effect = none`.
+Neither bounded observation executed the selected metric runtime or a Q3
+measurement.
+
+LRM-05 retains `representation_basis = candidate_only` and
+`scope_selection = not_verified`. It makes no model calls and reports no provider
+extraction accuracy. Relation and impact measurement remain separate invocations;
+LRM-06 replay and diagnostic integration remain open.
+
+The preserved Q2 result remains **FAIL: 49 of 50 eligible groups, with one UNKNOWN**.
+[#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879) remains open.
+These increments do not establish completed Step 5C/5D or activate compute
+release authority.
+
+<a id="recent-development-checkpoints--2026-11-04"></a>
+
+### Historical development checkpoints — 2026-11-04
+
+The following is the retained November 4 source-bound snapshot. Later B2 and LRM
+states are recorded in the
+[current development checkpoint](#current-development-checkpoint--2026-11-23).
+
+This documentation checkpoint describes source
+[`1f6ad0961ec4dc576916248681651254996b6ea5`](https://github.com/HKati/pulse-release-gates-0.1/tree/1f6ad0961ec4dc576916248681651254996b6ea5).
+These increments retain their separate evidence scopes; they do not establish
+accepted current-run release evidence or complete Step 5C/5D.
+
+- **Anchor Integrity v0.1 — WP2A/B/C:** implemented offline diagnostic
+  [local byte/reference binding](docs/ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
+  [explicit JSON Pointer projection](docs/ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)
+  and [materialized verifier-record binding](docs/ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md).
+  Matching records do not establish that the declared verifier ran or that its
+  declaration is true. Semantic verification and verifier trust admission remain
+  separate; `authority_effect = none`, `release_authority_activation = false`.
+- **Language Relation Measurement — LRM-01:** the
+  [contract foundation](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_CONTRACT.md),
+  schemas and synthetic reference fixtures are present. The source-mapping
+  verifier, relation comparator, impact evaluator, extractor and replay runner
+  are not implemented; `authority_effect = none`.
+- **QRH003 v0.1.3:** the [isolated offline audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
+  includes the Python source-binding correction. The historical pilot retains
+  `BLOCK` and replay `MATCH`; native proof capture is `NOT_IMPLEMENTED`, and no
+  production QRH certificate is established. Its local offline profile remains
+  separate from repository release authority.
+- **Q3:** [standalone recomputation](docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md)
+  and the separate [native preflight/capture implementation](docs/compute/PULSEMECH_Q3_NATIVE_CAPTURE_v0.md)
+  are present. The [runtime part transport](docs/compute/PULSEMECH_Q3_RUNTIME_PART_TRANSPORT_v0.md)
+  is inactive and unconfigured (`RUNTIME_TRANSPORT_UNCONFIGURED`); hosted retrieval
+  remains unverified. `q3_fairness_ok` remains unsupported in the release
+  dispatcher and independent admission; `authority_effect = none`.
+- **Paradoxon PD-SM-02-W1:** environment admission `41362257003/1` completed
+  with zero candidate invocations and status `ADMISSION_COMPLETED_UNATTESTED`.
+  The [preserved native request and prior admission](docs/experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  and [manual hosted native integration](docs/experiments/PD_SM_02_W1_HOSTED_NATIVE_v0.md)
+  are on this source. The separate native-capture evidence preservation
+  [PR #2984](https://github.com/HKati/pulse-release-gates-0.1/pull/2984) remains open
+  and is not part of this snapshot. Admission completion does not establish an
+  externally attested native witness; `authority_effect = none`.
 
 ### Completed historical producer-input capture — Step 4A
 
@@ -542,6 +638,35 @@ production, active-gate and same-run release-authority eligibility remain false.
 
 [Native and offline verification checkpoint — fixed documentation snapshot](https://github.com/HKati/pulse-release-gates-0.1/blob/94b441021500361cac97a2c4814d69f344e89915/docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint) ·
 [Reviewed native platform contract](docs/compute/PULSEMECH_Q2_NATIVE_PLATFORM_v1.md)
+
+### Q3 runtime input companion
+
+The preserved runtime input for PULSEmech Q3 is published in the
+[PULSEmech Q3 runtime input companion repository](https://github.com/HKati/pulsemech-q3-runtime-inputs).
+It is a supporting input archive for this project.
+
+The fixed [immutable release `q2-runtime-37148637546-1-v1`](https://github.com/HKati/pulsemech-q3-runtime-inputs/releases/tag/q2-runtime-37148637546-1-v1)
+contains the twenty unchanged runtime fragments, the split manifest, the English
+source/notice companion and three source RPMs: **25 uploaded assets,
+821,365,369 bytes**. The original runtime archive is reconstructed from its
+twenty fragments.
+
+[Published release record](docs/compute/q3_runtime_release_binding_v0/README.md) ·
+[Machine-readable release and asset identities](docs/compute/q3_runtime_release_binding_v0/RELEASE_BINDING.json)
+
+At the 2026-11-09 publication checkpoint, all 25 asset names, exact sizes and
+GitHub-reported SHA-256 digests matched the preserved reference inventory.
+The record fixes release ID `438650666`, the tag target commit and every
+asset ID, name, size and digest.
+
+The acquisition controller at this documentation base remains unconfigured.
+Publication and this reference do not establish retrieval from the actual
+runner or authorize preflight, capture, model execution or Q3 measurement.
+`runtime_transport_ready=false`,
+`actual_runner_retrieval_verified=false`,
+`label_correctness=not_verified`, `authority_effect=none`;
+[#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879)
+remains the open main-project work item.
 
 ### Device Ledger bounded mechanical proof
 
@@ -1085,7 +1210,13 @@ recorded release evidence
 → primary CI allow/block release decision
 ```
 
-## Current verification checkpoint
+<a id="current-verification-checkpoint"></a>
+
+## Preserved verification checkpoints
+
+The records below retain their original subjects, sources and bounded results.
+For the current B2 and LRM development state, use the
+[current development checkpoint](#current-development-checkpoint--2026-11-20).
 
 **Paradoxon PD-SM-01-E2 — completed execution and preservation**
 
@@ -1517,7 +1648,7 @@ In Core and release-grade paths, evidence is recorded into `status.json`, interp
 **Quality gates (Q₁–Q₄)** — product-facing release evidence:
 - Q₁ **Groundedness** — RAG factuality
 - Q₂ **Consistency** — answer agreement
-- Q₃ **Fairness** — parity and equalized odds
+- Q₃ **Fairness** — [quality parity across declared slices](metrics/specs/q3_fairness_v0.yml)
 - Q₄ **SLOs** — p95 latency and mean-cost evidence
 
 **Release-state outputs**
@@ -2099,8 +2230,11 @@ Curated entrypoints (repo-level docs under `docs/`):
 ### Paradox field & edges
 - [Paradoxon M1-M3 definition contract](docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md) — Research contract and manual derivations.
 - [PD-SM-01 source mapping](docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md) — Source-bound gate/metric/tension/edge case.
+- [PD-SM-01-E1 / MON-1 preserved local execution](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md) — Complete F1/F2 finite records and the selected 17-case monitored-effect experiment.
 - [PD-SM-01 compatibility implementation](examples/paradox_compatibility_v0/README.md) — Four-interpreter runner, controls and manual workflow.
 - [PD-SM-01-E2 completed execution](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md) — Run `40113600844/1`, `MATRIX MATCH`, preserved original ZIP and SHA-256.
+- [PD-SM-02 pre-execution implementation](examples/paradox_preexecution_impact_v0/README.md) — Closed source language, separate mapper/checker and explicit scratch-launch boundary.
+- [PD-SM-02 completed bounded scratch result](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md) — 24/24 declared outcomes, 4/4 eligible exact effects and 20/20 pre-effect refusals with preserved evidence.
 - [docs/PULSE_paradox_field_v0_walkthrough.md](docs/PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
 - [docs/Pulse_paradox_edges_v0_status.md](docs/Pulse_paradox_edges_v0_status.md) — Status/roadmap for `paradox_edges_v0.jsonl`.
 - [docs/paradox_edges_case_studies.md](docs/paradox_edges_case_studies.md) — Case studies (fixture + non-fixture).

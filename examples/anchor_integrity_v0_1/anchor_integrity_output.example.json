@@ -1,0 +1,113 @@
+{
+  "authority_effect": "none",
+  "baseline_commit": "34431ec8ebe305a83273ffd39b78f083219f03e6",
+  "candidate_status": "diagnostic_only",
+  "checks": {
+    "claim_evidence_evaluation": {
+      "reason": null,
+      "result": "evaluated",
+      "status": "completed"
+    },
+    "cycle_check": {
+      "affected_claim_ids": [],
+      "algorithm": null,
+      "checked_relation_types": [],
+      "reason": "typed_cycle_detector_not_implemented_in_work_package_1",
+      "result": null,
+      "scope": "evidence_dependency",
+      "status": "not_run"
+    }
+  },
+  "claim_results": [
+    {
+      "claim_id": "claim-0001",
+      "contradiction_status": "none",
+      "disposition": "supported",
+      "locator_status": "resolved",
+      "reasons": [],
+      "relation_result": "supported",
+      "relation_verification_status": "completed",
+      "source_identity_status": "verified",
+      "source_integrity_status": "verified",
+      "subject_binding_status": "satisfied"
+    },
+    {
+      "claim_id": "claim-0002",
+      "contradiction_status": "not_evaluated",
+      "disposition": "missing_anchor",
+      "locator_status": "not_evaluated",
+      "reasons": [
+        "no_evidence_binding_recorded"
+      ],
+      "relation_result": null,
+      "relation_verification_status": "not_run",
+      "source_identity_status": "not_evaluated",
+      "source_integrity_status": "not_evaluated",
+      "subject_binding_status": "not_evaluated"
+    }
+  ],
+  "claim_set": {
+    "claim_set_id": "claim-set-example-001",
+    "claims_total": 2,
+    "materialization_status": "complete"
+  },
+  "coverage": {
+    "anchor_presence_coverage": {
+      "denominator": 2,
+      "numerator": 1,
+      "reason": null,
+      "status": "completed",
+      "value": 0.5
+    },
+    "verified_binding_coverage": {
+      "denominator": 2,
+      "numerator": 1,
+      "reason": null,
+      "status": "completed",
+      "value": 0.5
+    },
+    "verified_support_coverage": {
+      "denominator": 2,
+      "numerator": 1,
+      "reason": null,
+      "status": "completed",
+      "value": 0.5
+    }
+  },
+  "input_sha256": "155b5325044baeb85fe93c6d1b1fb42d23175941f8f11c3858156a2b383bc712",
+  "legacy_signal_summary": {
+    "is_claim_evidence_coverage": false,
+    "legacy_gate_signal_ratio": 0.8,
+    "semantic_class": "operational_proxy",
+    "source_schema": "anchor_integrity_v0"
+  },
+  "not_implemented": [
+    "automatic_claim_extraction",
+    "general_semantic_entailment_verification",
+    "production_response_enforcement",
+    "release_authority_integration",
+    "real_world_hallucination_reduction_measurement"
+  ],
+  "release_authority_activation": false,
+  "response_recommendation": {
+    "affected_claim_ids": [
+      "claim-0002"
+    ],
+    "authority": "diagnostic_only",
+    "enforced": false,
+    "mode": "PARTIAL_BOUNDARY",
+    "reason": "One materialized claim has no evidence binding."
+  },
+  "schema_version": "anchor_integrity_output_v0_1",
+  "summary": {
+    "claims_total": 2,
+    "conflicting": 0,
+    "contradicted": 0,
+    "insufficient": 0,
+    "invalid_binding": 0,
+    "missing_anchor": 1,
+    "not_evaluated": 0,
+    "supported": 1,
+    "unresolved": 0
+  }
+}

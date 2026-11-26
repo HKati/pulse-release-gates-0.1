@@ -1,0 +1,396 @@
+{
+  "profile_id": "lrm_finite_reference_profile_v0",
+  "version": "0",
+  "stage": "contract_only",
+  "authority_effect": "none",
+  "release_authority_activation": false,
+  "languages": [
+    "hu",
+    "en"
+  ],
+  "logic_operators": [
+    "ATOM",
+    "REF",
+    "NOT",
+    "AND",
+    "OR",
+    "IMPLIES",
+    "FORALL",
+    "EXISTS"
+  ],
+  "context_operator": "CONTEXT",
+  "or_semantics": "inclusive",
+  "quantification": "explicit_finite_domain",
+  "entity_types": [
+    "person",
+    "object",
+    "event",
+    "proposition",
+    "value"
+  ],
+  "discourse_types": [
+    "assertion",
+    "quotation",
+    "supposition"
+  ],
+  "modalities": [
+    "declarative",
+    "permission",
+    "obligation",
+    "observed_event"
+  ],
+  "limits": {
+    "max_expanded_boolean_atoms": 12,
+    "max_joint_variants": 64,
+    "max_ast_nodes_per_variant": 256,
+    "limit_status": "planned_resource_bounds_not_benchmark"
+  },
+  "lexical_domain": {
+    "person": [
+      "Anna",
+      "Béla",
+      "Éva",
+      "Dániel"
+    ],
+    "object_en": [
+      "book",
+      "key"
+    ],
+    "object_hu": [
+      "könyv",
+      "kulcs"
+    ],
+    "variable": [
+      "x",
+      "y",
+      "z"
+    ]
+  },
+  "predicate_signatures": [
+    {
+      "predicate": "approve",
+      "roles": [
+        {
+          "role": "agent",
+          "types": [
+            "person"
+          ]
+        }
+      ]
+    },
+    {
+      "predicate": "win",
+      "roles": [
+        {
+          "role": "agent",
+          "types": [
+            "person"
+          ]
+        }
+      ]
+    },
+    {
+      "predicate": "give",
+      "roles": [
+        {
+          "role": "giver",
+          "types": [
+            "person"
+          ]
+        },
+        {
+          "role": "item",
+          "types": [
+            "object"
+          ]
+        },
+        {
+          "role": "recipient",
+          "types": [
+            "person"
+          ]
+        }
+      ]
+    },
+    {
+      "predicate": "notify",
+      "roles": [
+        {
+          "role": "sender",
+          "types": [
+            "person"
+          ]
+        },
+        {
+          "role": "recipient",
+          "types": [
+            "person"
+          ]
+        },
+        {
+          "role": "content",
+          "types": [
+            "proposition"
+          ]
+        }
+      ]
+    },
+    {
+      "predicate": "release",
+      "roles": [
+        {
+          "role": "agent",
+          "types": [
+            "person"
+          ]
+        }
+      ]
+    },
+    {
+      "predicate": "send",
+      "roles": [
+        {
+          "role": "sender",
+          "types": [
+            "person"
+          ]
+        },
+        {
+          "role": "recipient",
+          "types": [
+            "person"
+          ]
+        }
+      ]
+    },
+    {
+      "predicate": "tuple",
+      "roles": [
+        {
+          "role": "first",
+          "types": [
+            "value"
+          ]
+        },
+        {
+          "role": "second",
+          "types": [
+            "value"
+          ]
+        },
+        {
+          "role": "third",
+          "types": [
+            "value"
+          ]
+        }
+      ]
+    }
+  ],
+  "controlled_language": {
+    "status": "grammar_contract_checker_not_implemented",
+    "tokenization": "Exact UTF-8; one ASCII space at each shown separator; case-sensitive; no hidden normalization.",
+    "name_resolution": "A PERSON token is one listed person label. A VARIABLE is x, y or z and must be lexically bound. The representation supplies distinct entity IDs; matching labels alone does not establish cross-source identity.",
+    "document_rule": "A document is FORMULA followed by one literal full stop. Parentheses shown below are literal delimiters. Full stops do not occur inside FORMULA.",
+    "templates": [
+      {
+        "id": "APPROVE_EN",
+        "language": "en",
+        "surface": "PERSON approves",
+        "semantics": "ATOM approve(agent=PERSON)"
+      },
+      {
+        "id": "APPROVE_HU",
+        "language": "hu",
+        "surface": "PERSON jóváhagy",
+        "semantics": "ATOM approve(agent=PERSON)"
+      },
+      {
+        "id": "WIN_EN",
+        "language": "en",
+        "surface": "PERSON wins",
+        "semantics": "ATOM win(agent=PERSON)"
+      },
+      {
+        "id": "WIN_HU",
+        "language": "hu",
+        "surface": "PERSON nyer",
+        "semantics": "ATOM win(agent=PERSON)"
+      },
+      {
+        "id": "NOT_EN",
+        "language": "en",
+        "surface": "not (FORMULA)",
+        "semantics": "NOT FORMULA"
+      },
+      {
+        "id": "NOT_HU",
+        "language": "hu",
+        "surface": "nem (FORMULA)",
+        "semantics": "NOT FORMULA"
+      },
+      {
+        "id": "AND_EN",
+        "language": "en",
+        "surface": "(FORMULA) and (FORMULA)",
+        "semantics": "AND(left,right)"
+      },
+      {
+        "id": "AND_HU",
+        "language": "hu",
+        "surface": "(FORMULA) és (FORMULA)",
+        "semantics": "AND(left,right)"
+      },
+      {
+        "id": "OR_EN",
+        "language": "en",
+        "surface": "(FORMULA) or (FORMULA)",
+        "semantics": "OR(left,right), inclusive"
+      },
+      {
+        "id": "OR_HU",
+        "language": "hu",
+        "surface": "(FORMULA) vagy (FORMULA)",
+        "semantics": "OR(left,right), inclusive"
+      },
+      {
+        "id": "IMPLIES_EN",
+        "language": "en",
+        "surface": "if (FORMULA) then (FORMULA)",
+        "semantics": "IMPLIES(antecedent,consequent)"
+      },
+      {
+        "id": "IMPLIES_HU",
+        "language": "hu",
+        "surface": "ha (FORMULA), akkor (FORMULA)",
+        "semantics": "IMPLIES(antecedent,consequent)"
+      },
+      {
+        "id": "FORALL_EN",
+        "language": "en",
+        "surface": "for every VARIABLE in {PERSON_LIST} (FORMULA)",
+        "semantics": "FORALL VARIABLE over exactly the listed finite domain; replace PERSON in atom position by the bound VARIABLE"
+      },
+      {
+        "id": "FORALL_HU",
+        "language": "hu",
+        "surface": "minden VARIABLE a {PERSON_LIST} halmazból (FORMULA)",
+        "semantics": "FORALL VARIABLE over exactly the listed finite domain; replace PERSON in atom position by the bound VARIABLE"
+      },
+      {
+        "id": "EXISTS_EN",
+        "language": "en",
+        "surface": "for some VARIABLE in {PERSON_LIST} (FORMULA)",
+        "semantics": "EXISTS VARIABLE over exactly the listed finite domain; replace PERSON in atom position by the bound VARIABLE"
+      },
+      {
+        "id": "EXISTS_HU",
+        "language": "hu",
+        "surface": "van olyan VARIABLE a {PERSON_LIST} halmazból (FORMULA)",
+        "semantics": "EXISTS VARIABLE over exactly the listed finite domain; replace PERSON in atom position by the bound VARIABLE"
+      },
+      {
+        "id": "QUOTE_EN",
+        "language": "en",
+        "surface": "PERSON says: (FORMULA)",
+        "semantics": "CONTEXT(quotation,declarative,speaker=PERSON,body=FORMULA)"
+      },
+      {
+        "id": "QUOTE_HU",
+        "language": "hu",
+        "surface": "PERSON mondja: (FORMULA)",
+        "semantics": "CONTEXT(quotation,declarative,speaker=PERSON,body=FORMULA)"
+      },
+      {
+        "id": "PERMISSION_EN",
+        "language": "en",
+        "surface": "it is permitted that (FORMULA)",
+        "semantics": "CONTEXT(assertion,permission,speaker=null,body=FORMULA)"
+      },
+      {
+        "id": "PERMISSION_HU",
+        "language": "hu",
+        "surface": "megengedett, hogy (FORMULA)",
+        "semantics": "CONTEXT(assertion,permission,speaker=null,body=FORMULA)"
+      },
+      {
+        "id": "OBLIGATION_EN",
+        "language": "en",
+        "surface": "it is required that (FORMULA)",
+        "semantics": "CONTEXT(assertion,obligation,speaker=null,body=FORMULA)"
+      },
+      {
+        "id": "OBLIGATION_HU",
+        "language": "hu",
+        "surface": "kötelező, hogy (FORMULA)",
+        "semantics": "CONTEXT(assertion,obligation,speaker=null,body=FORMULA)"
+      }
+    ],
+    "person_list_rule": "One or more distinct PERSON tokens separated by a comma and one ASCII space; the resulting domain has exactly those members. Empty domains require accepted reference annotation and are outside this controlled surface grammar.",
+    "unsupported_surfaces": "Pronouns, ellipsis, implicit context, unrestricted inflection, free quotation, unparenthesized operator scope, and surfaces without one of these productions remain reference/candidate input. The general relation model supports more than the controlled source grammar."
+  },
+  "evaluation_rules": [
+    {
+      "rule_id": "LOGIC_01",
+      "rule": "NOT, AND, inclusive OR and IMPLIES use their ordinary Boolean truth tables within an identified context; evidence absence never assigns false."
+    },
+    {
+      "rule_id": "LOGIC_02",
+      "rule": "FORALL and EXISTS range only over the supplied finite domain. Empty quantified domains have standard Boolean semantics, but an empty interpretation family never proves preservation."
+    },
+    {
+      "rule_id": "CONTEXT_01",
+      "rule": "Discourse and modality are typed context boundaries. No permission-to-event, quotation-to-assertion or supposition-to-fact conversion is implicit."
+    },
+    {
+      "rule_id": "RELATION_01",
+      "rule": "Role-bound argument tuples retain all arguments. Equality of one- or two-dimensional projections is not equality of an n-ary relation."
+    },
+    {
+      "rule_id": "IDENTITY_01",
+      "rule": "Entity, event and relation identity require correspondence evidence; equal labels or equal role patterns are insufficient."
+    },
+    {
+      "rule_id": "EQUIV_01",
+      "rule": "Permitted equivalences: bound-variable alpha-renaming; AND/OR operand permutation and association inside the same context; role-preserving identity substitution using an accepted correspondence; explicit relation-group decomposition/recomposition. Each rewrite retains source anchors and target granularity."
+    },
+    {
+      "rule_id": "EQUIV_02",
+      "rule": "Single-direction entailment, equal wording and similar wording are not general preservation proofs. Classical equivalence is scoped to a selected condition target; it does not erase quoted surface content or event identity."
+    },
+    {
+      "rule_id": "VARIANT_01",
+      "rule": "Interpretation, correspondence and context choices form joint variants. Coupled choices are never expanded as an unconstrained Cartesian product."
+    },
+    {
+      "rule_id": "SUPPORT_01",
+      "rule": "Positive typed support rules require all conjunctive premises. Closure starts at bound base claims; unsupported cycles add no foundation. Retain alternative support paths and recompute after withdrawal without seeding old derived conclusions."
+    },
+    {
+      "rule_id": "CONFLICT_01",
+      "rule": "A claim and its negation form an explicit conflict. Evidence reasoning never derives arbitrary claims from that conflict."
+    }
+  ],
+  "trust_boundary": {
+    "accepted_roots": "Verifier configuration fixed independently of the submitted package. A bundled inventory is an object to bind, not permission to trust itself.",
+    "reference_acceptance": "accepted_reference results are conditional on the exact independently accepted annotation and do not establish world truth.",
+    "candidate_scope": "candidate_only outputs are limited to candidate_structures; every result and view retains its basis and claim_scope."
+  },
+  "serialization": {
+    "encoding": "UTF-8 without BOM",
+    "json_indentation": 2,
+    "object_key_order": "lexicographic by Unicode code point",
+    "terminal_newline": "LF",
+    "semantic_sets": "sort ID-only sets lexicographically and entity/relation/target records by their declared primary ID; explicitly ordered argument and AST operand lists preserve their original order",
+    "source_binding": "hash exact original bytes; no implicit NFC, newline, or whitespace normalization",
+    "claim": "Profile-defined deterministic output encoding; no claim of JCS conformance."
+  },
+  "unimplemented": [
+    "source_mapping_checker",
+    "reference_acceptance_resolver",
+    "relation_comparator",
+    "impact_evaluator",
+    "automatic_extractor",
+    "offline_replay_runner"
+  ]
+}

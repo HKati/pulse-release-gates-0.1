@@ -197,6 +197,43 @@ complete result. Early workspace setup records owned identity before risky work;
 uncertain ownership is not permission to delete a replacement. Output-member
 modes are explicitly set and verified, independent of creation umask.
 
+### Bounded cleanup after a failed worker
+
+The collector observes the exact registered service after kill/stop and client
+reaping. A retained systemd `failed` state may be reset once only after the known
+client is reaped, `MainPID=0`, `ControlPID=0`, no pending unit job, the exact
+expected cgroup identity, and an independently absent or unpopulated cgroup.
+The bounded `cgroup.events` population check covers the cgroup and descendants;
+the local `cgroup.procs` must also be empty. Missing inspection files while the
+root still exists, malformed observations and IO failures cannot prove closure.
+
+`reset-failed` is scoped to that one unit and attempted at most once during that
+service object's lifetime, including an uncertain or failed attempt. It does not
+restart anything. Its exit code is not a closure verdict: a fresh observation
+must establish `LoadState=loaded` or `LoadState=not-found`, `ActiveState=inactive`,
+zero PIDs and no job, followed by another cgroup check. The original shared
+cleanup deadline remains in force. Complete closure records retain the existing
+exact fields and final `inactive` requirement.
+
+Incomplete results additionally retain `lifecycle-diagnostics.json`. It contains
+bounded action outcomes, validated unit observations, cgroup observations and
+safe exception identities, without raw exception text, stderr or environment
+values. These diagnostics are also retained when cleanup succeeds after an
+execution failure. They never replace that first failure or enter the closed
+complete-carrier format. They are diagnostic records, not a success certificate.
+
+Run [42928275426/1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/42928275426)
+at source `17c86e6db6cafdd71b20e3193e0750f03474e735` retained one token-limit response,
+203 unstarted occurrences and an unverified worker cleanup. Its original archive
+does not identify the inner cleanup exception. This repair addresses a
+reproducible failed-unit handling gap and preserves better observations; it does
+not retrospectively establish the cause of that run's cleanup failure.
+
+The generation profile, token budget, first-cap stop rule, task order and retry
+prohibition remain unchanged. Continuing after a token-limit response or
+selecting a remaining task subset requires a separately reviewed protocol and
+request. This cleanup repair does not authorize another native execution.
+
 Only a successful exit, an intact receipt, matching selected archive/result
 bytes and successful independent carrier reconstruction constitute this path's
 complete result. An operational failure may leave a partial archive or private

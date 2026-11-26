@@ -1,0 +1,1793 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_execution_receipt_signature_report_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "authenticated_receipt_statement": {
+            "const": false
+          },
+          "issues": {
+            "minItems": 1
+          },
+          "observer_statement_authentication": {
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "result": {
+                "const": null
+              },
+              "status": {
+                "const": "not_run"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_RECEIPT_SIGNATURE_VERIFIED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authenticated_receipt_statement": {
+            "const": true
+          },
+          "execution_contract_check": {
+            "properties": {
+              "checked_object_count": {
+                "const": 9
+              },
+              "report_sha256": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "status": {
+                "const": "LOCAL_EXECUTION_CONTRACT_CONSISTENT"
+              }
+            }
+          },
+          "implementation": {
+            "properties": {
+              "crypto_backend": {
+                "additionalProperties": false,
+                "properties": {
+                  "binary_sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "known_answer_self_test": {
+                    "const": "passed"
+                  },
+                  "path": {
+                    "const": "/usr/bin/openssl"
+                  },
+                  "suite": {
+                    "const": "ed25519"
+                  },
+                  "version": {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "binary_sha256",
+                  "version",
+                  "suite",
+                  "known_answer_self_test"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "issues": {
+            "maxItems": 0
+          },
+          "key_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "pattern": "[^A-Za-z0-9._:-]"
+            },
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "observed_digests": {
+            "additionalProperties": false,
+            "properties": {
+              "carriers": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "input": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "observer_policy": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "receipt": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "receipt_signature": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "record_set": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "request": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "signatures": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "trust_policy": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "input",
+              "carriers",
+              "record_set",
+              "signatures",
+              "trust_policy",
+              "request",
+              "receipt",
+              "observer_policy",
+              "receipt_signature"
+            ],
+            "type": "object"
+          },
+          "observer_declaration": {
+            "additionalProperties": false,
+            "properties": {
+              "implementation_sha256": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "observer_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "not": {
+                  "pattern": "[^A-Za-z0-9._:-]"
+                },
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "observer_id",
+              "implementation_sha256"
+            ],
+            "type": "object"
+          },
+          "observer_key_authorization": {
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "authorized"
+                ]
+              },
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "observer_statement_authentication": {
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "test_key_receipt_signature_verified",
+                  "authorized_key_receipt_signature_verified"
+                ]
+              },
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "policy_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "not": {
+              "pattern": "[^A-Za-z0-9._:-]"
+            },
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "public_key_sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "receipt_signature_check": {
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "valid"
+                ]
+              },
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "signed_message_sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_RECEIPT_SIGNATURE_VERIFIED"
+          },
+          "trust_domain": {
+            "const": "TEST"
+          }
+        },
+        "required": [
+          "status",
+          "trust_domain"
+        ]
+      },
+      "then": {
+        "properties": {
+          "observer_statement_authentication": {
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "test_key_receipt_signature_verified"
+                ]
+              },
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_RECEIPT_SIGNATURE_VERIFIED"
+          },
+          "trust_domain": {
+            "const": "OPERATOR"
+          }
+        },
+        "required": [
+          "status",
+          "trust_domain"
+        ]
+      },
+      "then": {
+        "properties": {
+          "observer_statement_authentication": {
+            "additionalProperties": false,
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "authorized_key_receipt_signature_verified"
+                ]
+              },
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "accepted_as_execution_evidence": {
+      "const": false
+    },
+    "accepted_as_independent_anchor": {
+      "const": false
+    },
+    "accepted_as_semantic_support": {
+      "const": false
+    },
+    "authenticated_receipt_statement": {
+      "type": "boolean"
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "execution_contract_check": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_object_count": {
+          "anyOf": [
+            {
+              "maximum": 16,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "report_sha256": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signer_result": {
+          "anyOf": [
+            {
+              "enum": [
+                "test_key_signatures_verified",
+                "authorized_key_signatures_verified"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "LOCAL_EXECUTION_CONTRACT_CONSISTENT",
+                "LOCAL_EXECUTION_CONTRACT_INVALID",
+                "LOCAL_EXECUTION_CONTRACT_INCOMPLETE"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "report_sha256",
+        "signer_result",
+        "checked_object_count"
+      ],
+      "type": "object"
+    },
+    "expected_challenge": {
+      "maxLength": 64,
+      "minLength": 64,
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "expected_digests": {
+      "additionalProperties": false,
+      "properties": {
+        "carriers": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observer_policy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receipt_signature": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_set": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signatures": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trust_policy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "input",
+        "carriers",
+        "record_set",
+        "signatures",
+        "trust_policy",
+        "request",
+        "receipt",
+        "observer_policy",
+        "receipt_signature"
+      ],
+      "type": "object"
+    },
+    "expected_execution_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[^A-Za-z0-9._:-]"
+      },
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "expected_observer_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[^A-Za-z0-9._:-]"
+      },
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "implementation": {
+      "additionalProperties": false,
+      "properties": {
+        "checker_sha256": {
+          "maxLength": 64,
+          "minLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "crypto_backend": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "binary_sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "known_answer_self_test": {
+                  "const": "passed"
+                },
+                "path": {
+                  "const": "/usr/bin/openssl"
+                },
+                "suite": {
+                  "const": "ed25519"
+                },
+                "version": {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "binary_sha256",
+                "version",
+                "suite",
+                "known_answer_self_test"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution_checker_sha256": {
+          "maxLength": 64,
+          "minLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "record_signature_checker_sha256": {
+          "maxLength": 64,
+          "minLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_sha256": {
+          "additionalProperties": false,
+          "properties": {
+            "anchor_integrity_execution_receipt_signature_report_v0_1.schema.json": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "anchor_integrity_execution_receipt_signature_v0_1.schema.json": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "anchor_integrity_observer_policy_v0_1.schema.json": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "anchor_integrity_observer_policy_v0_1.schema.json",
+            "anchor_integrity_execution_receipt_signature_v0_1.schema.json",
+            "anchor_integrity_execution_receipt_signature_report_v0_1.schema.json"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "checker_sha256",
+        "execution_checker_sha256",
+        "record_signature_checker_sha256",
+        "schema_sha256",
+        "crypto_backend"
+      ],
+      "type": "object"
+    },
+    "issues": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "invalid",
+              "incomplete"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "severity"
+        ],
+        "type": "object"
+      },
+      "maxItems": 128,
+      "minItems": 0,
+      "type": "array"
+    },
+    "key_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[^A-Za-z0-9._:-]"
+          },
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observation_basis": {
+      "anyOf": [
+        {
+          "enum": [
+            "synthetic_fixture",
+            "unattested_observer_statement"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observed_digests": {
+      "additionalProperties": false,
+      "properties": {
+        "carriers": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observer_policy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receipt_signature": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_set": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signatures": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trust_policy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "input",
+        "carriers",
+        "record_set",
+        "signatures",
+        "trust_policy",
+        "request",
+        "receipt",
+        "observer_policy",
+        "receipt_signature"
+      ],
+      "type": "object"
+    },
+    "observer_declaration": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "implementation_sha256": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "observer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "not": {
+                "pattern": "[^A-Za-z0-9._:-]"
+              },
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "observer_id",
+            "implementation_sha256"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observer_key_authorization": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "result": {
+              "enum": [
+                "authorized",
+                "denied"
+              ]
+            },
+            "status": {
+              "const": "completed"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "observer_statement_authentication": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "result": {
+              "enum": [
+                "test_key_receipt_signature_verified",
+                "authorized_key_receipt_signature_verified"
+              ]
+            },
+            "status": {
+              "const": "completed"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "policy_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "not": {
+            "pattern": "[^A-Za-z0-9._:-]"
+          },
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profile": {
+      "const": "pinned-ed25519-execution-observers-v1"
+    },
+    "public_key_sha256": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receipt_signature_check": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "result": {
+              "enum": [
+                "valid",
+                "invalid"
+              ]
+            },
+            "status": {
+              "const": "completed"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "requested_checks_complete": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_execution_receipt_signature_report_v0_1"
+    },
+    "selected_record_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "not": {
+        "pattern": "[^A-Za-z0-9._:-]"
+      },
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "signed_message_sha256": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 64,
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "LOCAL_RECEIPT_SIGNATURE_VERIFIED",
+        "LOCAL_RECEIPT_SIGNATURE_INVALID",
+        "LOCAL_RECEIPT_SIGNATURE_INCOMPLETE"
+      ]
+    },
+    "time_source": {
+      "const": "caller_supplied_not_authenticated"
+    },
+    "trust_domain": {
+      "enum": [
+        "TEST",
+        "OPERATOR"
+      ]
+    },
+    "unperformed_checks": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge_freshness_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "cycle_anchor_classification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "historical_signing_time_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "implementation_closure_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "independent_anchor_admission": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "observer_execution_attestation": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "observer_identity_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "observer_independence_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "observer_key_custody_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "observer_policy_provenance_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "online_revocation_check": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "policy_rollback_protection": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "process_isolation_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "request_precommitment_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "response_mode_recommendation": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "runtime_execution_identity_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "semantic_support_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "trusted_clock_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verified_binding_coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verified_support_coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verifier_execution_attestation": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "verifier_execution_attestation",
+        "observer_identity_authentication",
+        "observer_execution_attestation",
+        "observer_policy_provenance_verification",
+        "observer_key_custody_verification",
+        "observer_independence_verification",
+        "request_precommitment_verification",
+        "challenge_freshness_verification",
+        "trusted_clock_verification",
+        "historical_signing_time_verification",
+        "online_revocation_check",
+        "policy_rollback_protection",
+        "process_isolation_verification",
+        "implementation_closure_verification",
+        "runtime_execution_identity_verification",
+        "semantic_support_verification",
+        "independent_anchor_admission",
+        "cycle_anchor_classification",
+        "response_mode_recommendation",
+        "verified_binding_coverage",
+        "verified_support_coverage"
+      ],
+      "type": "object"
+    },
+    "verification_scope": {
+      "const": "single_exact_receipt_signature_under_caller_pinned_observer_policy"
+    },
+    "verification_time_epoch": {
+      "maximum": 253402300799,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "work_package": {
+      "const": "WP2G"
+    }
+  },
+  "required": [
+    "schema_version",
+    "work_package",
+    "profile",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "verification_scope",
+    "requested_checks_complete",
+    "accepted_as_execution_evidence",
+    "accepted_as_semantic_support",
+    "accepted_as_independent_anchor",
+    "authenticated_receipt_statement",
+    "status",
+    "trust_domain",
+    "verification_time_epoch",
+    "time_source",
+    "selected_record_id",
+    "expected_execution_id",
+    "expected_challenge",
+    "expected_observer_id",
+    "expected_digests",
+    "observed_digests",
+    "execution_contract_check",
+    "policy_id",
+    "observer_declaration",
+    "observation_basis",
+    "key_id",
+    "public_key_sha256",
+    "signed_message_sha256",
+    "observer_key_authorization",
+    "receipt_signature_check",
+    "observer_statement_authentication",
+    "unperformed_checks",
+    "issues",
+    "implementation"
+  ],
+  "title": "anchor_integrity_execution_receipt_signature_report_v0_1 - diagnostic receipt statement only",
+  "type": "object"
+}

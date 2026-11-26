@@ -1,0 +1,1525 @@
+{
+  "examples": [
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_input",
+        "authority_effect": "none",
+        "case_id": "EXAMPLE_LRM_REF_01",
+        "correspondence": [
+          {
+            "after_ids": [
+              "a_anna"
+            ],
+            "anchor_ids": [
+              "anchor_before",
+              "anchor_after"
+            ],
+            "basis": "candidate",
+            "before_ids": [
+              "b_anna"
+            ],
+            "correspondence_id": "map_entity_anna",
+            "kind": "entity",
+            "rule_or_reference_id": null
+          },
+          {
+            "after_ids": [
+              "a_main"
+            ],
+            "anchor_ids": [
+              "anchor_before",
+              "anchor_after"
+            ],
+            "basis": "candidate",
+            "before_ids": [
+              "b_main"
+            ],
+            "correspondence_id": "map_relation_1",
+            "kind": "relation",
+            "rule_or_reference_id": null
+          }
+        ],
+        "coverage_obligations": [
+          {
+            "evidence_refs": [],
+            "kind": "source_scope",
+            "obligation_id": "coverage_main",
+            "reason": null,
+            "side": "both",
+            "source_ids": [
+              "source_before",
+              "source_after"
+            ],
+            "state": "fulfilled",
+            "target_id": "target_main"
+          }
+        ],
+        "impact_model": null,
+        "interpretations": {
+          "reason": null,
+          "state": "complete",
+          "variants": [
+            {
+              "after_relation_ids": [
+                "a_main"
+              ],
+              "before_relation_ids": [
+                "b_main"
+              ],
+              "context_constraints": [],
+              "correspondence_ids": [
+                "map_entity_anna",
+                "map_relation_1"
+              ],
+              "variant_id": "variant_1"
+            }
+          ]
+        },
+        "measurement_request": {
+          "processing_claim": "structural_comparison",
+          "targets": [
+            {
+              "after_ids": [
+                "a_main"
+              ],
+              "before_ids": [
+                "b_main"
+              ],
+              "context_source_ids": [],
+              "description": "Compare the selected role-bound relation or relation group.",
+              "granularity": "relation",
+              "question": "relation_preservation",
+              "required_obligation_ids": [
+                "coverage_main"
+              ],
+              "target_id": "target_main"
+            }
+          ]
+        },
+        "processing_binding": null,
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "representation_basis": {
+          "after": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          },
+          "before": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          }
+        },
+        "representations": {
+          "after": {
+            "domains": [],
+            "entities": [
+              {
+                "anchor_ids": [
+                  "anchor_after"
+                ],
+                "entity_id": "a_anna",
+                "entity_type": "person",
+                "label": "Anna"
+              }
+            ],
+            "groups": [],
+            "relations": [
+              {
+                "anchor_ids": [
+                  "anchor_after"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "arguments": [
+                    {
+                      "role": "agent",
+                      "value": {
+                        "entity_id": "a_anna"
+                      }
+                    }
+                  ],
+                  "op": "ATOM",
+                  "predicate": "approve"
+                },
+                "modality": "declarative",
+                "relation_id": "a_main",
+                "speaker_entity_id": null
+              }
+            ],
+            "representation_id": "a_representation",
+            "source_id": "source_after"
+          },
+          "before": {
+            "domains": [],
+            "entities": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "entity_id": "b_anna",
+                "entity_type": "person",
+                "label": "Anna"
+              }
+            ],
+            "groups": [],
+            "relations": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "arguments": [
+                    {
+                      "role": "agent",
+                      "value": {
+                        "entity_id": "b_anna"
+                      }
+                    }
+                  ],
+                  "op": "ATOM",
+                  "predicate": "approve"
+                },
+                "modality": "declarative",
+                "relation_id": "b_main",
+                "speaker_entity_id": null
+              }
+            ],
+            "representation_id": "b_representation",
+            "source_id": "source_before"
+          }
+        },
+        "schema_version": "language_relation_input_v0",
+        "source_anchors": [
+          {
+            "anchor_id": "anchor_before",
+            "content_sha256": "197c771085539b76b220bb2c7ad11e2a02e4b6482ed14505b622d6cd2e55f5d7",
+            "end_byte": 14,
+            "source_id": "source_before",
+            "start_byte": 0
+          },
+          {
+            "anchor_id": "anchor_after",
+            "content_sha256": "197c771085539b76b220bb2c7ad11e2a02e4b6482ed14505b622d6cd2e55f5d7",
+            "end_byte": 14,
+            "source_id": "source_after",
+            "start_byte": 0
+          }
+        ],
+        "sources": [
+          {
+            "byte_length": 14,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "Anna approves."
+            },
+            "content_sha256": "197c771085539b76b220bb2c7ad11e2a02e4b6482ed14505b622d6cd2e55f5d7",
+            "encoding": "utf-8",
+            "language": "en",
+            "revision": null,
+            "role": "before",
+            "source_id": "source_before"
+          },
+          {
+            "byte_length": 14,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "Anna approves."
+            },
+            "content_sha256": "197c771085539b76b220bb2c7ad11e2a02e4b6482ed14505b622d6cd2e55f5d7",
+            "encoding": "utf-8",
+            "language": "en",
+            "revision": null,
+            "role": "after",
+            "source_id": "source_after"
+          }
+        ]
+      },
+      "claim_boundary": "Authored candidate input; no source-mapping verifier has executed.",
+      "example_id": "input_candidate",
+      "schema_file": "language_relation_input_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_verification",
+        "authority_effect": "none",
+        "basis_records": [
+          {
+            "acceptance_ref": null,
+            "check_ids": [
+              "source_binding_check"
+            ],
+            "claim_scope": "candidate_structures",
+            "reason": "Synthetic contract example.",
+            "representation_basis": "candidate_only",
+            "side": "before"
+          },
+          {
+            "acceptance_ref": null,
+            "check_ids": [
+              "source_binding_check"
+            ],
+            "claim_scope": "candidate_structures",
+            "reason": "Synthetic contract example.",
+            "representation_basis": "candidate_only",
+            "side": "after"
+          }
+        ],
+        "checker_ref": {
+          "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "tool_id": "illustrative_checker",
+          "version": "contract-example"
+        },
+        "checks": [
+          {
+            "check_id": "source_binding_check",
+            "evidence_refs": [],
+            "kind": "source_binding",
+            "reason": "LRM-01 does not implement the source verifier.",
+            "result": null,
+            "status": "not_run",
+            "target_ids": [
+              "target_main"
+            ]
+          }
+        ],
+        "input_ref": {
+          "artifact_id": "EXAMPLE_LRM_REF_01",
+          "content_sha256": "3b5b9b1f0b6db01811d5af0fa9daa86f5998335d66b0ccf9bd83d2f5fcf69c67"
+        },
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "schema_version": "language_relation_verification_v0",
+        "status_axes": {
+          "authority_status": "none",
+          "binding_status": "unbound",
+          "causal_status": "not_evaluated",
+          "consistency_status": "internally_incomplete",
+          "observation_status": "not_observed",
+          "reproduction_status": "not_tested"
+        },
+        "verification_id": "verification_example"
+      },
+      "claim_boundary": "Required checks have not run; null result is intentional.",
+      "example_id": "verification_not_run",
+      "schema_file": "language_relation_verification_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_measurement",
+        "authority_effect": "none",
+        "evaluator_ref": {
+          "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "tool_id": "illustrative_evaluator",
+          "version": "contract-example"
+        },
+        "execution": {
+          "reason": "LRM-01 does not implement the comparator.",
+          "status": "not_run"
+        },
+        "impacts": [],
+        "input_ref": {
+          "artifact_id": "EXAMPLE_LRM_REF_01",
+          "content_sha256": "3b5b9b1f0b6db01811d5af0fa9daa86f5998335d66b0ccf9bd83d2f5fcf69c67"
+        },
+        "introduced_relations": [],
+        "measurement_id": "measurement_example",
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "results": null,
+        "schema_version": "language_relation_measurement_v0",
+        "status_axes": {
+          "authority_status": "none",
+          "binding_status": "unbound",
+          "causal_status": "not_evaluated",
+          "consistency_status": "internally_incomplete",
+          "observation_status": "not_observed",
+          "reproduction_status": "not_tested"
+        },
+        "support": null,
+        "unresolved": [],
+        "verification_refs": [],
+        "witnesses": []
+      },
+      "claim_boundary": "No comparator has executed; this is an unfinished record shape.",
+      "example_id": "measurement_not_run",
+      "schema_file": "language_relation_measurement_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_measurement",
+        "authority_effect": "none",
+        "evaluator_ref": {
+          "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "tool_id": "illustrative_evaluator",
+          "version": "contract-example"
+        },
+        "execution": {
+          "reason": null,
+          "status": "completed"
+        },
+        "impacts": [],
+        "input_ref": {
+          "artifact_id": "EXAMPLE_LRM_REF_01",
+          "content_sha256": "3b5b9b1f0b6db01811d5af0fa9daa86f5998335d66b0ccf9bd83d2f5fcf69c67"
+        },
+        "introduced_relations": [],
+        "measurement_id": "illustrative_preserved",
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "results": [
+          {
+            "assessment_state": "IDENTIFIED",
+            "claim_scope": "candidate_structures",
+            "closed_obligation_ids": [
+              "coverage_main"
+            ],
+            "compatible_variant_ids": [
+              "variant_1"
+            ],
+            "coverage_obligation_ids": [
+              "coverage_main"
+            ],
+            "possible_relation_states": [
+              "PRESERVED"
+            ],
+            "reason": null,
+            "relation_state": "PRESERVED",
+            "representation_basis": "candidate_only",
+            "target_id": "target_main",
+            "verification_ids": [],
+            "witness_ids": []
+          }
+        ],
+        "schema_version": "language_relation_measurement_v0",
+        "status_axes": {
+          "authority_status": "none",
+          "binding_status": "unbound",
+          "causal_status": "not_evaluated",
+          "consistency_status": "internally_incomplete",
+          "observation_status": "not_observed",
+          "reproduction_status": "not_tested"
+        },
+        "support": null,
+        "unresolved": [],
+        "verification_refs": [],
+        "witnesses": []
+      },
+      "claim_boundary": "Hypothetical completed candidate-structure shape for the associated authored input. No comparator run or source-semantic verification is claimed.",
+      "example_id": "measurement_shape_preserved",
+      "schema_file": "language_relation_measurement_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_input",
+        "authority_effect": "none",
+        "case_id": "EXAMPLE_LRM_REF_05",
+        "correspondence": [
+          {
+            "after_ids": [
+              "a_anna"
+            ],
+            "anchor_ids": [
+              "anchor_before",
+              "anchor_after"
+            ],
+            "basis": "candidate",
+            "before_ids": [
+              "b_anna"
+            ],
+            "correspondence_id": "map_entity_anna",
+            "kind": "entity",
+            "rule_or_reference_id": null
+          },
+          {
+            "after_ids": [
+              "a_bela"
+            ],
+            "anchor_ids": [
+              "anchor_before",
+              "anchor_after"
+            ],
+            "basis": "candidate",
+            "before_ids": [
+              "b_bela"
+            ],
+            "correspondence_id": "map_entity_bela",
+            "kind": "entity",
+            "rule_or_reference_id": null
+          },
+          {
+            "after_ids": [
+              "a_main"
+            ],
+            "anchor_ids": [
+              "anchor_before",
+              "anchor_after"
+            ],
+            "basis": "candidate",
+            "before_ids": [
+              "b_main"
+            ],
+            "correspondence_id": "map_relation_1",
+            "kind": "relation",
+            "rule_or_reference_id": null
+          }
+        ],
+        "coverage_obligations": [
+          {
+            "evidence_refs": [],
+            "kind": "source_scope",
+            "obligation_id": "coverage_main",
+            "reason": null,
+            "side": "both",
+            "source_ids": [
+              "source_before",
+              "source_after"
+            ],
+            "state": "fulfilled",
+            "target_id": "target_main"
+          }
+        ],
+        "impact_model": null,
+        "interpretations": {
+          "reason": null,
+          "state": "complete",
+          "variants": [
+            {
+              "after_relation_ids": [
+                "a_main"
+              ],
+              "before_relation_ids": [
+                "b_main"
+              ],
+              "context_constraints": [],
+              "correspondence_ids": [
+                "map_entity_anna",
+                "map_entity_bela",
+                "map_relation_1"
+              ],
+              "variant_id": "variant_1"
+            }
+          ]
+        },
+        "measurement_request": {
+          "processing_claim": "structural_comparison",
+          "targets": [
+            {
+              "after_ids": [
+                "a_main"
+              ],
+              "before_ids": [
+                "b_main"
+              ],
+              "context_source_ids": [],
+              "description": "Compare the selected role-bound relation or relation group.",
+              "granularity": "relation",
+              "question": "condition_impact",
+              "required_obligation_ids": [
+                "coverage_main"
+              ],
+              "target_id": "target_main"
+            }
+          ]
+        },
+        "processing_binding": null,
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "representation_basis": {
+          "after": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          },
+          "before": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          }
+        },
+        "representations": {
+          "after": {
+            "domains": [],
+            "entities": [
+              {
+                "anchor_ids": [
+                  "anchor_after"
+                ],
+                "entity_id": "a_anna",
+                "entity_type": "person",
+                "label": "Anna"
+              },
+              {
+                "anchor_ids": [
+                  "anchor_after"
+                ],
+                "entity_id": "a_bela",
+                "entity_type": "person",
+                "label": "Béla"
+              }
+            ],
+            "groups": [],
+            "relations": [
+              {
+                "anchor_ids": [
+                  "anchor_after"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "op": "OR",
+                  "operands": [
+                    {
+                      "arguments": [
+                        {
+                          "role": "agent",
+                          "value": {
+                            "entity_id": "a_anna"
+                          }
+                        }
+                      ],
+                      "op": "ATOM",
+                      "predicate": "approve"
+                    },
+                    {
+                      "arguments": [
+                        {
+                          "role": "agent",
+                          "value": {
+                            "entity_id": "a_bela"
+                          }
+                        }
+                      ],
+                      "op": "ATOM",
+                      "predicate": "approve"
+                    }
+                  ]
+                },
+                "modality": "declarative",
+                "relation_id": "a_main",
+                "speaker_entity_id": null
+              }
+            ],
+            "representation_id": "a_representation",
+            "source_id": "source_after"
+          },
+          "before": {
+            "domains": [],
+            "entities": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "entity_id": "b_anna",
+                "entity_type": "person",
+                "label": "Anna"
+              },
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "entity_id": "b_bela",
+                "entity_type": "person",
+                "label": "Béla"
+              }
+            ],
+            "groups": [],
+            "relations": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "op": "AND",
+                  "operands": [
+                    {
+                      "arguments": [
+                        {
+                          "role": "agent",
+                          "value": {
+                            "entity_id": "b_anna"
+                          }
+                        }
+                      ],
+                      "op": "ATOM",
+                      "predicate": "approve"
+                    },
+                    {
+                      "arguments": [
+                        {
+                          "role": "agent",
+                          "value": {
+                            "entity_id": "b_bela"
+                          }
+                        }
+                      ],
+                      "op": "ATOM",
+                      "predicate": "approve"
+                    }
+                  ]
+                },
+                "modality": "declarative",
+                "relation_id": "b_main",
+                "speaker_entity_id": null
+              }
+            ],
+            "representation_id": "b_representation",
+            "source_id": "source_before"
+          }
+        },
+        "schema_version": "language_relation_input_v0",
+        "source_anchors": [
+          {
+            "anchor_id": "anchor_before",
+            "content_sha256": "9c4b76d638be735c7749db46c5425159291c783e0dc300fa45d36eab6a369a52",
+            "end_byte": 41,
+            "source_id": "source_before",
+            "start_byte": 0
+          },
+          {
+            "anchor_id": "anchor_after",
+            "content_sha256": "cac8b0c5f93ed11416dd4ecffac9de7ba8d2ae5002724b6e03816811705d3aad",
+            "end_byte": 42,
+            "source_id": "source_after",
+            "start_byte": 0
+          }
+        ],
+        "sources": [
+          {
+            "byte_length": 41,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "(Anna jóváhagy) és (Béla jóváhagy)."
+            },
+            "content_sha256": "9c4b76d638be735c7749db46c5425159291c783e0dc300fa45d36eab6a369a52",
+            "encoding": "utf-8",
+            "language": "hu",
+            "revision": null,
+            "role": "before",
+            "source_id": "source_before"
+          },
+          {
+            "byte_length": 42,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "(Anna jóváhagy) vagy (Béla jóváhagy)."
+            },
+            "content_sha256": "cac8b0c5f93ed11416dd4ecffac9de7ba8d2ae5002724b6e03816811705d3aad",
+            "encoding": "utf-8",
+            "language": "hu",
+            "revision": null,
+            "role": "after",
+            "source_id": "source_after"
+          }
+        ]
+      },
+      "claim_boundary": "Authored candidate input for the associated hypothetical result shape; no evaluator has executed.",
+      "example_id": "input_shape_changed",
+      "schema_file": "language_relation_input_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_measurement",
+        "authority_effect": "none",
+        "evaluator_ref": {
+          "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "tool_id": "illustrative_evaluator",
+          "version": "contract-example"
+        },
+        "execution": {
+          "reason": null,
+          "status": "completed"
+        },
+        "impacts": [],
+        "input_ref": {
+          "artifact_id": "EXAMPLE_LRM_REF_05",
+          "content_sha256": "6202e873eb3c6522058b28be3f54b54ead810badc81f20405a8ac92dbeb686ab"
+        },
+        "introduced_relations": [],
+        "measurement_id": "illustrative_changed",
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "results": [
+          {
+            "assessment_state": "IDENTIFIED",
+            "claim_scope": "candidate_structures",
+            "closed_obligation_ids": [
+              "coverage_main"
+            ],
+            "compatible_variant_ids": [
+              "variant_1"
+            ],
+            "coverage_obligation_ids": [
+              "coverage_main"
+            ],
+            "possible_relation_states": [
+              "CHANGED"
+            ],
+            "reason": null,
+            "relation_state": "CHANGED",
+            "representation_basis": "candidate_only",
+            "target_id": "target_main",
+            "verification_ids": [],
+            "witness_ids": [
+              "witness_example"
+            ]
+          }
+        ],
+        "schema_version": "language_relation_measurement_v0",
+        "status_axes": {
+          "authority_status": "none",
+          "binding_status": "unbound",
+          "causal_status": "not_evaluated",
+          "consistency_status": "internally_incomplete",
+          "observation_status": "not_observed",
+          "reproduction_status": "not_tested"
+        },
+        "support": null,
+        "unresolved": [],
+        "verification_refs": [],
+        "witnesses": [
+          {
+            "after_relation_ids": [
+              "a_main"
+            ],
+            "before_relation_ids": [
+              "b_main"
+            ],
+            "description": "The authored before expression uses AND; the after expression uses inclusive OR.",
+            "kind": "operator_difference",
+            "premise_refs": [],
+            "rule_refs": [
+              "LOGIC_01"
+            ],
+            "target_id": "target_main",
+            "valuation": [],
+            "variant_ids": [
+              "variant_1"
+            ],
+            "witness_id": "witness_example"
+          }
+        ]
+      },
+      "claim_boundary": "Hypothetical completed candidate-structure shape for the associated authored input. No comparator run or source-semantic verification is claimed.",
+      "example_id": "measurement_shape_changed",
+      "schema_file": "language_relation_measurement_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_input",
+        "authority_effect": "none",
+        "case_id": "EXAMPLE_LRM_REF_14",
+        "correspondence": [
+          {
+            "after_ids": [
+              "a_bela"
+            ],
+            "anchor_ids": [
+              "anchor_before",
+              "anchor_after"
+            ],
+            "basis": "candidate",
+            "before_ids": [
+              "b_bela"
+            ],
+            "correspondence_id": "map_entity_bela",
+            "kind": "entity",
+            "rule_or_reference_id": null
+          },
+          {
+            "after_ids": [
+              "a_bela"
+            ],
+            "anchor_ids": [
+              "anchor_before",
+              "anchor_after"
+            ],
+            "basis": "candidate",
+            "before_ids": [
+              "b_bela"
+            ],
+            "correspondence_id": "map_relation_1",
+            "kind": "relation",
+            "rule_or_reference_id": null
+          }
+        ],
+        "coverage_obligations": [
+          {
+            "evidence_refs": [],
+            "kind": "source_scope",
+            "obligation_id": "coverage_main",
+            "reason": null,
+            "side": "both",
+            "source_ids": [
+              "source_before",
+              "source_after",
+              "source_context"
+            ],
+            "state": "fulfilled",
+            "target_id": "target_main"
+          }
+        ],
+        "impact_model": null,
+        "interpretations": {
+          "reason": null,
+          "state": "complete",
+          "variants": [
+            {
+              "after_relation_ids": [
+                "a_bela"
+              ],
+              "before_relation_ids": [
+                "b_anna",
+                "b_bela"
+              ],
+              "context_constraints": [],
+              "correspondence_ids": [
+                "map_entity_bela",
+                "map_relation_1"
+              ],
+              "variant_id": "variant_1"
+            }
+          ]
+        },
+        "measurement_request": {
+          "processing_claim": "structural_comparison",
+          "targets": [
+            {
+              "after_ids": [],
+              "before_ids": [
+                "b_anna"
+              ],
+              "context_source_ids": [
+                "source_context"
+              ],
+              "description": "Compare the selected role-bound relation or relation group.",
+              "granularity": "relation",
+              "question": "relation_preservation",
+              "required_obligation_ids": [
+                "coverage_main"
+              ],
+              "target_id": "target_main"
+            }
+          ]
+        },
+        "processing_binding": null,
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "representation_basis": {
+          "after": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          },
+          "before": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          }
+        },
+        "representations": {
+          "after": {
+            "domains": [],
+            "entities": [
+              {
+                "anchor_ids": [
+                  "anchor_after"
+                ],
+                "entity_id": "a_bela",
+                "entity_type": "person",
+                "label": "Béla"
+              }
+            ],
+            "groups": [],
+            "relations": [
+              {
+                "anchor_ids": [
+                  "anchor_after"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "arguments": [
+                    {
+                      "role": "agent",
+                      "value": {
+                        "entity_id": "a_bela"
+                      }
+                    }
+                  ],
+                  "op": "ATOM",
+                  "predicate": "approve"
+                },
+                "modality": "declarative",
+                "relation_id": "a_bela",
+                "speaker_entity_id": null
+              }
+            ],
+            "representation_id": "a_representation",
+            "source_id": "source_after"
+          },
+          "before": {
+            "domains": [],
+            "entities": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "entity_id": "b_anna",
+                "entity_type": "person",
+                "label": "Anna"
+              },
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "entity_id": "b_bela",
+                "entity_type": "person",
+                "label": "Béla"
+              }
+            ],
+            "groups": [],
+            "relations": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "arguments": [
+                    {
+                      "role": "agent",
+                      "value": {
+                        "entity_id": "b_anna"
+                      }
+                    }
+                  ],
+                  "op": "ATOM",
+                  "predicate": "approve"
+                },
+                "modality": "declarative",
+                "relation_id": "b_anna",
+                "speaker_entity_id": null
+              },
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "arguments": [
+                    {
+                      "role": "agent",
+                      "value": {
+                        "entity_id": "b_bela"
+                      }
+                    }
+                  ],
+                  "op": "ATOM",
+                  "predicate": "approve"
+                },
+                "modality": "declarative",
+                "relation_id": "b_bela",
+                "speaker_entity_id": null
+              }
+            ],
+            "representation_id": "b_representation",
+            "source_id": "source_before"
+          }
+        },
+        "schema_version": "language_relation_input_v0",
+        "source_anchors": [
+          {
+            "anchor_id": "anchor_before",
+            "content_sha256": "e6950e34e3b2c8430222e9e1ba9ce084cb9c7108c9179d0ba3f562a5719dae26",
+            "end_byte": 34,
+            "source_id": "source_before",
+            "start_byte": 0
+          },
+          {
+            "anchor_id": "anchor_after",
+            "content_sha256": "25ede4c4266cab426130359ee3cb4f36fe9dc40bf20daca5630d730ef2705b86",
+            "end_byte": 17,
+            "source_id": "source_after",
+            "start_byte": 0
+          },
+          {
+            "anchor_id": "anchor_context",
+            "content_sha256": "eb8d56cd9163fcce79a6fc713555aeffeb4889d0fe10513d2b8105576211eacb",
+            "end_byte": 123,
+            "source_id": "source_context",
+            "start_byte": 0
+          }
+        ],
+        "sources": [
+          {
+            "byte_length": 34,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "Anna jóváhagy. Béla jóváhagy."
+            },
+            "content_sha256": "e6950e34e3b2c8430222e9e1ba9ce084cb9c7108c9179d0ba3f562a5719dae26",
+            "encoding": "utf-8",
+            "language": "hu",
+            "revision": null,
+            "role": "before",
+            "source_id": "source_before"
+          },
+          {
+            "byte_length": 17,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "Béla jóváhagy."
+            },
+            "content_sha256": "25ede4c4266cab426130359ee3cb4f36fe9dc40bf20daca5630d730ef2705b86",
+            "encoding": "utf-8",
+            "language": "hu",
+            "revision": null,
+            "role": "after",
+            "source_id": "source_after"
+          },
+          {
+            "byte_length": 123,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "A mérési cél Anna jóváhagyási állításának közlési folytonossága; mindkét teljes közlés rendelkezésre áll."
+            },
+            "content_sha256": "eb8d56cd9163fcce79a6fc713555aeffeb4889d0fe10513d2b8105576211eacb",
+            "encoding": "utf-8",
+            "language": "hu",
+            "revision": null,
+            "role": "context",
+            "source_id": "source_context"
+          }
+        ]
+      },
+      "claim_boundary": "Authored candidate input for the associated hypothetical result shape; no evaluator has executed.",
+      "example_id": "input_shape_broken",
+      "schema_file": "language_relation_input_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_measurement",
+        "authority_effect": "none",
+        "evaluator_ref": {
+          "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "tool_id": "illustrative_evaluator",
+          "version": "contract-example"
+        },
+        "execution": {
+          "reason": null,
+          "status": "completed"
+        },
+        "impacts": [],
+        "input_ref": {
+          "artifact_id": "EXAMPLE_LRM_REF_14",
+          "content_sha256": "e42f73a85f17cb55e5c7a917b3a92d234bc033df55ecb3a40dcd619b7829e478"
+        },
+        "introduced_relations": [],
+        "measurement_id": "illustrative_broken",
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "results": [
+          {
+            "assessment_state": "IDENTIFIED",
+            "claim_scope": "candidate_structures",
+            "closed_obligation_ids": [
+              "coverage_main"
+            ],
+            "compatible_variant_ids": [
+              "variant_1"
+            ],
+            "coverage_obligation_ids": [
+              "coverage_main"
+            ],
+            "possible_relation_states": [
+              "BROKEN"
+            ],
+            "reason": null,
+            "relation_state": "BROKEN",
+            "representation_basis": "candidate_only",
+            "target_id": "target_main",
+            "verification_ids": [],
+            "witness_ids": [
+              "witness_example"
+            ]
+          }
+        ],
+        "schema_version": "language_relation_measurement_v0",
+        "status_axes": {
+          "authority_status": "none",
+          "binding_status": "unbound",
+          "causal_status": "not_evaluated",
+          "consistency_status": "internally_incomplete",
+          "observation_status": "not_observed",
+          "reproduction_status": "not_tested"
+        },
+        "support": null,
+        "unresolved": [],
+        "verification_refs": [],
+        "witnesses": [
+          {
+            "after_relation_ids": [],
+            "before_relation_ids": [
+              "b_anna"
+            ],
+            "description": "The authored fully covered target text lacks a continuation of the selected Anna approval relation.",
+            "kind": "absence",
+            "premise_refs": [],
+            "rule_refs": [],
+            "target_id": "target_main",
+            "valuation": [],
+            "variant_ids": [
+              "variant_1"
+            ],
+            "witness_id": "witness_example"
+          }
+        ]
+      },
+      "claim_boundary": "Hypothetical completed candidate-structure shape for the associated authored input. No comparator run or source-semantic verification is claimed.",
+      "example_id": "measurement_shape_broken",
+      "schema_file": "language_relation_measurement_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_input",
+        "authority_effect": "none",
+        "case_id": "EXAMPLE_LRM_REF_13",
+        "correspondence": [],
+        "coverage_obligations": [
+          {
+            "evidence_refs": [],
+            "kind": "source_scope",
+            "obligation_id": "coverage_main",
+            "reason": "The submitted annotation does not close the selected source scope.",
+            "side": "both",
+            "source_ids": [
+              "source_before",
+              "source_after"
+            ],
+            "state": "missing",
+            "target_id": "target_main"
+          }
+        ],
+        "impact_model": null,
+        "interpretations": {
+          "reason": null,
+          "state": "complete",
+          "variants": [
+            {
+              "after_relation_ids": [],
+              "before_relation_ids": [
+                "b_main"
+              ],
+              "context_constraints": [],
+              "correspondence_ids": [],
+              "variant_id": "variant_1"
+            }
+          ]
+        },
+        "measurement_request": {
+          "processing_claim": "structural_comparison",
+          "targets": [
+            {
+              "after_ids": [],
+              "before_ids": [
+                "b_main"
+              ],
+              "context_source_ids": [],
+              "description": "Compare the selected role-bound relation or relation group.",
+              "granularity": "relation",
+              "question": "relation_preservation",
+              "required_obligation_ids": [
+                "coverage_main"
+              ],
+              "target_id": "target_main"
+            }
+          ]
+        },
+        "processing_binding": null,
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "representation_basis": {
+          "after": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          },
+          "before": {
+            "acceptance_ref": null,
+            "basis": "candidate_only",
+            "verification_ref": null
+          }
+        },
+        "representations": {
+          "after": {
+            "domains": [],
+            "entities": [],
+            "groups": [],
+            "relations": [],
+            "representation_id": "a_representation",
+            "source_id": "source_after"
+          },
+          "before": {
+            "domains": [],
+            "entities": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "entity_id": "b_anna",
+                "entity_type": "person",
+                "label": "Anna"
+              }
+            ],
+            "groups": [],
+            "relations": [
+              {
+                "anchor_ids": [
+                  "anchor_before"
+                ],
+                "discourse_type": "assertion",
+                "expression": {
+                  "arguments": [
+                    {
+                      "role": "agent",
+                      "value": {
+                        "entity_id": "b_anna"
+                      }
+                    }
+                  ],
+                  "op": "ATOM",
+                  "predicate": "approve"
+                },
+                "modality": "declarative",
+                "relation_id": "b_main",
+                "speaker_entity_id": null
+              }
+            ],
+            "representation_id": "b_representation",
+            "source_id": "source_before"
+          }
+        },
+        "schema_version": "language_relation_input_v0",
+        "source_anchors": [
+          {
+            "anchor_id": "anchor_before",
+            "content_sha256": "f7e4163955c10bf403287b4645f3b50fdd3fcf54427d93797c5561f72e0b9754",
+            "end_byte": 16,
+            "source_id": "source_before",
+            "start_byte": 0
+          },
+          {
+            "anchor_id": "anchor_after",
+            "content_sha256": "f7e4163955c10bf403287b4645f3b50fdd3fcf54427d93797c5561f72e0b9754",
+            "end_byte": 16,
+            "source_id": "source_after",
+            "start_byte": 0
+          }
+        ],
+        "sources": [
+          {
+            "byte_length": 16,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "Anna jóváhagy."
+            },
+            "content_sha256": "f7e4163955c10bf403287b4645f3b50fdd3fcf54427d93797c5561f72e0b9754",
+            "encoding": "utf-8",
+            "language": "hu",
+            "revision": null,
+            "role": "before",
+            "source_id": "source_before"
+          },
+          {
+            "byte_length": 16,
+            "content": {
+              "kind": "inline_utf8",
+              "text": "Anna jóváhagy."
+            },
+            "content_sha256": "f7e4163955c10bf403287b4645f3b50fdd3fcf54427d93797c5561f72e0b9754",
+            "encoding": "utf-8",
+            "language": "hu",
+            "revision": null,
+            "role": "after",
+            "source_id": "source_after"
+          }
+        ]
+      },
+      "claim_boundary": "Authored candidate input for the associated hypothetical result shape; no evaluator has executed.",
+      "example_id": "input_shape_undetermined",
+      "schema_file": "language_relation_input_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_measurement",
+        "authority_effect": "none",
+        "evaluator_ref": {
+          "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "tool_id": "illustrative_evaluator",
+          "version": "contract-example"
+        },
+        "execution": {
+          "reason": null,
+          "status": "completed"
+        },
+        "impacts": [],
+        "input_ref": {
+          "artifact_id": "EXAMPLE_LRM_REF_13",
+          "content_sha256": "8563970c69f9f06b19724b2e1e58991c1e590f17344599b2029a6840bf0bb932"
+        },
+        "introduced_relations": [],
+        "measurement_id": "illustrative_undetermined",
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "results": [
+          {
+            "assessment_state": "UNRESOLVED",
+            "claim_scope": "candidate_structures",
+            "closed_obligation_ids": [],
+            "compatible_variant_ids": [
+              "variant_1"
+            ],
+            "coverage_obligation_ids": [
+              "coverage_main"
+            ],
+            "possible_relation_states": [
+              "PRESERVED",
+              "BROKEN"
+            ],
+            "reason": "Illustrative unresolved obligation.",
+            "relation_state": "UNDETERMINED",
+            "representation_basis": "candidate_only",
+            "target_id": "target_main",
+            "verification_ids": [],
+            "witness_ids": []
+          }
+        ],
+        "schema_version": "language_relation_measurement_v0",
+        "status_axes": {
+          "authority_status": "none",
+          "binding_status": "unbound",
+          "causal_status": "not_evaluated",
+          "consistency_status": "internally_incomplete",
+          "observation_status": "not_observed",
+          "reproduction_status": "not_tested"
+        },
+        "support": null,
+        "unresolved": [],
+        "verification_refs": [],
+        "witnesses": []
+      },
+      "claim_boundary": "Hypothetical completed candidate-structure shape for the associated authored input. No comparator run or source-semantic verification is claimed.",
+      "example_id": "measurement_shape_undetermined",
+      "schema_file": "language_relation_measurement_v0.schema.json"
+    },
+    {
+      "artifact": {
+        "artifact_kind": "language_relation_manifest",
+        "authority_effect": "none",
+        "evaluator_ref": {
+          "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "tool_id": "illustrative_evaluator",
+          "version": "contract-example"
+        },
+        "implementation_base": null,
+        "manifest_id": "manifest_example",
+        "manifest_path": "manifest.json",
+        "payloads": [
+          {
+            "content_sha256": "3b5b9b1f0b6db01811d5af0fa9daa86f5998335d66b0ccf9bd83d2f5fcf69c67",
+            "path": "input.json",
+            "role": "input",
+            "size_bytes": 5717
+          },
+          {
+            "content_sha256": "5dd6d5fbea55e2481b6663592e941905cfc27b6580890c7842fa3624f37214d5",
+            "path": "verification.json",
+            "role": "verification",
+            "size_bytes": 1897
+          },
+          {
+            "content_sha256": "2b190167e907a127880627db93bccda8bd469bfb4ca77c4396b3167b5f5d487a",
+            "path": "measurement.json",
+            "role": "measurement",
+            "size_bytes": 1296
+          },
+          {
+            "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+            "path": "profile.json",
+            "role": "profile",
+            "size_bytes": 12149
+          }
+        ],
+        "profile_ref": {
+          "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+          "profile_id": "lrm_finite_reference_profile_v0"
+        },
+        "provenance": "synthetic_contract_example",
+        "release_authority_activation": false,
+        "replay": {
+          "dependencies": [],
+          "deterministic_payload_paths": [
+            "measurement.json"
+          ],
+          "entrypoint": "tools/replay_language_relation_measurement_v0.py",
+          "mode": "offline_deterministic",
+          "model_calls": false,
+          "receipt_path": "replay_receipt.json"
+        },
+        "schema_version": "language_relation_manifest_v0",
+        "source_baseline": {
+          "commit_sha": "47a3add6667542df6ef176285ed02bb1a741d9cf",
+          "repository": "HKati/pulse-release-gates-0.1",
+          "tree_sha": "6d425c83e16fdc95cb2cfe1645a8060f3336dfaf"
+        }
+      },
+      "claim_boundary": "Schema illustration for virtual serialized records in this collection. No evaluator/runtime payload is supplied, so this is not a complete replay package.",
+      "example_id": "manifest_shape",
+      "schema_file": "language_relation_manifest_v0.schema.json"
+    }
+  ],
+  "provenance": "synthetic_contract_example",
+  "schema_version": "language_relation_contract_examples_v0"
+}

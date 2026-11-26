@@ -1,0 +1,2081 @@
+{
+  "record_type": "q3_runtime_preparation_scope_assessment_v0",
+  "status": "PREPARATION_SCOPE_INSPECTED_PUBLICATION_BLOCKED",
+  "source_commit": "7bfd34dbd502f89bbf878ee37e9a1cfc5fb1e868",
+  "review_binding": {
+    "path": "preservation/q2_reference_closure_v0/redistribution_review_v0.json",
+    "git_blob": "789c782baa90e3614fe75d0367fb1e6012cebb5d",
+    "sha256": "f7b583cba156f8de355b3627754beb71996123d4a3ed02fbac62b154b2c3b78c"
+  },
+  "manifest_binding": {
+    "path": "preservation/q2_reference_closure_v0/repository_preservation_manifest_v0.json",
+    "git_blob": "42319caf6b63c2f15bed3c6f712b15c895fc2c3c",
+    "sha256": "98dede4b7a6d6bdac80dccf6a720afad70a1831ba5ffd5366e31b92f88ef015b"
+  },
+  "selected_original": {
+    "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+    "archive_size_bytes": 508460811,
+    "artifact_id": 11282419957,
+    "artifact_name": "q2-runtime-preparation-37148637546-1",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "run_attempt": 1,
+    "run_id": "37148637546",
+    "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+  },
+  "planned_destination": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "path": "preservation/q2_reference_closure_v0/archives/q2-runtime-preparation-37148637546-1.zip",
+    "storage": "git_lfs",
+    "endpoint": "https://github.com/HKati/pulse-release-gates-0.1.git/info/lfs",
+    "expected_pointer_size_bytes": 134,
+    "expected_pointer_sha256": "56ab8c0a91e6ab85eb8285515bc2853040a178ffb7c7a5b30b62459bd64ab837",
+    "expected_pointer_git_blob": "c9ccb2eff52f7e5789ce01dcdc86f22d3ef8bc99",
+    "destination_commit": null,
+    "remote_payload_presence": "NOT_VERIFIED",
+    "publication_authorized": false,
+    "runtime_transport_ready": false
+  },
+  "current_local_observation": {
+    "archive_size_and_sha256_match": true,
+    "outer_members": 78,
+    "model_files": 8,
+    "wheels": 30,
+    "wheel_metadata_bindings_verified": 30,
+    "existing_wheel_notice_bindings_verified": 53,
+    "gnu_library_bytes_verified": 3,
+    "native_elf_members_in_wheels": 166,
+    "archive_or_wheel_code_executed": false,
+    "model_or_tokenizer_run": false
+  },
+  "wheels": [
+    {
+      "component_id": "python:attrs==26.1.0",
+      "name": "attrs",
+      "version": "26.1.0",
+      "wheel": {
+        "filename": "attrs-26.1.0-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/attrs-26.1.0-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 67548,
+        "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/attrs-26.1.0-py3-none-any.whl",
+        "member": "attrs-26.1.0.dist-info/METADATA",
+        "size_bytes": 8754,
+        "sha256": "4cd40e690f23bf37cbcad34efd6758e062df1df07c86833f7e3ce95bf1fa38cc"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/attrs-26.1.0-py3-none-any.whl",
+          "member": "attrs-26.1.0.dist-info/licenses/LICENSE",
+          "size_bytes": 1109,
+          "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:certifi==2026.7.22",
+      "name": "certifi",
+      "version": "2026.7.22",
+      "wheel": {
+        "filename": "certifi-2026.7.22-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/certifi-2026.7.22-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 136983,
+        "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/certifi-2026.7.22-py3-none-any.whl",
+        "member": "certifi-2026.7.22.dist-info/METADATA",
+        "size_bytes": 2474,
+        "sha256": "ef5af1638fbb23676ac3c5777dfcfc2cd9c348fe4172ed5ba3d277655b248090"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/certifi-2026.7.22-py3-none-any.whl",
+          "member": "certifi-2026.7.22.dist-info/licenses/LICENSE",
+          "size_bytes": 989,
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MPL-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_MPL"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G5: owner must preserve the covered source and communicate its availability in the actual eventual distribution."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:charset-normalizer==3.5.2",
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "wheel": {
+        "filename": "charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 269972,
+        "sha256": "211d5a3eb6af8f513b8d4ca19a8c1b7accab1b5f0d3175f9826b03c1a920dc1f"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "charset_normalizer-3.5.2.dist-info/METADATA",
+        "size_bytes": 46395,
+        "sha256": "89ce6362bb7be88558f4be99a98f5d1b4da93d19cd0323e5ee0bac05cf883dfb"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/charset_normalizer-3.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "charset_normalizer-3.5.2.dist-info/licenses/LICENSE",
+          "size_bytes": 1071,
+          "sha256": "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "charset_normalizer/cd.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 185776
+        },
+        {
+          "member": "charset_normalizer/md.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 354984
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:filelock==4.0.9",
+      "name": "filelock",
+      "version": "4.0.9",
+      "wheel": {
+        "filename": "filelock-4.0.9-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/filelock-4.0.9-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 110368,
+        "sha256": "9287fd61b99a806e5202be29a83034c0808a1b9830e820537c2f5773981f7eeb"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/filelock-4.0.9-py3-none-any.whl",
+        "member": "filelock-4.0.9.dist-info/METADATA",
+        "size_bytes": 2027,
+        "sha256": "84f4d3bd3932b67c48b4e182fece56cbc837afcb68fcb3b49e26573bfa03df02"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/filelock-4.0.9-py3-none-any.whl",
+          "member": "filelock-4.0.9.dist-info/licenses/LICENSE",
+          "size_bytes": 1088,
+          "sha256": "608c89d5060ae9921adccf3236695bc654a9946e12323ef6c021dfa04e294d48"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:fsspec==2026.9.0",
+      "name": "fsspec",
+      "version": "2026.9.0",
+      "wheel": {
+        "filename": "fsspec-2026.9.0-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/fsspec-2026.9.0-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 221738,
+        "sha256": "8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/fsspec-2026.9.0-py3-none-any.whl",
+        "member": "fsspec-2026.9.0.dist-info/METADATA",
+        "size_bytes": 10609,
+        "sha256": "68f5a262767510638e9b1933b1493f2baadc9616fe1e696f62aedd59c8c0a37c"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/fsspec-2026.9.0-py3-none-any.whl",
+          "member": "fsspec-2026.9.0.dist-info/licenses/LICENSE",
+          "size_bytes": 1513,
+          "sha256": "2dc35496ce53a7307915c008a844aad53e772b49b34cdd00445067691407ec94"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:hf-xet==1.6.0",
+      "name": "hf-xet",
+      "version": "1.6.0",
+      "wheel": {
+        "filename": "hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 4464663,
+        "sha256": "d62671bb130879cef0ee4c9ebe47a14af6c66ec53e6d84dc15936e5ffdfac82f"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "member": "hf_xet-1.6.0.dist-info/METADATA",
+        "size_bytes": 4882,
+        "sha256": "becdd6ec73b515dc38c59501956134eb0b903bfed33ffcd99b252361acd926e9"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+          "member": "hf_xet-1.6.0.dist-info/licenses/LICENSE",
+          "size_bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE",
+        "R_IDENTITY"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G3: exact statically linked Rust/native dependencies, enabled features and their notices are not a proven binary SBOM."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "hf_xet/hf_xet.abi3.so",
+          "size_bytes": 12210648
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:huggingface-hub==0.36.2",
+      "name": "huggingface_hub",
+      "version": "0.36.2",
+      "wheel": {
+        "filename": "huggingface_hub-0.36.2-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/huggingface_hub-0.36.2-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 566395,
+        "sha256": "48f0c8eac16145dfce371e9d2d7772854a4f591bcb56c9cf548accf531d54270"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/huggingface_hub-0.36.2-py3-none-any.whl",
+        "member": "huggingface_hub-0.36.2.dist-info/METADATA",
+        "size_bytes": 15201,
+        "sha256": "4dc2b0a3fb27bcba8b091f98bccff4b94369d269c9768aeaecd0b99d970665d9"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/huggingface_hub-0.36.2-py3-none-any.whl",
+          "member": "huggingface_hub-0.36.2.dist-info/licenses/LICENSE",
+          "size_bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:idna==3.20",
+      "name": "idna",
+      "version": "3.20",
+      "wheel": {
+        "filename": "idna-3.20-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/idna-3.20-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 69583,
+        "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/idna-3.20-py3-none-any.whl",
+        "member": "idna-3.20.dist-info/METADATA",
+        "size_bytes": 7207,
+        "sha256": "dbd8c14c1e4ca1e0c9824a6dbc7cbbf78884f38eb52d91148cd3025f671e4b85"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/idna-3.20-py3-none-any.whl",
+          "member": "idna-3.20.dist-info/licenses/LICENSE.md",
+          "size_bytes": 1541,
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:jinja2==3.1.6",
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "wheel": {
+        "filename": "jinja2-3.1.6-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/jinja2-3.1.6-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 134899,
+        "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/jinja2-3.1.6-py3-none-any.whl",
+        "member": "jinja2-3.1.6.dist-info/METADATA",
+        "size_bytes": 2871,
+        "sha256": "68c5548fb67c4132a13898d9b31ec50c6bea2abdd915d921f214355c3a6499c8"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/jinja2-3.1.6-py3-none-any.whl",
+          "member": "jinja2-3.1.6.dist-info/licenses/LICENSE.txt",
+          "size_bytes": 1475,
+          "sha256": "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:jsonschema==4.25.1",
+      "name": "jsonschema",
+      "version": "4.25.1",
+      "wheel": {
+        "filename": "jsonschema-4.25.1-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/jsonschema-4.25.1-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 90040,
+        "sha256": "3fba0169e345c7175110351d456342c364814cfcf3b964ba4587f22915230a63"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/jsonschema-4.25.1-py3-none-any.whl",
+        "member": "jsonschema-4.25.1.dist-info/METADATA",
+        "size_bytes": 7608,
+        "sha256": "31f83c1579e46e1af62269cefa5d83534ef155f3ee21914f7881bbd544bc125c"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/jsonschema-4.25.1-py3-none-any.whl",
+          "member": "jsonschema-4.25.1.dist-info/licenses/COPYING",
+          "size_bytes": 1057,
+          "sha256": "4f92a015a13c4d1a040bef018aa13430b4f1bc73b41b16bb846c346766de7439"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:jsonschema-specifications==2025.9.1",
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "wheel": {
+        "filename": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 18437,
+        "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "member": "jsonschema_specifications-2025.9.1.dist-info/METADATA",
+        "size_bytes": 2907,
+        "sha256": "35abd41757f32b4ea24756920ded47b70173d77cbc052a5a6d3ab583b2e8d89d"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/jsonschema_specifications-2025.9.1-py3-none-any.whl",
+          "member": "jsonschema_specifications-2025.9.1.dist-info/licenses/COPYING",
+          "size_bytes": 1057,
+          "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:markupsafe==3.0.4",
+      "name": "MarkupSafe",
+      "version": "3.0.4",
+      "wheel": {
+        "filename": "markupsafe-3.0.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/markupsafe-3.0.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 22961,
+        "sha256": "6da83a088f8ef93b2d483a8232a4dbf4d69d3d8496b568a03c56becac43e1808"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/markupsafe-3.0.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "markupsafe-3.0.4.dist-info/METADATA",
+        "size_bytes": 2690,
+        "sha256": "66767d76388ece15d49d50dafb655891ef5d868715e7128e7f7d737a70b353c4"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/markupsafe-3.0.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "markupsafe-3.0.4.dist-info/licenses/LICENSE.txt",
+          "size_bytes": 1475,
+          "sha256": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "markupsafe/_speedups.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 43936
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:mpmath==1.3.0",
+      "name": "mpmath",
+      "version": "1.3.0",
+      "wheel": {
+        "filename": "mpmath-1.3.0-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/mpmath-1.3.0-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 536198,
+        "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/mpmath-1.3.0-py3-none-any.whl",
+        "member": "mpmath-1.3.0.dist-info/METADATA",
+        "size_bytes": 8630,
+        "sha256": "44b66ea444b9c0d19ae94815d356bf047ae6b680c19268b5c265687cd6a81406"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/mpmath-1.3.0-py3-none-any.whl",
+          "member": "mpmath-1.3.0.dist-info/LICENSE",
+          "size_bytes": 1537,
+          "sha256": "c26cae81da4508e5e249985777a33821f183223ebb74d7f8cfbf90fe7eef2fb7"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:networkx==3.6.1",
+      "name": "networkx",
+      "version": "3.6.1",
+      "wheel": {
+        "filename": "networkx-3.6.1-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/networkx-3.6.1-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 2068504,
+        "sha256": "d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/networkx-3.6.1-py3-none-any.whl",
+        "member": "networkx-3.6.1.dist-info/METADATA",
+        "size_bytes": 6783,
+        "sha256": "aca5d94a97d1f70f301d033addb635f6e66be8973a00aba4127637eed2ef316a"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/networkx-3.6.1-py3-none-any.whl",
+          "member": "networkx-3.6.1.dist-info/licenses/LICENSE.txt",
+          "size_bytes": 1763,
+          "sha256": "3cf7c3a179d817b23b8b8568211769fefdf93797d207d984b8b2fa24d0220b33"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:numpy==2.4.6",
+      "name": "numpy",
+      "version": "2.4.6",
+      "wheel": {
+        "filename": "numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 16918164,
+        "sha256": "89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "numpy-2.4.6.dist-info/METADATA",
+        "size_bytes": 6608,
+        "sha256": "b082c52ccbe3b880bae177c35171b52ed6c947f3ad71e3762f2723f60a411de0"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy/_core/include/numpy/random/LICENSE.txt",
+          "size_bytes": 1018,
+          "sha256": "fbc539f47d0cf83bc61378080fb873d5c14630126cacbfe754035c3926daa5ec"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy/ma/LICENSE",
+          "size_bytes": 1593,
+          "sha256": "05f3b88351988ecfad10abe92c0c50e5875c6452d5009a0084cc291551ffcca6"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy/random/LICENSE.md",
+          "size_bytes": 3511,
+          "sha256": "103166b62b80443afb9eb3488e052ea06be0cff566b908f199e561fde49af19f"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/LICENSE.txt",
+          "size_bytes": 46794,
+          "sha256": "4860083caa0de2ac3292ca98bd074bd8f45d8b32624e37b1e70a240bff61e488"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt",
+          "size_bytes": 1018,
+          "sha256": "fbc539f47d0cf83bc61378080fb873d5c14630126cacbfe754035c3926daa5ec"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING",
+          "size_bytes": 690,
+          "sha256": "3f2c1ffa76383a55ae0aac01c9737cd70050dff63e1f026694fbe9d662573c98"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/_core/src/highway/LICENSE",
+          "size_bytes": 20785,
+          "sha256": "e340270d4f64384569a91d546acb5b094d69ce47f0c015db77abb74dc6f815af"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+          "size_bytes": 1514,
+          "sha256": "211e7d737d6179a08f791ebb0a99897ce7cd2457410c542876d125576edfe910"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/_core/src/umath/svml/LICENSE",
+          "size_bytes": 1543,
+          "sha256": "c17011467b4fe6e20fbfbeda4df09e58c2bca5480a063e55735a4000a379aad9"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/fft/pocketfft/LICENSE.md",
+          "size_bytes": 1498,
+          "sha256": "a85ca13fdf90160b64a0698215868c13b74d835ad0a4e2ba44713b8c5058a056"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/linalg/lapack_lite/LICENSE.txt",
+          "size_bytes": 2266,
+          "sha256": "a14cc25e10d40a3aa705b7de2fb764a6535d8ee9b2db4e1724900585457dfd55"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/ma/LICENSE",
+          "size_bytes": 1593,
+          "sha256": "05f3b88351988ecfad10abe92c0c50e5875c6452d5009a0084cc291551ffcca6"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/random/LICENSE.md",
+          "size_bytes": 3511,
+          "sha256": "103166b62b80443afb9eb3488e052ea06be0cff566b908f199e561fde49af19f"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/random/src/distributions/LICENSE.md",
+          "size_bytes": 2745,
+          "sha256": "469778be8f33d54e1bcaab28c281cc472916d2d273f835e55bc487d30503face"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/random/src/mt19937/LICENSE.md",
+          "size_bytes": 2926,
+          "sha256": "0e111337b25494a773106695f0e799f642b8567aaacca4f116a74a8177179156"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/random/src/pcg64/LICENSE.md",
+          "size_bytes": 1154,
+          "sha256": "e7d4f4fb20358f314210a892ae17351e04993813646f697ec387385ca2a36918"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/random/src/philox/LICENSE.md",
+          "size_bytes": 1509,
+          "sha256": "6f5828a57223d4cc7f8ea505a2623e7b978b242752c1515e355f46ba2cec1800"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/random/src/sfc64/LICENSE.md",
+          "size_bytes": 1226,
+          "sha256": "9d4098846018319cd68e228ee6220361787f73bccbf00237a85e4fc9621b998f"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "numpy-2.4.6.dist-info/licenses/numpy/random/src/splitmix64/LICENSE.md",
+          "size_bytes": 332,
+          "sha256": "268b0ca06759d31ea3ca68dd35f20e877916e927b1c2a835e4592a3c4354b1f9"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [
+        "numpy/_core/src/multiarray/dragon4_LICENSE.txt"
+      ],
+      "license_label_from_prior_review": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0; additional native-library terms separately recorded",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_IDENTITY"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G2: native GNU runtime source/conveyance coverage remains unresolved.",
+        "G3: preserved source-wide catalog is not a per-binary dependency/inclusion inventory."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "numpy/_core/_multiarray_tests.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 142528
+        },
+        {
+          "member": "numpy/_core/_multiarray_umath.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 10407681
+        },
+        {
+          "member": "numpy/_core/_operand_flag_tests.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 16800
+        },
+        {
+          "member": "numpy/_core/_rational_tests.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 59584
+        },
+        {
+          "member": "numpy/_core/_simd.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 1506096
+        },
+        {
+          "member": "numpy/_core/_struct_ufunc_tests.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 16936
+        },
+        {
+          "member": "numpy/_core/_umath_tests.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 50120
+        },
+        {
+          "member": "numpy/fft/_pocketfft_umath.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 539280
+        },
+        {
+          "member": "numpy/linalg/_umath_linalg.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 231785
+        },
+        {
+          "member": "numpy/linalg/lapack_lite.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 30001
+        },
+        {
+          "member": "numpy/random/_bounded_integers.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 342536
+        },
+        {
+          "member": "numpy/random/_common.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 266808
+        },
+        {
+          "member": "numpy/random/_generator.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 835416
+        },
+        {
+          "member": "numpy/random/_mt19937.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 131072
+        },
+        {
+          "member": "numpy/random/_pcg64.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 138584
+        },
+        {
+          "member": "numpy/random/_philox.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 114512
+        },
+        {
+          "member": "numpy/random/_sfc64.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 87792
+        },
+        {
+          "member": "numpy/random/bit_generator.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 222528
+        },
+        {
+          "member": "numpy/random/mtrand.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 647216
+        },
+        {
+          "member": "numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0",
+          "size_bytes": 2833617
+        },
+        {
+          "member": "numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0",
+          "size_bytes": 250985
+        },
+        {
+          "member": "numpy.libs/libscipy_openblas64_-32a4b2a6.so",
+          "size_bytes": 25409073
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:packaging==26.3",
+      "name": "packaging",
+      "version": "26.3",
+      "wheel": {
+        "filename": "packaging-26.3-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/packaging-26.3-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 129956,
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/packaging-26.3-py3-none-any.whl",
+        "member": "packaging-26.3.dist-info/METADATA",
+        "size_bytes": 3544,
+        "sha256": "70fdb89fc4d4a9a043bf7372b8972bcc883fddff34ab55e9cf80d73875384763"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/packaging-26.3-py3-none-any.whl",
+          "member": "packaging-26.3.dist-info/licenses/LICENSE",
+          "size_bytes": 197,
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/packaging-26.3-py3-none-any.whl",
+          "member": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+          "size_bytes": 10174,
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/packaging-26.3-py3-none-any.whl",
+          "member": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+          "size_bytes": 1344,
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0 OR BSD-2-Clause",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:pyyaml==6.0.3",
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "wheel": {
+        "filename": "pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 806638,
+        "sha256": "b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "pyyaml-6.0.3.dist-info/METADATA",
+        "size_bytes": 2351,
+        "sha256": "03c3b415ed38d09faedc49360e930769b40c58f68585e6de00e2e4916a858d34"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "pyyaml-6.0.3.dist-info/licenses/LICENSE",
+          "size_bytes": 1101,
+          "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G3: _yaml extension is present; LibYAML build version, embedded-source provenance and attribution coverage need confirmation."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "yaml/_yaml.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 2650176
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:referencing==0.37.0",
+      "name": "referencing",
+      "version": "0.37.0",
+      "wheel": {
+        "filename": "referencing-0.37.0-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/referencing-0.37.0-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 26766,
+        "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/referencing-0.37.0-py3-none-any.whl",
+        "member": "referencing-0.37.0.dist-info/METADATA",
+        "size_bytes": 2845,
+        "sha256": "c93b00e6ab1524fd60848376604c189a114374776475c25a31d57be47b29de6a"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/referencing-0.37.0-py3-none-any.whl",
+          "member": "referencing-0.37.0.dist-info/licenses/COPYING",
+          "size_bytes": 1057,
+          "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:regex==2026.9.29",
+      "name": "regex",
+      "version": "2026.9.29",
+      "wheel": {
+        "filename": "regex-2026.9.29-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/regex-2026.9.29-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 804978,
+        "sha256": "612b709381c0355b70d89cdb51b7f670591ed5cbbc0e3b5337488019dc667b65"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/regex-2026.9.29-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "regex-2026.9.29.dist-info/METADATA",
+        "size_bytes": 40564,
+        "sha256": "33859377dbf8dd38ee3de73fd97faebf4a63d50576e3cc1a9dfe44df08b0936a"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/regex-2026.9.29-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+          "member": "regex-2026.9.29.dist-info/licenses/LICENSE.txt",
+          "size_bytes": 11584,
+          "sha256": "bff55ef4cdcc8c14ce259f8e8ab60e264418440d6335f4dc138273fbd506144d"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0 AND CNRI-Python",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE",
+        "R_PYTHON"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "regex/_regex.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 2572544
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:requests==2.34.2",
+      "name": "requests",
+      "version": "2.34.2",
+      "wheel": {
+        "filename": "requests-2.34.2-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/requests-2.34.2-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 73075,
+        "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/requests-2.34.2-py3-none-any.whl",
+        "member": "requests-2.34.2.dist-info/METADATA",
+        "size_bytes": 4806,
+        "sha256": "8c384ba3e979480faae2859d3c5e6c1276dd2c3616e322e124d52c8cfc556f27"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/requests-2.34.2-py3-none-any.whl",
+          "member": "requests-2.34.2.dist-info/licenses/LICENSE",
+          "size_bytes": 10142,
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/requests-2.34.2-py3-none-any.whl",
+          "member": "requests-2.34.2.dist-info/licenses/NOTICE",
+          "size_bytes": 38,
+          "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:rfc8785==0.1.4",
+      "name": "rfc8785",
+      "version": "0.1.4",
+      "wheel": {
+        "filename": "rfc8785-0.1.4-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/rfc8785-0.1.4-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 9240,
+        "sha256": "520d690b448ecf0703691c76e1a34a24ddcd4fc5bc41d589cb7c58ec651bcd48"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/rfc8785-0.1.4-py3-none-any.whl",
+        "member": "rfc8785-0.1.4.dist-info/METADATA",
+        "size_bytes": 3379,
+        "sha256": "9dfbf420c8c18077dd7697ec12fe2838b5901683573ae128df2d3403330f7aa9"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/rfc8785-0.1.4-py3-none-any.whl",
+          "member": "rfc8785-0.1.4.dist-info/LICENSE",
+          "size_bytes": 10174,
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:rpds-py==2026.6.3",
+      "name": "rpds-py",
+      "version": "2026.6.3",
+      "wheel": {
+        "filename": "rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 371315,
+        "sha256": "9c1255b302953c86a486b81d330d5ee1d5bd937691ce271b6be0ef0e299eaab7"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "member": "rpds_py-2026.6.3.dist-info/METADATA",
+        "size_bytes": 4147,
+        "sha256": "f8be7b17da3980b2c48596941411a43c70ac41b1e2d530aa531f2c15eab2eb1c"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+          "member": "rpds_py-2026.6.3.dist-info/licenses/LICENSE",
+          "size_bytes": 1057,
+          "sha256": "314e4e91be3baa93c0fb4bccc9e4e97cd643eb839b065af921782c2175fe9909"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_IDENTITY"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G3: exact statically linked Rust/native dependencies, enabled features and their notices are not a proven binary SBOM."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "rpds/rpds.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 983168
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:safetensors==0.8.0",
+      "name": "safetensors",
+      "version": "0.8.0",
+      "wheel": {
+        "filename": "safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 516040,
+        "sha256": "fd6f3f93c9a0a7cc2788ee63fb763353d4bd2e89b0751bc78fcf7dda00bea774"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "member": "safetensors-0.8.0.dist-info/METADATA",
+        "size_bytes": 4189,
+        "sha256": "645be7b8d55e91534f991d144dc9e279581ea8dbea1a8c5b0be14e529d01e345"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+          "member": "safetensors-0.8.0.dist-info/licenses/LICENSE",
+          "size_bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE",
+        "R_IDENTITY"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G3: exact statically linked Rust/native dependencies, enabled features and their notices are not a proven binary SBOM."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "safetensors/_safetensors_rust.abi3.so",
+          "size_bytes": 1223000
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:sympy==1.14.0",
+      "name": "sympy",
+      "version": "1.14.0",
+      "wheel": {
+        "filename": "sympy-1.14.0-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/sympy-1.14.0-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 6299353,
+        "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/sympy-1.14.0-py3-none-any.whl",
+        "member": "sympy-1.14.0.dist-info/METADATA",
+        "size_bytes": 12816,
+        "sha256": "b756c2fbfd5be05ac5bdb0ebca61f55618f30f633ed92d88a5687429313a7595"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/sympy-1.14.0-py3-none-any.whl",
+          "member": "sympy/parsing/latex/LICENSE.txt",
+          "size_bytes": 1075,
+          "sha256": "007bc30a58fa40a996e772047120de4eaf31f5110e4f9c3b5f93fcdfbe2eaca1"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/sympy-1.14.0-py3-none-any.whl",
+          "member": "sympy-1.14.0.dist-info/licenses/AUTHORS",
+          "size_bytes": 55779,
+          "sha256": "82b1038521b0696c63c90b31ed4a0a2c9c4c16871c648b157b07ca44b6f18f8d"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/sympy-1.14.0-py3-none-any.whl",
+          "member": "sympy-1.14.0.dist-info/licenses/LICENSE",
+          "size_bytes": 7885,
+          "sha256": "07a5e9819f727b4986ad2829c7a29a6320d42575f720eb24d71b7fef573a0286"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause; bundled MIT/BSD material separately recorded",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:tokenizers==0.22.2",
+      "name": "tokenizers",
+      "version": "0.22.2",
+      "wheel": {
+        "filename": "tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 3274982,
+        "sha256": "369cc9fc8cc10cb24143873a0d95438bb8ee257bb80c71989e3ee290e8d72c67"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "member": "tokenizers-0.22.2.dist-info/METADATA",
+        "size_bytes": 7254,
+        "sha256": "15a5ddaf489f592b77e0a934c0eeb46b51130a94064ca129232afdb0a3868efc"
+      },
+      "notice_members_verified": [],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE",
+        "R_IDENTITY"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G3: exact statically linked Rust/native dependencies, enabled features and their notices are not a proven binary SBOM."
+      ],
+      "missing_material_from_prior_review": [
+        "No license/notice file is present in the selected tokenizers wheel or installed distribution."
+      ],
+      "native_elf_members": [
+        {
+          "member": "tokenizers/tokenizers.abi3.so",
+          "size_bytes": 10074176
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:torch==2.8.0+cpu",
+      "name": "torch",
+      "version": "2.8.0+cpu",
+      "wheel": {
+        "filename": "torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 184053363,
+        "sha256": "cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+        "member": "torch-2.8.0+cpu.dist-info/METADATA",
+        "size_bytes": 29178,
+        "sha256": "ac59d7d8f73f4f515c949c9583ead0cce1f230a649f6c63fea0e949f93f02ae6"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+          "member": "torch-2.8.0+cpu.dist-info/licenses/LICENSE",
+          "size_bytes": 491608,
+          "sha256": "3994910182010c5641a62d98bf6e549a1f59dffad6325536ff1dd46b48bcbdd5"
+        },
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+          "member": "torch-2.8.0+cpu.dist-info/licenses/NOTICE",
+          "size_bytes": 23632,
+          "sha256": "c2cc7bf0caec7652c2b460a8a470bea1677f241e4ab8e431df34cf17f5a9fec0"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "BSD-3-Clause; composite third-party LICENSE/NOTICE separately recorded",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_EXCEPTION",
+        "R_IDENTITY"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G2: native GNU runtime source/conveyance coverage remains unresolved.",
+        "G3: preserved source-wide catalog is not a per-binary dependency/inclusion inventory."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [
+        {
+          "member": "functorch/_C.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 318384
+        },
+        {
+          "member": "torch/_C.cpython-311-x86_64-linux-gnu.so",
+          "size_bytes": 25137
+        },
+        {
+          "member": "torch/bin/FileStoreTest",
+          "size_bytes": 625312
+        },
+        {
+          "member": "torch/bin/HashStoreTest",
+          "size_bytes": 631560
+        },
+        {
+          "member": "torch/bin/TCPStoreTest",
+          "size_bytes": 670800
+        },
+        {
+          "member": "torch/bin/protoc",
+          "size_bytes": 5285920
+        },
+        {
+          "member": "torch/bin/protoc-3.13.0.0",
+          "size_bytes": 5285920
+        },
+        {
+          "member": "torch/bin/test_api",
+          "size_bytes": 14700320
+        },
+        {
+          "member": "torch/bin/test_cpp_rpc",
+          "size_bytes": 788344
+        },
+        {
+          "member": "torch/bin/test_dist_autograd",
+          "size_bytes": 645760
+        },
+        {
+          "member": "torch/bin/test_jit",
+          "size_bytes": 13577624
+        },
+        {
+          "member": "torch/bin/test_lazy",
+          "size_bytes": 4848008
+        },
+        {
+          "member": "torch/bin/test_nativert",
+          "size_bytes": 2887248
+        },
+        {
+          "member": "torch/bin/test_tensorexpr",
+          "size_bytes": 8560192
+        },
+        {
+          "member": "torch/bin/torch_shm_manager",
+          "size_bytes": 44584
+        },
+        {
+          "member": "torch/bin/tutorial_tensorexpr",
+          "size_bytes": 136864
+        },
+        {
+          "member": "torch/lib/libaoti_custom_ops.so",
+          "size_bytes": 349624
+        },
+        {
+          "member": "torch/lib/libbackend_with_compiler.so",
+          "size_bytes": 260520
+        },
+        {
+          "member": "torch/lib/libc10.so",
+          "size_bytes": 1308712
+        },
+        {
+          "member": "torch/lib/libjitbackend_test.so",
+          "size_bytes": 208688
+        },
+        {
+          "member": "torch/lib/libshm.so",
+          "size_bytes": 36952
+        },
+        {
+          "member": "torch/lib/libtorch.so",
+          "size_bytes": 8032
+        },
+        {
+          "member": "torch/lib/libtorch_cpu.so",
+          "size_bytes": 427038688
+        },
+        {
+          "member": "torch/lib/libtorch_global_deps.so",
+          "size_bytes": 8264
+        },
+        {
+          "member": "torch/lib/libtorch_python.so",
+          "size_bytes": 26336384
+        },
+        {
+          "member": "torch/lib/libtorchbind_test.so",
+          "size_bytes": 883144
+        },
+        {
+          "member": "torch/lib/libgomp.so.1",
+          "size_bytes": 253849
+        },
+        {
+          "member": "torch/test/CppSignature_test",
+          "size_bytes": 621448
+        },
+        {
+          "member": "torch/test/Dict_test",
+          "size_bytes": 910072
+        },
+        {
+          "member": "torch/test/Dimname_test",
+          "size_bytes": 633280
+        },
+        {
+          "member": "torch/test/IListRef_test",
+          "size_bytes": 718456
+        },
+        {
+          "member": "torch/test/KernelFunction_test",
+          "size_bytes": 820704
+        },
+        {
+          "member": "torch/test/List_test",
+          "size_bytes": 1414136
+        },
+        {
+          "member": "torch/test/MaybeOwned_test",
+          "size_bytes": 802808
+        },
+        {
+          "member": "torch/test/NamedTensor_test",
+          "size_bytes": 687440
+        },
+        {
+          "member": "torch/test/StorageUtils_test",
+          "size_bytes": 617616
+        },
+        {
+          "member": "torch/test/apply_utils_test",
+          "size_bytes": 720584
+        },
+        {
+          "member": "torch/test/atest",
+          "size_bytes": 710568
+        },
+        {
+          "member": "torch/test/backend_fallback_test",
+          "size_bytes": 662944
+        },
+        {
+          "member": "torch/test/basic",
+          "size_bytes": 745656
+        },
+        {
+          "member": "torch/test/broadcast_test",
+          "size_bytes": 666120
+        },
+        {
+          "member": "torch/test/c10_ArrayRef_test",
+          "size_bytes": 582848
+        },
+        {
+          "member": "torch/test/c10_Bitset_test",
+          "size_bytes": 632424
+        },
+        {
+          "member": "torch/test/c10_CompileTimeFunctionPointer_test",
+          "size_bytes": 589704
+        },
+        {
+          "member": "torch/test/c10_ConstexprCrc_test",
+          "size_bytes": 576208
+        },
+        {
+          "member": "torch/test/c10_DeadlockDetection_test",
+          "size_bytes": 584224
+        },
+        {
+          "member": "torch/test/c10_DeviceGuard_test",
+          "size_bytes": 611856
+        },
+        {
+          "member": "torch/test/c10_Device_test",
+          "size_bytes": 611504
+        },
+        {
+          "member": "torch/test/c10_DispatchKeySet_test",
+          "size_bytes": 698432
+        },
+        {
+          "member": "torch/test/c10_Enumerate_test",
+          "size_bytes": 671504
+        },
+        {
+          "member": "torch/test/c10_Half_test",
+          "size_bytes": 594920
+        },
+        {
+          "member": "torch/test/c10_InlineDeviceGuard_test",
+          "size_bytes": 639648
+        },
+        {
+          "member": "torch/test/c10_InlineStreamGuard_test",
+          "size_bytes": 664600
+        },
+        {
+          "member": "torch/test/c10_IntrusiveList_test",
+          "size_bytes": 620816
+        },
+        {
+          "member": "torch/test/c10_LeftRight_test",
+          "size_bytes": 673056
+        },
+        {
+          "member": "torch/test/c10_Metaprogramming_test",
+          "size_bytes": 662816
+        },
+        {
+          "member": "torch/test/c10_NetworkFlow_test",
+          "size_bytes": 624168
+        },
+        {
+          "member": "torch/test/c10_Scalar_test",
+          "size_bytes": 629000
+        },
+        {
+          "member": "torch/test/c10_Semaphore_test",
+          "size_bytes": 583864
+        },
+        {
+          "member": "torch/test/c10_SizesAndStrides_test",
+          "size_bytes": 670936
+        },
+        {
+          "member": "torch/test/c10_StreamGuard_test",
+          "size_bytes": 576208
+        },
+        {
+          "member": "torch/test/c10_SymInt_test",
+          "size_bytes": 597968
+        },
+        {
+          "member": "torch/test/c10_Synchronized_test",
+          "size_bytes": 590608
+        },
+        {
+          "member": "torch/test/c10_ThreadLocal_test",
+          "size_bytes": 663192
+        },
+        {
+          "member": "torch/test/c10_TypeIndex_test",
+          "size_bytes": 617376
+        },
+        {
+          "member": "torch/test/c10_TypeList_test",
+          "size_bytes": 603904
+        },
+        {
+          "member": "torch/test/c10_TypeTraits_test",
+          "size_bytes": 576344
+        },
+        {
+          "member": "torch/test/c10_accumulate_test",
+          "size_bytes": 607792
+        },
+        {
+          "member": "torch/test/c10_bfloat16_test",
+          "size_bytes": 658176
+        },
+        {
+          "member": "torch/test/c10_bit_cast_test",
+          "size_bytes": 593232
+        },
+        {
+          "member": "torch/test/c10_complex_math_test",
+          "size_bytes": 679096
+        },
+        {
+          "member": "torch/test/c10_complex_test",
+          "size_bytes": 648872
+        },
+        {
+          "member": "torch/test/c10_cow_test",
+          "size_bytes": 842832
+        },
+        {
+          "member": "torch/test/c10_error_test",
+          "size_bytes": 582104
+        },
+        {
+          "member": "torch/test/c10_exception_test",
+          "size_bytes": 619920
+        },
+        {
+          "member": "torch/test/c10_flags_test",
+          "size_bytes": 595408
+        },
+        {
+          "member": "torch/test/c10_generic_math_test",
+          "size_bytes": 590928
+        },
+        {
+          "member": "torch/test/c10_intrusive_ptr_benchmark",
+          "size_bytes": 560592
+        },
+        {
+          "member": "torch/test/c10_intrusive_ptr_test",
+          "size_bytes": 2290592
+        },
+        {
+          "member": "torch/test/c10_irange_test",
+          "size_bytes": 601448
+        },
+        {
+          "member": "torch/test/c10_lazy_test",
+          "size_bytes": 630768
+        },
+        {
+          "member": "torch/test/c10_logging_test",
+          "size_bytes": 677808
+        },
+        {
+          "member": "torch/test/c10_optional_test",
+          "size_bytes": 911688
+        },
+        {
+          "member": "torch/test/c10_ordered_preserving_dict_test",
+          "size_bytes": 749208
+        },
+        {
+          "member": "torch/test/c10_registry_test",
+          "size_bytes": 630560
+        },
+        {
+          "member": "torch/test/c10_small_vector_test",
+          "size_bytes": 2116920
+        },
+        {
+          "member": "torch/test/c10_ssize_test",
+          "size_bytes": 608072
+        },
+        {
+          "member": "torch/test/c10_string_util_test",
+          "size_bytes": 671832
+        },
+        {
+          "member": "torch/test/c10_string_view_test",
+          "size_bytes": 576208
+        },
+        {
+          "member": "torch/test/c10_tempfile_test",
+          "size_bytes": 592704
+        },
+        {
+          "member": "torch/test/c10_typeid_test",
+          "size_bytes": 665520
+        },
+        {
+          "member": "torch/test/cpu_allocator_test",
+          "size_bytes": 614056
+        },
+        {
+          "member": "torch/test/cpu_generator_test",
+          "size_bytes": 701416
+        },
+        {
+          "member": "torch/test/cpu_profiling_allocator_test",
+          "size_bytes": 635120
+        },
+        {
+          "member": "torch/test/cpu_rng_test",
+          "size_bytes": 1200328
+        },
+        {
+          "member": "torch/test/dlconvertor_test",
+          "size_bytes": 606136
+        },
+        {
+          "member": "torch/test/extension_backend_test",
+          "size_bytes": 695808
+        },
+        {
+          "member": "torch/test/half_test",
+          "size_bytes": 657240
+        },
+        {
+          "member": "torch/test/inline_container_test",
+          "size_bytes": 799392
+        },
+        {
+          "member": "torch/test/ivalue_test",
+          "size_bytes": 1119656
+        },
+        {
+          "member": "torch/test/kernel_function_legacy_test",
+          "size_bytes": 1514296
+        },
+        {
+          "member": "torch/test/kernel_function_test",
+          "size_bytes": 1193976
+        },
+        {
+          "member": "torch/test/kernel_lambda_legacy_test",
+          "size_bytes": 1699000
+        },
+        {
+          "member": "torch/test/kernel_lambda_test",
+          "size_bytes": 1362224
+        },
+        {
+          "member": "torch/test/kernel_stackbased_test",
+          "size_bytes": 720536
+        },
+        {
+          "member": "torch/test/lazy_tensor_test",
+          "size_bytes": 600312
+        },
+        {
+          "member": "torch/test/legacy_vmap_test",
+          "size_bytes": 845160
+        },
+        {
+          "member": "torch/test/make_boxed_from_unboxed_functor_test",
+          "size_bytes": 1162584
+        },
+        {
+          "member": "torch/test/math_kernel_test",
+          "size_bytes": 645984
+        },
+        {
+          "member": "torch/test/memory_format_test",
+          "size_bytes": 643096
+        },
+        {
+          "member": "torch/test/memory_overlapping_test",
+          "size_bytes": 640824
+        },
+        {
+          "member": "torch/test/mobile_memory_cleanup",
+          "size_bytes": 635776
+        },
+        {
+          "member": "torch/test/native_test",
+          "size_bytes": 669152
+        },
+        {
+          "member": "torch/test/op_allowlist_test",
+          "size_bytes": 588416
+        },
+        {
+          "member": "torch/test/op_registration_test",
+          "size_bytes": 4709472
+        },
+        {
+          "member": "torch/test/operator_name_test",
+          "size_bytes": 609824
+        },
+        {
+          "member": "torch/test/operators_test",
+          "size_bytes": 612152
+        },
+        {
+          "member": "torch/test/packedtensoraccessor_test",
+          "size_bytes": 623312
+        },
+        {
+          "member": "torch/test/pow_test",
+          "size_bytes": 806296
+        },
+        {
+          "member": "torch/test/quantized_test",
+          "size_bytes": 695736
+        },
+        {
+          "member": "torch/test/reduce_ops_test",
+          "size_bytes": 599600
+        },
+        {
+          "member": "torch/test/reportMemoryUsage_test",
+          "size_bytes": 618064
+        },
+        {
+          "member": "torch/test/scalar_tensor_test",
+          "size_bytes": 684160
+        },
+        {
+          "member": "torch/test/scalar_test",
+          "size_bytes": 694184
+        },
+        {
+          "member": "torch/test/stride_properties_test",
+          "size_bytes": 627216
+        },
+        {
+          "member": "torch/test/tensor_iterator_test",
+          "size_bytes": 1029016
+        },
+        {
+          "member": "torch/test/test_parallel",
+          "size_bytes": 654080
+        },
+        {
+          "member": "torch/test/thread_init_test",
+          "size_bytes": 35384
+        },
+        {
+          "member": "torch/test/type_ptr_test",
+          "size_bytes": 665024
+        },
+        {
+          "member": "torch/test/type_test",
+          "size_bytes": 707720
+        },
+        {
+          "member": "torch/test/undefined_tensor_test",
+          "size_bytes": 628096
+        },
+        {
+          "member": "torch/test/verify_api_visibility",
+          "size_bytes": 18328
+        },
+        {
+          "member": "torch/test/weakref_test",
+          "size_bytes": 614744
+        },
+        {
+          "member": "torch/test/wrapdim_test",
+          "size_bytes": 618088
+        },
+        {
+          "member": "torch/test/xla_tensor_test",
+          "size_bytes": 620760
+        }
+      ],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:tqdm==4.70.1",
+      "name": "tqdm",
+      "version": "4.70.1",
+      "wheel": {
+        "filename": "tqdm-4.70.1-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/tqdm-4.70.1-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 80199,
+        "sha256": "c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/tqdm-4.70.1-py3-none-any.whl",
+        "member": "tqdm-4.70.1.dist-info/METADATA",
+        "size_bytes": 57366,
+        "sha256": "a5da70b966afea3a759716041bad7187f2ece02c22348cf9e7c0a512bbf15f57"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/tqdm-4.70.1-py3-none-any.whl",
+          "member": "tqdm-4.70.1.dist-info/licenses/LICENCE",
+          "size_bytes": 1985,
+          "sha256": "fcff87c3a47ce8028a8512aa182d4fcf0ad1c90544ee75cf9b343684cac194de"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MPL-2.0 AND MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_MPL"
+      ],
+      "unresolved_questions_from_prior_review": [
+        "G5: owner must preserve the covered source and communicate its availability in the actual eventual distribution."
+      ],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:transformers==4.57.6",
+      "name": "transformers",
+      "version": "4.57.6",
+      "wheel": {
+        "filename": "transformers-4.57.6-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/transformers-4.57.6-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 11993498,
+        "sha256": "4c9e9de11333ddfe5114bc872c9f370509198acf0b87a832a0ab9458e2bd0550"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/transformers-4.57.6-py3-none-any.whl",
+        "member": "transformers-4.57.6.dist-info/METADATA",
+        "size_bytes": 43991,
+        "sha256": "91601044a74fe02571a825356754dbbaa9e1d3e3dd3c2237254c15e903e421e3"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/transformers-4.57.6-py3-none-any.whl",
+          "member": "transformers-4.57.6.dist-info/licenses/LICENSE",
+          "size_bytes": 11418,
+          "sha256": "77fd4710def9ec3c0f6225800e0235f15a425abd4a8b03559127fcd782612049"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "Apache-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_APACHE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:typing-extensions==4.16.0",
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "wheel": {
+        "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/typing_extensions-4.16.0-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 45571,
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/typing_extensions-4.16.0-py3-none-any.whl",
+        "member": "typing_extensions-4.16.0.dist-info/METADATA",
+        "size_bytes": 3310,
+        "sha256": "b05084ca1d50879865178d9fff9fabeab61bdfb1f361bfbde95421ffc8f9be46"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/typing_extensions-4.16.0-py3-none-any.whl",
+          "member": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+          "size_bytes": 13936,
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "PSF-2.0",
+      "requirements_from_prior_review": [
+        "R_NOTICE",
+        "R_PYTHON"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    },
+    {
+      "component_id": "python:urllib3==2.8.0",
+      "name": "urllib3",
+      "version": "2.8.0",
+      "wheel": {
+        "filename": "urllib3-2.8.0-py3-none-any.whl",
+        "member": "q2-runtime-preparation/wheelhouse/urllib3-2.8.0-py3-none-any.whl",
+        "context": "preparation",
+        "size_bytes": 135717,
+        "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+      },
+      "metadata_binding": {
+        "context": "preparation!q2-runtime-preparation/wheelhouse/urllib3-2.8.0-py3-none-any.whl",
+        "member": "urllib3-2.8.0.dist-info/METADATA",
+        "size_bytes": 7389,
+        "sha256": "10898c620e8007c030e07fa5622b68358a43010025dfbd78a1cb797699de2bb4"
+      },
+      "notice_members_verified": [
+        {
+          "context": "preparation!q2-runtime-preparation/wheelhouse/urllib3-2.8.0-py3-none-any.whl",
+          "member": "urllib3-2.8.0.dist-info/licenses/LICENSE.txt",
+          "size_bytes": 1093,
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+        }
+      ],
+      "declared_license_files_missing_in_prior_review": [],
+      "license_label_from_prior_review": "MIT",
+      "requirements_from_prior_review": [
+        "R_NOTICE"
+      ],
+      "unresolved_questions_from_prior_review": [],
+      "missing_material_from_prior_review": [],
+      "native_elf_members": [],
+      "redistribution_clearance": "NOT_ASSERTED"
+    }
+  ],
+  "gnu_objects": [
+    {
+      "wheel": {
+        "filename": "numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 16918164,
+        "sha256": "89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93"
+      },
+      "object": {
+        "member": "numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0",
+        "size_bytes": 2833617,
+        "sha256": "c6090048eccc763522c12ef016f81da6b627cb3a044f55cf0479a839c41c0980"
+      },
+      "observed_build_ids": [
+        "5bbe74eb6855e0a2c043c0bec2f484bf3e9f14c0"
+      ],
+      "observed_debuglink_filename": "libgfortran.so.5.0.0.debug",
+      "identity_scope": "Static ELF fields from exact retained wheel member; not a verified source-RPM or full build identity."
+    },
+    {
+      "wheel": {
+        "filename": "numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 16918164,
+        "sha256": "89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93"
+      },
+      "object": {
+        "member": "numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0",
+        "size_bytes": 250985,
+        "sha256": "6ed5137f412781ad7863439fb543613f620b43c32b63292a0029246162f5bbc6"
+      },
+      "observed_build_ids": [
+        "549b4c82347785459571c79239872ad31509dcf4"
+      ],
+      "observed_debuglink_filename": "libquadmath.so.0.0.0.debug",
+      "identity_scope": "Static ELF fields from exact retained wheel member; not a verified source-RPM or full build identity."
+    },
+    {
+      "wheel": {
+        "filename": "torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+        "member": "q2-runtime-preparation/wheelhouse/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl",
+        "context": "preparation",
+        "size_bytes": 184053363,
+        "sha256": "cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb"
+      },
+      "object": {
+        "member": "torch/lib/libgomp.so.1",
+        "size_bytes": 253849,
+        "sha256": "e4b79735f816cbb906c8bf35b31847c5ce667cfbdbe76bd18aaf6e7baad2686e"
+      },
+      "observed_build_ids": [
+        "baae16f331bf29efc168a2e10073bd5feade84ad"
+      ],
+      "observed_debuglink_filename": "libgomp.so.1.0.0-8.5.0-26.el8_10.alma.1.x86_64.debug",
+      "identity_scope": "Static ELF fields from exact retained wheel member; not a verified source-RPM or full build identity."
+    }
+  ],
+  "scoped_open_requirements": [
+    {
+      "prior_id": "G1",
+      "applies_to_selected_preparation_archive": false,
+      "reason": "This object contains model assets and wheelhouse, not the separate CPython bootstrap. Excluding G1 from this object does not close it for Q2."
+    },
+    {
+      "prior_id": "G2",
+      "applies_to_selected_preparation_archive": true,
+      "status": "OPEN",
+      "objects": [
+        "numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0",
+        "numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0",
+        "torch/lib/libgomp.so.1"
+      ],
+      "missing": "Corresponding source/build/patch attribution and actual source-conveyance arrangement for the three shipped GNU objects."
+    },
+    {
+      "prior_id": "G3",
+      "applies_to_selected_preparation_archive": true,
+      "status": "OPEN",
+      "scopes": [
+        "tokenizers",
+        "hf-xet",
+        "safetensors",
+        "rpds-py",
+        "PyYAML/LibYAML",
+        "Torch/NumPy shipped binary subsets"
+      ],
+      "missing": "Required enabled-feature/transitive notices and any source handling supported by evidence of actual shipping; optional source packages are not presumed shipped."
+    },
+    {
+      "prior_id": "G4",
+      "applies_to_selected_preparation_archive": true,
+      "status": "OWNER_REVIEW",
+      "scope": "Only project/source/upstream/preparation records actually in this ZIP; not other Q2 raw-response archives."
+    },
+    {
+      "prior_id": "G5",
+      "applies_to_selected_preparation_archive": true,
+      "status": "OWNER_REVIEW",
+      "scope": "Selected model/tokenizer attribution and applicable Apache/MPL/GNU/other notice and source handling, not bootstrap-only obligations."
+    }
+  ],
+  "publication_requirements": {
+    "P1": "NOT_AUTHORIZED_FOR_THIS_PAYLOAD",
+    "P2": "OPEN_FOR_SELECTED_PREPARATION",
+    "P3": "ACCOUNT_USAGE_AND_BUDGET_NOT_OBSERVED",
+    "P4": "NOT_AUTHORIZED",
+    "P5": "NOT_PERFORMED",
+    "new_spend_authorized": 0
+  },
+  "excluded_payloads": [
+    "core_bundle",
+    "capsule",
+    "roundtrip",
+    "bootstrap"
+  ],
+  "archive_repacked": false,
+  "repository_written": false,
+  "workflow_dispatched": false,
+  "authority_effect": "none",
+  "capture_handoff_approved": false,
+  "saved_record_authenticates_origin": false,
+  "limitation": "Static consistency inspection of retained original bytes and exact source-matched review. Not legal clearance, public publication, current provider authentication, native execution or hosted retrieval."
+}

@@ -1,0 +1,19 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "profile": "pinned-ed25519-record-signers-v1",
+  "record_set_binding": {
+    "path": "record-set.json",
+    "sha256": "a70299602a9aae82adcd4ff17278eef5a802ad72e05dbdae6fec64a9f98f188e"
+  },
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_record_signatures_v0_1",
+  "signatures": [
+    {
+      "path": "signature-1.json",
+      "record_id": "synthetic-record-1",
+      "sha256": "2a937f295a3f88e88293c2d7f12486199544f738330802c1d68b5f341baa3bc2"
+    }
+  ],
+  "trust_policy_sha256": "833e2a5c9cdbb021d4c59f0c5269e04cebe9b6c6c719ccc872a52d679950bb32"
+}

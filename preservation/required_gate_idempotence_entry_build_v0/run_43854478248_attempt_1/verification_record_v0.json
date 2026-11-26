@@ -1,0 +1,961 @@
+{
+  "authority_effect": "none",
+  "checked_build_evidence": {
+    "acquisition_stderr_empty": true,
+    "acquisition_stdout_matches_closed_record": true,
+    "closed_evidence_member_count": 15,
+    "closed_evidence_members": [
+      {
+        "path": "build-1/entry",
+        "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+        "size_bytes": 9568
+      },
+      {
+        "path": "build-1/entry.c",
+        "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+        "size_bytes": 4598
+      },
+      {
+        "path": "build-1/result.json",
+        "sha256": "4572de7174302aa3d71f229d196df71031bf584775abaa6dd620b6748d269397",
+        "size_bytes": 1070
+      },
+      {
+        "path": "build-1/stderr.bin",
+        "sha256": "d84b17e8b9cab803832f578af3af8629adfebaf9740ba85c89db48dcf2ca96a8",
+        "size_bytes": 5321
+      },
+      {
+        "path": "build-1/stdout.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 0
+      },
+      {
+        "path": "build-2/entry",
+        "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+        "size_bytes": 9568
+      },
+      {
+        "path": "build-2/entry.c",
+        "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+        "size_bytes": 4598
+      },
+      {
+        "path": "build-2/result.json",
+        "sha256": "0a7d10eed0020ca7cbb176ab78ba632969ce76aec86ed3cec53a9fdc22d2c565",
+        "size_bytes": 1069
+      },
+      {
+        "path": "build-2/stderr.bin",
+        "sha256": "f922b56a501fc5f2c1b2bc08eadf938eb678f9027b5d1090ab524a803fdda4e8",
+        "size_bytes": 5321
+      },
+      {
+        "path": "build-2/stdout.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 0
+      },
+      {
+        "path": "record.json",
+        "sha256": "330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583",
+        "size_bytes": 2922
+      },
+      {
+        "path": "request.json",
+        "sha256": "e2a2df9acf7d63574396e3ccb9851c2bad9a22d177b38ab95f3f99228d388fe2",
+        "size_bytes": 2268
+      },
+      {
+        "path": "source.c",
+        "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+        "size_bytes": 4598
+      },
+      {
+        "path": "toolchain-after.json",
+        "sha256": "986b87ab7f43bb70901ea34fc8ca89a0e90ab66aa8cb783b013a17c28b73e910",
+        "size_bytes": 2766
+      },
+      {
+        "path": "toolchain-before.json",
+        "sha256": "53c462c72552da2fc4abaf72659622d1a555d57b65f3df104d50658a05ac2032",
+        "size_bytes": 2769
+      }
+    ],
+    "closed_record": {
+      "archive_member": "evidence/record.json",
+      "artifact_role": "build",
+      "sha256": "330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583",
+      "size_bytes": 2922
+    },
+    "cross_host_binary_equality_claimed": false,
+    "entry": {
+      "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+      "size_bytes": 9568
+    },
+    "entry_static_shape_verified": true,
+    "environment": {
+      "LC_ALL": "C",
+      "PATH": "/usr/bin:/bin",
+      "SOURCE_DATE_EPOCH": "0",
+      "TMPDIR": ".",
+      "TZ": "UTC"
+    },
+    "limits": {
+      "build_seconds": 30,
+      "builds": 2,
+      "control_bytes": 1048576,
+      "entry_bytes": 16777216,
+      "query_seconds": 10,
+      "stderr_bytes": 262144,
+      "stdout_bytes": 65536,
+      "tool_bytes": 134217728
+    },
+    "occurrences": [
+      {
+        "argv": [
+          "/usr/bin/x86_64-linux-gnu-gcc-13",
+          "-v",
+          "-std=c11",
+          "-O2",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-ffreestanding",
+          "-fno-builtin",
+          "-fno-pie",
+          "-fno-stack-protector",
+          "-fno-asynchronous-unwind-tables",
+          "-fno-unwind-tables",
+          "-nostdlib",
+          "-static",
+          "-no-pie",
+          "-Wl,--build-id=none",
+          "-Wl,-z,noexecstack",
+          "entry.c",
+          "-o",
+          "entry"
+        ],
+        "build_id": "build-1",
+        "each_binding_matches_this_occurrence": true,
+        "entry": {
+          "archive_member": "evidence/build-1/entry",
+          "artifact_role": "build",
+          "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+          "size_bytes": 9568
+        },
+        "environment": {
+          "LC_ALL": "C",
+          "PATH": "/usr/bin:/bin",
+          "SOURCE_DATE_EPOCH": "0",
+          "TMPDIR": ".",
+          "TZ": "UTC"
+        },
+        "process_observation": {
+          "elapsed_ns": 149087482,
+          "exit_code": 0,
+          "pid": 2337,
+          "stderr_overflow": false,
+          "stdout_overflow": false,
+          "timed_out": false
+        },
+        "receipt": {
+          "archive_member": "evidence/build-1/result.json",
+          "artifact_role": "build",
+          "sha256": "4572de7174302aa3d71f229d196df71031bf584775abaa6dd620b6748d269397",
+          "size_bytes": 1070
+        },
+        "source": {
+          "archive_member": "evidence/build-1/entry.c",
+          "artifact_role": "build",
+          "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+          "size_bytes": 4598
+        },
+        "stderr": {
+          "archive_member": "evidence/build-1/stderr.bin",
+          "artifact_role": "build",
+          "sha256": "d84b17e8b9cab803832f578af3af8629adfebaf9740ba85c89db48dcf2ca96a8",
+          "size_bytes": 5321
+        },
+        "stdout": {
+          "archive_member": "evidence/build-1/stdout.bin",
+          "artifact_role": "build",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0
+        },
+        "working_directory": "build-1"
+      },
+      {
+        "argv": [
+          "/usr/bin/x86_64-linux-gnu-gcc-13",
+          "-v",
+          "-std=c11",
+          "-O2",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-ffreestanding",
+          "-fno-builtin",
+          "-fno-pie",
+          "-fno-stack-protector",
+          "-fno-asynchronous-unwind-tables",
+          "-fno-unwind-tables",
+          "-nostdlib",
+          "-static",
+          "-no-pie",
+          "-Wl,--build-id=none",
+          "-Wl,-z,noexecstack",
+          "entry.c",
+          "-o",
+          "entry"
+        ],
+        "build_id": "build-2",
+        "each_binding_matches_this_occurrence": true,
+        "entry": {
+          "archive_member": "evidence/build-2/entry",
+          "artifact_role": "build",
+          "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+          "size_bytes": 9568
+        },
+        "environment": {
+          "LC_ALL": "C",
+          "PATH": "/usr/bin:/bin",
+          "SOURCE_DATE_EPOCH": "0",
+          "TMPDIR": ".",
+          "TZ": "UTC"
+        },
+        "process_observation": {
+          "elapsed_ns": 28343297,
+          "exit_code": 0,
+          "pid": 2342,
+          "stderr_overflow": false,
+          "stdout_overflow": false,
+          "timed_out": false
+        },
+        "receipt": {
+          "archive_member": "evidence/build-2/result.json",
+          "artifact_role": "build",
+          "sha256": "0a7d10eed0020ca7cbb176ab78ba632969ce76aec86ed3cec53a9fdc22d2c565",
+          "size_bytes": 1069
+        },
+        "source": {
+          "archive_member": "evidence/build-2/entry.c",
+          "artifact_role": "build",
+          "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+          "size_bytes": 4598
+        },
+        "stderr": {
+          "archive_member": "evidence/build-2/stderr.bin",
+          "artifact_role": "build",
+          "sha256": "f922b56a501fc5f2c1b2bc08eadf938eb678f9027b5d1090ab524a803fdda4e8",
+          "size_bytes": 5321
+        },
+        "stdout": {
+          "archive_member": "evidence/build-2/stdout.bin",
+          "artifact_role": "build",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0
+        },
+        "working_directory": "build-2"
+      }
+    ],
+    "profile": "gcc_static_entry_repeat_v0",
+    "record_manifest_binds_record_itself": false,
+    "record_manifest_member_count": 14,
+    "repeat_build_equal": true,
+    "request": {
+      "archive_member": "evidence/request.json",
+      "artifact_role": "build",
+      "sha256": "e2a2df9acf7d63574396e3ccb9851c2bad9a22d177b38ab95f3f99228d388fe2",
+      "size_bytes": 2268
+    },
+    "selected_compiler": {
+      "path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+      "size_bytes": 1023032
+    },
+    "source": {
+      "repository_path": "tools/required_gate_idempotence_containment_entry_v0.c",
+      "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+      "size_bytes": 4598
+    },
+    "toolchain_after": {
+      "archive_member": "evidence/toolchain-after.json",
+      "artifact_role": "build",
+      "sha256": "986b87ab7f43bb70901ea34fc8ca89a0e90ab66aa8cb783b013a17c28b73e910",
+      "size_bytes": 2766
+    },
+    "toolchain_before": {
+      "archive_member": "evidence/toolchain-before.json",
+      "artifact_role": "build",
+      "sha256": "53c462c72552da2fc4abaf72659622d1a555d57b65f3df104d50658a05ac2032",
+      "size_bytes": 2769
+    },
+    "toolchain_components": [
+      {
+        "lookup_path": "/usr/bin/as",
+        "name": "as",
+        "path": "/usr/bin/x86_64-linux-gnu-as",
+        "sha256": "21aff249b692b5c31a44007491f922dcb49f41323e362c57d2ada3f52eddb7f0",
+        "size_bytes": 745768
+      },
+      {
+        "lookup_path": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "name": "cc1",
+        "path": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "sha256": "5d1679131184e2de4435b426eb264bf13472fe026db8e5c6bc97445814e8e2f4",
+        "size_bytes": 30487984
+      },
+      {
+        "lookup_path": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+        "name": "collect2",
+        "path": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+        "sha256": "4d1f341ae5b763b513258ee2812422a45e063c30a2f1924a0cf63d3699f3a158",
+        "size_bytes": 336056
+      },
+      {
+        "lookup_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "name": "compiler",
+        "path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+        "size_bytes": 1023032
+      },
+      {
+        "lookup_path": "/usr/bin/ld",
+        "name": "ld",
+        "path": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+        "sha256": "e9ceb054c12207970f2726dfc07e9a66b411602748628baf27399f02a9bbb31b",
+        "size_bytes": 1359128
+      }
+    ],
+    "toolchain_observations_stable": true
+  },
+  "exact_artifact_handoff": {
+    "all_build_artifact_members_byte_identical": true,
+    "artifact_id_file": {
+      "archive_member": "original-build-artifact-id.txt",
+      "artifact_role": "attestation",
+      "sha256": "9c2bf723345a5cda5812225ed0f83d31fc8161b4a55d93efc6b065d4be83c3e4",
+      "size_bytes": 12
+    },
+    "artifact_id_file_value": 14221130752,
+    "build_artifact_id": 14221130752,
+    "compared_evidence_member_count": 15,
+    "compared_member_count": 20,
+    "identity_build_artifact_id": 14221130752,
+    "members": [
+      {
+        "attestation_archive_member": "input/acquisition.stderr.bin",
+        "build_archive_member": "acquisition.stderr.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 0
+      },
+      {
+        "attestation_archive_member": "input/acquisition.stdout.bin",
+        "build_archive_member": "acquisition.stdout.bin",
+        "sha256": "330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583",
+        "size_bytes": 2922
+      },
+      {
+        "attestation_archive_member": "input/compiler-selection.json",
+        "build_archive_member": "compiler-selection.json",
+        "sha256": "92582a3301846af1d31365453583fa27e8081ee774cb05e34aa2d8db9b8a5de2",
+        "size_bytes": 141
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-1/entry",
+        "build_archive_member": "evidence/build-1/entry",
+        "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+        "size_bytes": 9568
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-1/entry.c",
+        "build_archive_member": "evidence/build-1/entry.c",
+        "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+        "size_bytes": 4598
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-1/result.json",
+        "build_archive_member": "evidence/build-1/result.json",
+        "sha256": "4572de7174302aa3d71f229d196df71031bf584775abaa6dd620b6748d269397",
+        "size_bytes": 1070
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-1/stderr.bin",
+        "build_archive_member": "evidence/build-1/stderr.bin",
+        "sha256": "d84b17e8b9cab803832f578af3af8629adfebaf9740ba85c89db48dcf2ca96a8",
+        "size_bytes": 5321
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-1/stdout.bin",
+        "build_archive_member": "evidence/build-1/stdout.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 0
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-2/entry",
+        "build_archive_member": "evidence/build-2/entry",
+        "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+        "size_bytes": 9568
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-2/entry.c",
+        "build_archive_member": "evidence/build-2/entry.c",
+        "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+        "size_bytes": 4598
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-2/result.json",
+        "build_archive_member": "evidence/build-2/result.json",
+        "sha256": "0a7d10eed0020ca7cbb176ab78ba632969ce76aec86ed3cec53a9fdc22d2c565",
+        "size_bytes": 1069
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-2/stderr.bin",
+        "build_archive_member": "evidence/build-2/stderr.bin",
+        "sha256": "f922b56a501fc5f2c1b2bc08eadf938eb678f9027b5d1090ab524a803fdda4e8",
+        "size_bytes": 5321
+      },
+      {
+        "attestation_archive_member": "input/evidence/build-2/stdout.bin",
+        "build_archive_member": "evidence/build-2/stdout.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 0
+      },
+      {
+        "attestation_archive_member": "input/evidence/record.json",
+        "build_archive_member": "evidence/record.json",
+        "sha256": "330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583",
+        "size_bytes": 2922
+      },
+      {
+        "attestation_archive_member": "input/evidence/request.json",
+        "build_archive_member": "evidence/request.json",
+        "sha256": "e2a2df9acf7d63574396e3ccb9851c2bad9a22d177b38ab95f3f99228d388fe2",
+        "size_bytes": 2268
+      },
+      {
+        "attestation_archive_member": "input/evidence/source.c",
+        "build_archive_member": "evidence/source.c",
+        "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+        "size_bytes": 4598
+      },
+      {
+        "attestation_archive_member": "input/evidence/toolchain-after.json",
+        "build_archive_member": "evidence/toolchain-after.json",
+        "sha256": "986b87ab7f43bb70901ea34fc8ca89a0e90ab66aa8cb783b013a17c28b73e910",
+        "size_bytes": 2766
+      },
+      {
+        "attestation_archive_member": "input/evidence/toolchain-before.json",
+        "build_archive_member": "evidence/toolchain-before.json",
+        "sha256": "53c462c72552da2fc4abaf72659622d1a555d57b65f3df104d50658a05ac2032",
+        "size_bytes": 2769
+      },
+      {
+        "attestation_archive_member": "input/record-verification.json",
+        "build_archive_member": "record-verification.json",
+        "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+        "size_bytes": 1407
+      },
+      {
+        "attestation_archive_member": "input/workflow-start.json",
+        "build_archive_member": "workflow-start.json",
+        "sha256": "4fc28a566ef375ba41692d3af51efd86f73992454b25f37aefc1758c9d1f97a0",
+        "size_bytes": 564
+      }
+    ]
+  },
+  "fresh_local_checker_replay": {
+    "authority_effect": "none",
+    "checker_sha256": "6a452044251bdcd6551bb653f1472eabbc213b3d0f5560494b0046668a325900",
+    "dependency_difference": "Local rpds-py is 2026.9.1; the unchanged hosted lock selects 2026.6.3.",
+    "entry_binary_executed": false,
+    "environment": {
+      "packages": {
+        "PyYAML": "6.0.3",
+        "attrs": "26.1.0",
+        "jsonschema": "4.26.0",
+        "jsonschema-specifications": "2025.9.1",
+        "referencing": "0.37.0",
+        "rpds-py": "2026.9.1"
+      },
+      "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "python": "3.11.16 (main, Sep 29 2026, 14:59:26) [Clang 22.1.3 ]"
+    },
+    "environment_matches_hosted_dependency_lock": false,
+    "executions": [
+      {
+        "accepted": true,
+        "byte_equal_to_both_hosted_reports": true,
+        "exit_code": 0,
+        "input_archive_evidence_prefix": "evidence/",
+        "input_artifact_role": "build",
+        "report": {
+          "external_validation_file": "local-check-build.json",
+          "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+          "size_bytes": 1407
+        },
+        "started_at": "2026-11-16T11:09:30.616607+00:00",
+        "stderr": {
+          "external_validation_file": "local-check-build.stderr.bin",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0
+        },
+        "stdout": {
+          "external_validation_file": "local-check-build.stdout.bin",
+          "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+          "size_bytes": 1407
+        }
+      },
+      {
+        "accepted": true,
+        "byte_equal_to_both_hosted_reports": true,
+        "exit_code": 0,
+        "input_archive_evidence_prefix": "input/evidence/",
+        "input_artifact_role": "attestation",
+        "report": {
+          "external_validation_file": "local-check-attestation.json",
+          "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+          "size_bytes": 1407
+        },
+        "started_at": "2026-11-16T11:09:31.630849+00:00",
+        "stderr": {
+          "external_validation_file": "local-check-attestation.stderr.bin",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 0
+        },
+        "stdout": {
+          "external_validation_file": "local-check-attestation.stdout.bin",
+          "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+          "size_bytes": 1407
+        }
+      }
+    ],
+    "external_validation_files_are_repository_paths": false,
+    "reports_byte_identical_to_each_other_and_both_hosted_reports": true,
+    "result_record": {
+      "external_validation_file": "local-checker-replay.json",
+      "sha256": "b741db34cdbb0b2a1ad03de20ff999921185ad4a9795ba814ac95bd911b8ed0c",
+      "size_bytes": 2910
+    },
+    "same_checker_implementation_as_hosted": true,
+    "scope": "Later source-bound offline verification of both original artifact evidence copies; no build or entry/runtime execution.",
+    "selected_runtime_executed": false,
+    "separate_checker_processes": 2,
+    "source_commit": "f290aee20cd610e4fdb358dbf34d054ec351d390"
+  },
+  "historical_preservation": {
+    "historical_q3_scope_unchanged": true,
+    "issue_to_keep_open": "HKati/pulse-release-gates-0.1#2879",
+    "original_admission_rejection_artifact": {
+      "repository_path": "preservation/admission_rejection_v0/verification_43514702328_attempt_1/pulsemech-admission-rejection-verification-43514702328-1.zip",
+      "run_attempt": 1,
+      "run_id": 43514702328,
+      "sha256": "702c126b8e9944cc9c3486e0dce0da8aa6c33f650c3451a3b1121010330049d8",
+      "size_bytes": 500035,
+      "unchanged": true
+    },
+    "q2_recorded_result": {
+      "changed": false,
+      "consistent_groups": 49,
+      "replayed_by_this_preservation_change": false,
+      "result": "FAIL",
+      "total_groups": 50,
+      "unknown_groups": 1
+    },
+    "remaining_unsupported_gate_count": 12
+  },
+  "hosted_checker_results": {
+    "canonical_report_bytes_identical": true,
+    "checker": {
+      "repository_path": "tools/check_required_gate_idempotence_entry_build_v0.py",
+      "sha256": "6a452044251bdcd6551bb653f1472eabbc213b3d0f5560494b0046668a325900",
+      "size_bytes": 22242
+    },
+    "copy_is_additional_checker_execution": false,
+    "downloaded_build_report_copy": {
+      "archive_member": "input/record-verification.json",
+      "artifact_role": "attestation",
+      "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+      "size_bytes": 1407
+    },
+    "original_report_github_build_provenance_verified": false,
+    "original_reports_modified_after_signature_verification": false,
+    "reports": [
+      {
+        "archive_member": "record-verification.json",
+        "artifact_role": "build",
+        "job_id": 133255107740,
+        "role": "build_job",
+        "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+        "size_bytes": 1407,
+        "status": "accepted"
+      },
+      {
+        "archive_member": "record-verification.json",
+        "artifact_role": "attestation",
+        "job_id": 133255324365,
+        "role": "attestation_job",
+        "sha256": "f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06",
+        "size_bytes": 1407,
+        "status": "accepted"
+      }
+    ],
+    "same_checker_implementation": true,
+    "separate_checker_processes": 2,
+    "separate_jobs": 2,
+    "two_independent_implementations": false
+  },
+  "hosted_signature_verification": {
+    "attestation_id": "68081318",
+    "attestation_url": "https://github.com/HKati/pulse-release-gates-0.1/attestations/68081318",
+    "certificate_subject_alternative_names": [
+      "https://github.com/HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml@refs/heads/main"
+    ],
+    "certificate_validity": {
+      "not_after": "2026-11-16T11:15:20+00:00",
+      "not_before": "2026-11-16T11:05:20+00:00"
+    },
+    "command_restrictions": {
+      "bundle_archive_member": "attestation.bundle.json",
+      "cert_oidc_issuer": "https://token.actions.githubusercontent.com",
+      "deny_self_hosted_runners": true,
+      "format": "json",
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "program": "gh attestation verify",
+      "repository": "HKati/pulse-release-gates-0.1",
+      "shell_ulimit_f_argument": 1024,
+      "signer_digest": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+      "signer_workflow": "HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml",
+      "source": "Exact workflow and preserved decoded job log.",
+      "source_digest": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+      "source_ref": "refs/heads/main",
+      "subject_archive_member": "input/evidence/record.json",
+      "timeout_seconds": 120
+    },
+    "completed": true,
+    "evidence_provenance": "preserved_original_hosted_verifier_output",
+    "exit_code": 0,
+    "exit_code_record": {
+      "archive_member": "verification.exit-code.txt",
+      "artifact_role": "attestation",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size_bytes": 2
+    },
+    "fresh_local_cryptographic_verification_performed": false,
+    "fresh_local_cryptographic_verification_unavailable_reason": "The inspected local gh 2.46.0 lacks the attestation command.",
+    "hosted_signature_verified": true,
+    "hosted_verifier_executable_digest_preserved": false,
+    "identity": {
+      "archive_member": "attestation-identity.json",
+      "artifact_role": "attestation",
+      "sha256": "abab62e07fd9251da1f51c8838dda7203b2b73441087f47df2ca9745dcac7315",
+      "size_bytes": 862
+    },
+    "issuer_evidence_note": "The returned certificate issuer and certificate extension equal the requested GitHub OIDC issuer. The verifiedIdentity issuer matcher in stdout is .* and is not used alone as evidence of the exact issuer restriction.",
+    "original_bundle": {
+      "archive_member": "attestation.bundle.json",
+      "artifact_role": "attestation",
+      "sha256": "f0ebc390b9996d2ff9d5e27fa546c76e45dbad78513a0317ca3597b6fcd28e97",
+      "size_bytes": 11334
+    },
+    "original_offline_github_build_provenance_verified_fields_remain_false": true,
+    "stderr": {
+      "archive_member": "verification.stderr.bin",
+      "artifact_role": "attestation",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    "stderr_empty": true,
+    "stdout": {
+      "archive_member": "verification.stdout.json",
+      "artifact_role": "attestation",
+      "sha256": "c6d2e0f9d897f032f5d0ddab742619f938743651a6fbbdf7f1deb5ac9875d629",
+      "size_bytes": 14591
+    },
+    "subject": {
+      "attestation_archive_member": "input/evidence/record.json",
+      "build_archive_member": "evidence/record.json",
+      "name": "record.json",
+      "sha256": "330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583"
+    },
+    "verification_job_id": 133255324365,
+    "verified_certificate_identity": {
+      "buildConfigDigest": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+      "buildConfigURI": "https://github.com/HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml@refs/heads/main",
+      "buildSignerDigest": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+      "buildSignerURI": "https://github.com/HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml@refs/heads/main",
+      "buildTrigger": "workflow_dispatch",
+      "certificateIssuer": "CN=sigstore-intermediate,O=sigstore.dev",
+      "githubWorkflowName": "PULSEmech idempotence entry build provenance v0",
+      "githubWorkflowRef": "refs/heads/main",
+      "githubWorkflowRepository": "HKati/pulse-release-gates-0.1",
+      "githubWorkflowSHA": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+      "githubWorkflowTrigger": "workflow_dispatch",
+      "issuer": "https://token.actions.githubusercontent.com",
+      "runInvocationURI": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/attempts/1",
+      "runnerEnvironment": "github-hosted",
+      "sourceRepositoryDigest": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+      "sourceRepositoryIdentifier": "1061766508",
+      "sourceRepositoryOwnerIdentifier": "128643840",
+      "sourceRepositoryOwnerURI": "https://github.com/HKati",
+      "sourceRepositoryRef": "refs/heads/main",
+      "sourceRepositoryURI": "https://github.com/HKati/pulse-release-gates-0.1",
+      "sourceRepositoryVisibilityAtSigning": "public",
+      "subjectAlternativeName": "https://github.com/HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml@refs/heads/main"
+    },
+    "verified_statement": {
+      "_type": "https://in-toto.io/Statement/v1",
+      "predicate": {
+        "buildDefinition": {
+          "buildType": "https://actions.github.io/buildtypes/workflow/v1",
+          "externalParameters": {
+            "workflow": {
+              "path": ".github/workflows/required_gate_idempotence_entry_build_v0.yml",
+              "ref": "refs/heads/main",
+              "repository": "https://github.com/HKati/pulse-release-gates-0.1"
+            }
+          },
+          "internalParameters": {
+            "github": {
+              "event_name": "workflow_dispatch",
+              "repository_id": "1061766508",
+              "repository_owner_id": "128643840",
+              "runner_environment": "github-hosted"
+            }
+          },
+          "resolvedDependencies": [
+            {
+              "digest": {
+                "gitCommit": "f290aee20cd610e4fdb358dbf34d054ec351d390"
+              },
+              "uri": "git+https://github.com/HKati/pulse-release-gates-0.1@refs/heads/main"
+            }
+          ]
+        },
+        "runDetails": {
+          "builder": {
+            "id": "https://github.com/HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_build_v0.yml@refs/heads/main"
+          },
+          "metadata": {
+            "invocationId": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/attempts/1"
+          }
+        }
+      },
+      "predicateType": "https://slsa.dev/provenance/v1",
+      "subject": [
+        {
+          "digest": {
+            "sha256": "330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583"
+          },
+          "name": "record.json"
+        }
+      ]
+    },
+    "verified_timestamps": [
+      {
+        "timestamp": "2026-11-16T11:05:20Z",
+        "type": "Tlog",
+        "uri": "https://rekor.sigstore.dev"
+      }
+    ]
+  },
+  "inherited_boundaries": {
+    "actual_reference_claimed": false,
+    "authority_effect": "none",
+    "bootstrap_execution_observed": false,
+    "compiler_closure_verified": false,
+    "containment_enforced": false,
+    "entry_binary_executed": false,
+    "execution_authorized": false,
+    "execution_ready": false,
+    "host_environment_qualified": false,
+    "host_launcher_runtime_verified": false,
+    "loader_resolution_verified": false,
+    "metric_pass": null,
+    "model_calls": 0,
+    "observed_acquisition_supported": false,
+    "operator_applications": 0,
+    "production_gate_eligible": false,
+    "property_semantics_verified": false,
+    "python_import_closure_verified": false,
+    "restored_bootstrap_qualified": false,
+    "runtime_closure_verified": false,
+    "runtime_execution_authenticated": false,
+    "source_binary_equivalence_verified": false,
+    "toolchain_execution_authenticated": false
+  },
+  "is_independent_checker_report": false,
+  "observed_run": {
+    "acknowledgement": {
+      "evidence": "Exact source-bound workflow context guards completed successfully in both jobs.",
+      "original_dispatch_payload_preserved": false,
+      "required_value": "BUILD_ENTRY_ONLY_NO_RUNTIME_EXECUTION"
+    },
+    "actor": "HKati",
+    "api_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/runs/43854478248",
+    "conclusion": "success",
+    "created_at": "2026-11-16T11:04:28Z",
+    "event": "workflow_dispatch",
+    "head_branch": "main",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "id": 133255107740,
+        "name": "Preserve two fixed entry builds without executing either output",
+        "status": "completed",
+        "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/job/133255107740"
+      },
+      {
+        "conclusion": "success",
+        "id": 133255324365,
+        "name": "Verify and attest the exact current-run build record",
+        "status": "completed",
+        "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/job/133255324365"
+      }
+    ],
+    "ref": "refs/heads/main",
+    "repository_id": 1061766508,
+    "run_attempt": 1,
+    "run_id": 43854478248,
+    "run_number": 1,
+    "run_started_at": "2026-11-16T11:04:28Z",
+    "source_commit": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+    "source_tree": "30b4e7d11f95f88b0b95e7b04b9ad29a9d95a381",
+    "status": "completed",
+    "triggering_actor": "HKati",
+    "updated_at": "2026-11-16T11:05:33Z",
+    "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248",
+    "workflow_id": 419604546,
+    "workflow_name": "PULSEmech idempotence entry build provenance v0",
+    "workflow_path": ".github/workflows/required_gate_idempotence_entry_build_v0.yml",
+    "workflow_sha": "f290aee20cd610e4fdb358dbf34d054ec351d390"
+  },
+  "original_github_artifacts": [
+    {
+      "api_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/artifacts/14221130752",
+      "archive_members": 20,
+      "artifact_id": 14221130752,
+      "created_at": "2026-11-16T11:04:53Z",
+      "download_api_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/artifacts/14221130752/zip",
+      "expired_at_metadata_read": false,
+      "filename": "required-gate-idempotence-entry-build-43854478248-1.zip",
+      "github_api_digest": "sha256:1ad3f84009ff7446e204ab18cb61bd5494a6d1182878833de017a438a3f36855",
+      "name": "required-gate-idempotence-entry-build-43854478248-1",
+      "original_bytes_unchanged": true,
+      "recompressed_or_repackaged": false,
+      "repository_path": "preservation/required_gate_idempotence_entry_build_v0/run_43854478248_attempt_1/required-gate-idempotence-entry-build-43854478248-1.zip",
+      "retention_expires_at": "2027-02-14T11:04:30Z",
+      "role": "build",
+      "run_artifact_url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/artifacts/14221130752",
+      "sha256": "1ad3f84009ff7446e204ab18cb61bd5494a6d1182878833de017a438a3f36855",
+      "size_bytes": 64298,
+      "uncompressed_member_bytes": 61470
+    },
+    {
+      "api_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/artifacts/14220256431",
+      "archive_members": 27,
+      "artifact_id": 14220256431,
+      "created_at": "2026-11-16T11:05:28Z",
+      "download_api_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/artifacts/14220256431/zip",
+      "expired_at_metadata_read": false,
+      "filename": "required-gate-idempotence-entry-attestation-43854478248-1.zip",
+      "github_api_digest": "sha256:04bc923532e4ed8f3e2b564704fe6687619915c4a4fea45724af99473dfcb788",
+      "name": "required-gate-idempotence-entry-attestation-43854478248-1",
+      "original_bytes_unchanged": true,
+      "recompressed_or_repackaged": false,
+      "repository_path": "preservation/required_gate_idempotence_entry_build_v0/run_43854478248_attempt_1/required-gate-idempotence-entry-attestation-43854478248-1.zip",
+      "retention_expires_at": "2027-02-14T11:04:30Z",
+      "role": "attestation",
+      "run_artifact_url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/artifacts/14220256431",
+      "sha256": "04bc923532e4ed8f3e2b564704fe6687619915c4a4fea45724af99473dfcb788",
+      "size_bytes": 93740,
+      "uncompressed_member_bytes": 89678
+    }
+  ],
+  "record_role": "later_documentation_inventory",
+  "record_type": "pulsemech_required_gate_idempotence_entry_build_preservation_record_v0",
+  "references": {
+    "checker_at_observed_source": "https://github.com/HKati/pulse-release-gates-0.1/blob/f290aee20cd610e4fdb358dbf34d054ec351d390/tools/check_required_gate_idempotence_entry_build_v0.py",
+    "coverage_plan": "docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md",
+    "observation_documentation": "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md",
+    "previous_preservation_record": "preservation/admission_rejection_v0/verification_43514702328_attempt_1/verification_record_v0.json",
+    "workflow_at_observed_source": "https://github.com/HKati/pulse-release-gates-0.1/blob/f290aee20cd610e4fdb358dbf34d054ec351d390/.github/workflows/required_gate_idempotence_entry_build_v0.yml"
+  },
+  "repository": "HKati/pulse-release-gates-0.1",
+  "scope": {
+    "b2_complete": false,
+    "b3_complete": false,
+    "b4_complete": false,
+    "b5_complete": false,
+    "bounded_claim": "source_bound_hosted_repeat_build_and_record_provenance_observed",
+    "excluded_claims": [
+      "compiler_correctness",
+      "complete_compiler_or_subtool_dependency_closure",
+      "source_binary_semantic_equivalence",
+      "authenticated_execution_of_every_toolchain_dependency",
+      "launcher_or_host_qualification",
+      "selected_runtime_or_selected_bootstrap_execution",
+      "actual_reference_execution",
+      "idempotence_property_or_metric_result",
+      "cross_host_binary_equality",
+      "production_or_release_authority"
+    ],
+    "grants_release_authority": false,
+    "inventory_independently_signed": false,
+    "metadata_authentication": "GitHub connector API observations and decoded job logs; this later documentation inventory has no independent signature.",
+    "new_workflow_dispatched_by_this_preservation_change": false,
+    "normative": false,
+    "original_operator_applications": 0,
+    "remaining_b2_obligations": [
+      "launcher_provenance_and_host_qualification",
+      "bounded_contained_example",
+      "independently_bound_runtime_and_loader_observations",
+      "reviewed_selected_bootstrap_integration"
+    ],
+    "resource_measurement_claimed": false,
+    "selected_bounded_observation_complete": true,
+    "selected_runtime_executed": false,
+    "step5c_complete": false,
+    "step5d_complete": false,
+    "step6_complete": false,
+    "step7_complete": false
+  },
+  "source_implementation": {
+    "commit": "f290aee20cd610e4fdb358dbf34d054ec351d390",
+    "files": {
+      "builder": {
+        "repository_path": "tools/required_gate_idempotence_entry_build_v0.py",
+        "sha256": "557940d01a67f8bb2023b22b21121be9ac965995ce0ddfbabf6bf09ec9e2311c",
+        "size_bytes": 30687
+      },
+      "checker": {
+        "repository_path": "tools/check_required_gate_idempotence_entry_build_v0.py",
+        "sha256": "6a452044251bdcd6551bb653f1472eabbc213b3d0f5560494b0046668a325900",
+        "size_bytes": 22242
+      },
+      "entry_source": {
+        "repository_path": "tools/required_gate_idempotence_containment_entry_v0.c",
+        "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+        "size_bytes": 4598
+      },
+      "hosted_dependency_lock": {
+        "repository_path": "PULSE_safe_pack_v0/requirements-attestation-v0.lock",
+        "sha256": "dfea85090305c5dd7ea5b3f829cbb450621087d4b07179019a285a7d41badb28",
+        "size_bytes": 898
+      },
+      "request_schema": {
+        "repository_path": "schemas/required_gate_idempotence_entry_build_v0.schema.json",
+        "sha256": "ff382fe396ef01309db95ad129b30b6ec4c4dc8d4460d54448637c9cdac6d6af",
+        "size_bytes": 8499
+      },
+      "workflow": {
+        "repository_path": ".github/workflows/required_gate_idempotence_entry_build_v0.yml",
+        "sha256": "53a2c0ce99355899cf9296ce7c8a3cd932ae436e825665789fca7e13f1a47be6",
+        "size_bytes": 21140
+      }
+    },
+    "github_source_url": "https://github.com/HKati/pulse-release-gates-0.1/tree/f290aee20cd610e4fdb358dbf34d054ec351d390",
+    "later_preservation_commit_is_observed_source": false
+  }
+}

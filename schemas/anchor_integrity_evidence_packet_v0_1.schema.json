@@ -1,0 +1,574 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_evidence_packet_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "evidence_items": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "evidence_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "locator": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "start": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "const": "character_span"
+                  }
+                },
+                "required": [
+                  "type",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "const": "json_pointer"
+                  },
+                  "value": {
+                    "pattern": "^/",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "value"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end_line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "start_line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "type": {
+                    "const": "line_range"
+                  }
+                },
+                "required": [
+                  "type",
+                  "start_line",
+                  "end_line"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "locator_verification": {
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "else": {
+                  "properties": {
+                    "reason": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "result": {
+                      "const": null
+                    }
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "result": {
+                      "enum": [
+                        "resolved",
+                        "unresolved"
+                      ],
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "resolved",
+                  "unresolved",
+                  null
+                ],
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "not_requested",
+                  "not_run",
+                  "completed",
+                  "invalid_input",
+                  "failed",
+                  "not_applicable"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "source_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "subject_binding": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_run_id": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "expected_subject_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "observed_run_id": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "observed_subject_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "verification": {
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "else": {
+                      "properties": {
+                        "reason": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "result": {
+                          "const": null
+                        }
+                      }
+                    },
+                    "if": {
+                      "properties": {
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "status"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "result": {
+                          "enum": [
+                            "satisfied",
+                            "unsatisfied"
+                          ],
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "properties": {
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "result": {
+                    "enum": [
+                      "satisfied",
+                      "unsatisfied",
+                      null
+                    ],
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "not_requested",
+                      "not_run",
+                      "completed",
+                      "invalid_input",
+                      "failed",
+                      "not_applicable"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "result",
+                  "reason"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "expected_subject_id",
+              "observed_subject_id",
+              "expected_run_id",
+              "observed_run_id",
+              "verification"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "source_id",
+          "locator",
+          "content_sha256",
+          "locator_verification",
+          "subject_binding"
+        ],
+        "type": "object"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "packet_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "anchor_integrity_evidence_packet_v0_1"
+    },
+    "sources": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_identifier": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "identity_verification": {
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "else": {
+                  "properties": {
+                    "reason": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "result": {
+                      "const": null
+                    }
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "result": {
+                      "enum": [
+                        "verified",
+                        "mismatch"
+                      ],
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "verified",
+                  "mismatch",
+                  null
+                ],
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "not_requested",
+                  "not_run",
+                  "completed",
+                  "invalid_input",
+                  "failed",
+                  "not_applicable"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "integrity_verification": {
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "else": {
+                  "properties": {
+                    "reason": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "result": {
+                      "const": null
+                    }
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "result": {
+                      "enum": [
+                        "verified",
+                        "mismatch"
+                      ],
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "verified",
+                  "mismatch",
+                  null
+                ],
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "not_requested",
+                  "not_run",
+                  "completed",
+                  "invalid_input",
+                  "failed",
+                  "not_applicable"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "repository_file",
+              "artifact",
+              "user_input",
+              "tool_output",
+              "citation",
+              "provided_context"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_type",
+          "canonical_identifier",
+          "revision",
+          "content_sha256",
+          "identity_verification",
+          "integrity_verification"
+        ],
+        "type": "object"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "packet_id",
+    "subject",
+    "sources",
+    "evidence_items"
+  ],
+  "title": "Anchor Integrity evidence packet v0.1",
+  "type": "object"
+}

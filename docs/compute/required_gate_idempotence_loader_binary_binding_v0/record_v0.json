@@ -1,0 +1,3978 @@
+{
+  "record_type": "required_gate_idempotence_loader_binary_binding_v0",
+  "profile": "linux_x86_64_original_loader_binary_binding_v0",
+  "input_manifest": {
+    "path": "preservation/required_gate_idempotence_loader_binary_binding_v0/inputs_v0.json",
+    "sha256": "593ed408bed5a282258288c465584379ae5158ae890f8f3bd6a7bc7eb80f9fd7",
+    "size_bytes": 4479,
+    "artifact_count": 6,
+    "part_count": 9,
+    "total_artifact_bytes": 41590708,
+    "part_size_bytes_max": 8000000
+  },
+  "prior_plan": {
+    "sources": {
+      "docs/compute/required_gate_idempotence_loader_resolution_plan_v0/plan_v0.json": {
+        "size_bytes": 33641,
+        "sha256": "ff33f96d0095f949763125d67da1159112b067b86c2fe3b5f1302f55cb193d7d"
+      },
+      "schemas/required_gate_idempotence_loader_resolution_plan_v0.schema.json": {
+        "size_bytes": 27856,
+        "sha256": "f3d7dfa891d69528632f4145ef1677782e238ce73ff66ce301b56159762b5b01"
+      },
+      "tools/check_required_gate_idempotence_loader_resolution_plan_v0.py": {
+        "size_bytes": 44623,
+        "sha256": "a26b59f804b8000219b85b99dda08869099b3ca82a9093923ac01bf0b00d19b7"
+      }
+    },
+    "verification_report": {
+      "sha256": "8f3e6d42637c3794cb9f1aa2e7d8f0bc6f45830ada5d13dd5efc5b46efdc96fd",
+      "size_bytes": 2731
+    },
+    "historical_authored_plan_unchanged": true
+  },
+  "historical_entry": {
+    "run_id": 44740993943,
+    "run_attempt": 1,
+    "source_commit": "03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081",
+    "attempt_id": "4588122020677e9b3c9d359c987e30e4",
+    "archive_path": "preservation/required_gate_idempotence_entry_stop_v0/run_44740993943_attempt_1/control_evidence_v0.zip",
+    "archive": {
+      "sha256": "75c71960080a22c88f78b92c8c9af293cc28dc41a4fbd3916e0f515755a245d0",
+      "size_bytes": 5682024
+    },
+    "archive_member_count": 309,
+    "archive_decoded_size_bytes": 12819181,
+    "pins": {
+      "request": {
+        "sha256": "15341c355cd90e3e4f11e25f5941196c98ad3de0f4dfa9b05acf9a5472f3aeae",
+        "size_bytes": 34686
+      },
+      "capture": {
+        "sha256": "f6a8af188cc93ac6ad375ae09252abd7b14e699e4900cca357a6eb165194823d",
+        "size_bytes": 13181
+      },
+      "report": {
+        "sha256": "e8cbdb4e7f25a4701be1f2b699d96702e077368cc1ddbe1d9ccc8189cb8e6bdd",
+        "size_bytes": 12542
+      },
+      "receipt": {
+        "sha256": "92df084686c47b250b03d6071a8081b277b35bc2a2e09c220d702421faa1a516",
+        "size_bytes": 59475
+      },
+      "verified_binding": {
+        "sha256": "6618bbd5fd778d32b87c8b6602c11547dcb4cc8e7cb23dd40e911c63d172d1bf",
+        "size_bytes": 15533
+      }
+    },
+    "source_file_count": 81,
+    "scope": "historical_entry_lower_level_reconstruction_only",
+    "historical_child_terminated": true,
+    "historical_child_resumable": false,
+    "historical_consumer_resolution_observed": false,
+    "fresh_signature_verification_claimed": false,
+    "complete_hosted_replay_carrier": false,
+    "lower_level_reconstruction_accepted": true,
+    "source_bindings_sha256": "604115c7c6f14b7213bfc48ab5ac205395bd6d8e049c43881cbb9c02041b9ad8"
+  },
+  "historical_distribution_inputs": {
+    "carrier_path": "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip",
+    "carrier": {
+      "sha256": "70b57f9a40cb375e267e215b3704be21c9f6d8987cadc13d92dfcc8db56d9c8a",
+      "size_bytes": 24816167
+    },
+    "selected_members": {
+      "controls/distribution-trust-policy.json": {
+        "sha256": "a42134bbe9cc26a0ce5d41a37004342962aed5493d630a7a1994bd02f07bd997",
+        "size_bytes": 875
+      },
+      "distribution-origin/Packages": {
+        "sha256": "4f2c68d67001d595fbd343f6dbad44468953a51c4d9dec3a4803249f6e295940",
+        "size_bytes": 56620099
+      },
+      "distribution-origin/Release": {
+        "sha256": "ed56aac47e7911e65ee63aae8d67e29f20e023f840e49f8ed037043a33de138a",
+        "size_bytes": 138612
+      },
+      "distribution-origin/Release.gpg": {
+        "sha256": "9f80d5c8e4f9fd918a8b4fedd35c00ecc6c1a3ca9eddbc981c83823d4a4b8dc4",
+        "size_bytes": 1760
+      },
+      "distribution-origin/debian-archive-keyring.gpg": {
+        "sha256": "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017",
+        "size_bytes": 55918
+      },
+      "distribution-origin/gpg-status.original": {
+        "sha256": "5d2333a8903d3e1a2826cfeaf6df95ecbf37380dbc2fdc7421a7c7dab1b9f30b",
+        "size_bytes": 1400
+      },
+      "distribution-origin/gpg-stderr.original": {
+        "sha256": "7a0a773e1dfc1ba011bc901fb8388ae43179b7163b76caf07640d01541a9accc",
+        "size_bytes": 1648
+      },
+      "launcher-distribution-record.json": {
+        "sha256": "1f0259701194b485fdb15a442ce1a3e72c9d60d136d6b308468b40a4d1b85060",
+        "size_bytes": 6142
+      }
+    },
+    "signature_evidence": "unchanged_selected_historical_signature_evidence",
+    "externally_selected_archive_keyring_trust_required": true,
+    "fresh_signature_verification_performed": false,
+    "current_archive_freshness_verified": false
+  },
+  "source_binding": {
+    "inputs": [
+      {
+        "filename": "libc6_2.41-12+deb13u4_amd64.deb",
+        "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+        "size_bytes": 2846580
+      },
+      {
+        "filename": "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+        "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+        "size_bytes": 7373052
+      },
+      {
+        "filename": "Sources.xz",
+        "sha256": "6002f81f463a2d976d84b34170367cc16da2d60bd0ba9ab9d868d6e1c1a935d9",
+        "size_bytes": 10540436
+      },
+      {
+        "filename": "glibc_2.41-12+deb13u4.dsc",
+        "sha256": "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e",
+        "size_bytes": 7576
+      },
+      {
+        "filename": "glibc_2.41.orig.tar.xz",
+        "sha256": "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998",
+        "size_bytes": 20323540
+      },
+      {
+        "filename": "glibc_2.41-12+deb13u4.debian.tar.xz",
+        "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+        "size_bytes": 499524
+      }
+    ],
+    "metadata": {
+      "release": {
+        "binding": {
+          "sha256": "ed56aac47e7911e65ee63aae8d67e29f20e023f840e49f8ed037043a33de138a",
+          "size_bytes": 138612
+        },
+        "identity": {
+          "origin": "Debian",
+          "label": "Debian",
+          "suite": "stable",
+          "codename": "trixie",
+          "version": "13.7",
+          "date": "Sat, 12 Sep 2026 07:55:41 UTC"
+        }
+      },
+      "packages_index": {
+        "binding": {
+          "sha256": "4f2c68d67001d595fbd343f6dbad44468953a51c4d9dec3a4803249f6e295940",
+          "size_bytes": 56620099
+        },
+        "path": "main/binary-amd64/Packages",
+        "paragraph_count": 68825
+      },
+      "sources_index": {
+        "compressed": {
+          "path": "main/source/Sources.xz",
+          "binding": {
+            "sha256": "6002f81f463a2d976d84b34170367cc16da2d60bd0ba9ab9d868d6e1c1a935d9",
+            "size_bytes": 10540436
+          }
+        },
+        "decoded": {
+          "path": "main/source/Sources",
+          "binding": {
+            "sha256": "ae99131b13c7e61c53a52c33a2f9088a1bc5db15a664f5d90cc3753ad9b65606",
+            "size_bytes": 57389881
+          }
+        },
+        "paragraph_count": 37643
+      }
+    },
+    "packages": {
+      "libc6": {
+        "package": {
+          "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+          "size_bytes": 2846580
+        },
+        "control": {
+          "name": "libc6",
+          "version": "2.41-12+deb13u4",
+          "architecture": "amd64"
+        },
+        "member": {
+          "path": "usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+          "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+          "size_bytes": 225672,
+          "mode": "0755"
+        },
+        "archive_members": [
+          {
+            "name": "debian-binary",
+            "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
+            "size_bytes": 4
+          },
+          {
+            "name": "control.tar.xz",
+            "sha256": "2d2f6cabc86f1151e10e75836bb9df3218b51c3652906c801cf519b11c3d93f9",
+            "size_bytes": 60976
+          },
+          {
+            "name": "data.tar.xz",
+            "sha256": "59a6a6fecdad8a5690bdb01d620c524f03fc5c58e50e78d35bd7391979f09b36",
+            "size_bytes": 2785412
+          }
+        ],
+        "tar_archives": [
+          {
+            "name": "control.tar.xz",
+            "sha256": "baaafa334443d5abe80c0bf3f7b193178d06e3bb5298c15034ef4954c1dd9784",
+            "size_bytes": 317440,
+            "member_count": 11
+          },
+          {
+            "name": "data.tar.xz",
+            "sha256": "9160e73692aee4c259abc1dfbab430a869e6a292066e31cfcd85e26783742b09",
+            "size_bytes": 13260800,
+            "member_count": 300
+          }
+        ],
+        "control_source": {
+          "name": "glibc",
+          "version": "2.41-12+deb13u4",
+          "version_explicit": false
+        },
+        "index": {
+          "name": "libc6",
+          "version": "2.41-12+deb13u4",
+          "architecture": "amd64",
+          "filename": "pool/main/g/glibc/libc6_2.41-12+deb13u4_amd64.deb",
+          "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+          "size_bytes": 2846580,
+          "source": {
+            "name": "glibc",
+            "version": "2.41-12+deb13u4",
+            "version_explicit": false
+          }
+        }
+      },
+      "libc6-dbg": {
+        "package": {
+          "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+          "size_bytes": 7373052
+        },
+        "control": {
+          "name": "libc6-dbg",
+          "version": "2.41-12+deb13u4",
+          "architecture": "amd64"
+        },
+        "member": {
+          "path": "usr/lib/debug/.build-id/86/f7eb4ff495ed3f2831c6d3d662e4321762a2a3.debug",
+          "sha256": "34ab07395545cf33df8e551e809ebee6fd3fc2707ed848e390872dce539c4a78",
+          "size_bytes": 556488,
+          "mode": "0644"
+        },
+        "archive_members": [
+          {
+            "name": "debian-binary",
+            "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
+            "size_bytes": 4
+          },
+          {
+            "name": "control.tar.xz",
+            "sha256": "758a2085e08a443e033f95aff98fd4d82f38c5f9ecd88912056c854a6ed4cd31",
+            "size_bytes": 12272
+          },
+          {
+            "name": "data.tar.xz",
+            "sha256": "ab48293b5183345adf4efe2d5afc1018066032c89520d963df71fde649547801",
+            "size_bytes": 7360588
+          }
+        ],
+        "tar_archives": [
+          {
+            "name": "control.tar.xz",
+            "sha256": "6ba3891f618b22340b79de6e2ad65b061159ca5a2905e3d3715e18b27fab034e",
+            "size_bytes": 51200,
+            "member_count": 3
+          },
+          {
+            "name": "data.tar.xz",
+            "sha256": "7bedc3dcb57ecdb1180a4f9bd24c2b2c81ed0681c067e63ed66edf7759cd9af1",
+            "size_bytes": 17438720,
+            "member_count": 449
+          }
+        ],
+        "control_source": {
+          "name": "glibc",
+          "version": "2.41-12+deb13u4",
+          "version_explicit": false
+        },
+        "index": {
+          "name": "libc6-dbg",
+          "version": "2.41-12+deb13u4",
+          "architecture": "amd64",
+          "filename": "pool/main/g/glibc/libc6-dbg_2.41-12+deb13u4_amd64.deb",
+          "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+          "size_bytes": 7373052,
+          "source": {
+            "name": "glibc",
+            "version": "2.41-12+deb13u4",
+            "version_explicit": false
+          }
+        }
+      }
+    },
+    "source": {
+      "name": "glibc",
+      "version": "2.41-12+deb13u4",
+      "directory": "pool/main/g/glibc",
+      "components": [
+        {
+          "filename": "glibc_2.41-12+deb13u4.dsc",
+          "binding": {
+            "sha256": "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e",
+            "size_bytes": 7576
+          }
+        },
+        {
+          "filename": "glibc_2.41.orig.tar.xz",
+          "binding": {
+            "sha256": "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998",
+            "size_bytes": 20323540
+          }
+        },
+        {
+          "filename": "glibc_2.41-12+deb13u4.debian.tar.xz",
+          "binding": {
+            "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+            "size_bytes": 499524
+          }
+        }
+      ],
+      "archives": {
+        "original": {
+          "compressed": {
+            "sha256": "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998",
+            "size_bytes": 20323540
+          },
+          "decoded": {
+            "sha256": "2caf0a95a0b6b23970e73e74416bd09e3da01a79f32af9f7b5ef9b4d7dac87ef",
+            "size_bytes": 258478080
+          },
+          "member_count": 20858,
+          "member_payload_size_bytes": 242115126,
+          "selected_member_count": 7,
+          "selected_payload_size_bytes": 382141
+        },
+        "debian": {
+          "compressed": {
+            "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+            "size_bytes": 499524
+          },
+          "decoded": {
+            "sha256": "86e8c8e55ddfff1d9a43fd3fd3b3b623fe989a470a405707778999a7e0e3598a",
+            "size_bytes": 3133440
+          },
+          "member_count": 393,
+          "member_payload_size_bytes": 2829601,
+          "selected_member_count": 94,
+          "selected_payload_size_bytes": 991156
+        }
+      },
+      "series": {
+        "member": "debian/patches/series",
+        "binding": {
+          "sha256": "cb7488954191709b6759021fbec3fecfa04727b94d039f339b1f31e4f1e9d00b",
+          "size_bytes": 2574
+        },
+        "active_patch_count": 80,
+        "patch_policy": "full_context_unique_match_with_recorded_offsets_no_fuzz",
+        "all_active_patches_scanned": true,
+        "patches": [
+          {
+            "order": 0,
+            "member": "debian/patches/git-updates.diff",
+            "binding": {
+              "sha256": "c3c28ea3a3a9ae8478ff7c051202bafefe165e60e11f707389751e7c850956de",
+              "size_bytes": 623020
+            },
+            "file_diff_count": 335,
+            "hunk_count": 583,
+            "selected_files": [
+              "elf/dl-load.c",
+              "include/link.h",
+              "sysdeps/generic/ldsodefs.h"
+            ],
+            "selected_hunk_count": 7,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 1,
+            "member": "debian/patches/locale/check-unknown-symbols.diff",
+            "binding": {
+              "sha256": "1e012e5e754684ace8d1906e350598a68e481bf04bae23721d114ea37f9a5860",
+              "size_bytes": 1136
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 2,
+            "member": "debian/patches/locale/locale-print-LANGUAGE.diff",
+            "binding": {
+              "sha256": "7380447b8f845724bb7aa66e6a5b30098e3aecad6d1c748d0391218891ecf033",
+              "size_bytes": 1131
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 3,
+            "member": "debian/patches/locale/LC_IDENTIFICATION-optional-fields.diff",
+            "binding": {
+              "sha256": "0d34232f355bcef85e0dbb2cd989b05b256338512b7d4f9955b3da2cd2143c1e",
+              "size_bytes": 1052
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 4,
+            "member": "debian/patches/localedata/sort-UTF8-first.diff",
+            "binding": {
+              "sha256": "03f3214e4b1df6d7cd05a40881f7ab7c0843b125ccc3f455169e41a634911f5c",
+              "size_bytes": 1546
+            },
+            "file_diff_count": 1,
+            "hunk_count": 6,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 5,
+            "member": "debian/patches/localedata/supported.diff",
+            "binding": {
+              "sha256": "f10d7153e7f2e91c6a078fd690e466250c60cb9b54f7967aa8ec70d4697cb91e",
+              "size_bytes": 1482
+            },
+            "file_diff_count": 1,
+            "hunk_count": 5,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 6,
+            "member": "debian/patches/localedata/locale-eu_FR.diff",
+            "binding": {
+              "sha256": "ffb46b48511ee84cf343682f7bdadd1c19e278520c156fece975fd4064292fb3",
+              "size_bytes": 3832
+            },
+            "file_diff_count": 3,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 7,
+            "member": "debian/patches/localedata/locale-ku_TR.diff",
+            "binding": {
+              "sha256": "f509f475f69f08a785440e40a0c112bb1d13f34631496883456d377c2f031784",
+              "size_bytes": 2751
+            },
+            "file_diff_count": 1,
+            "hunk_count": 4,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 8,
+            "member": "debian/patches/localedata/fo_FO-date_fmt.diff",
+            "binding": {
+              "sha256": "4f7c6c5644fe6669563584b770406005cac0d8edd7e8212242492fb1a0c05c96",
+              "size_bytes": 726
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 9,
+            "member": "debian/patches/localedata/locales-fr.diff",
+            "binding": {
+              "sha256": "6553fa58f80b7f9202d8b32b32ca477e31c8dbda724235c13e28d84820d7c58e",
+              "size_bytes": 2049
+            },
+            "file_diff_count": 4,
+            "hunk_count": 8,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 10,
+            "member": "debian/patches/localedata/locale-en_DK.diff",
+            "binding": {
+              "sha256": "60886407b1a099a1944bee532ae7fa5e021bc6accaaee2e19c5806e79b03bcd9",
+              "size_bytes": 1525
+            },
+            "file_diff_count": 2,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 11,
+            "member": "debian/patches/localedata/locale-zh_TW.diff",
+            "binding": {
+              "sha256": "da2a0d947d065fbfeb39f5ba69482e6fffb5340ba52d101a84dec4e2c2ba365a",
+              "size_bytes": 547
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 12,
+            "member": "debian/patches/localedata/tailor-iso14651_t1.diff",
+            "binding": {
+              "sha256": "6d0cd73fc196be181b8605f3db9417da3fd371d86f70365052c89ffafe5d6162",
+              "size_bytes": 85111
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 13,
+            "member": "debian/patches/localedata/submitted-es_MX-decimal_point.diff",
+            "binding": {
+              "sha256": "b16bf4fb56c3c8a48317a3e926bb742c94a52e38f02c516d61dda2c2bba3c455",
+              "size_bytes": 498
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 14,
+            "member": "debian/patches/alpha/local-gcc4.1.diff",
+            "binding": {
+              "sha256": "9f2bb61ef79d39ebd75e2988541c5e0e7cdd52e2c8d0caa913e8ef457f9a4fed",
+              "size_bytes": 1831
+            },
+            "file_diff_count": 1,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 15,
+            "member": "debian/patches/alpha/submitted-dl-support.diff",
+            "binding": {
+              "sha256": "e1f29d99b180314d205c04995ea9e66762307f549df579f9caa2040f8332952d",
+              "size_bytes": 629
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 16,
+            "member": "debian/patches/alpha/submitted-fts64.diff",
+            "binding": {
+              "sha256": "fd5c7265ab941829881ee57a1e3b3ac26d55f5478430cd2a8f14bc6f8ee36998",
+              "size_bytes": 341
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 17,
+            "member": "debian/patches/alpha/submitted-makecontext.diff",
+            "binding": {
+              "sha256": "850621247bac6c82a88d85b71b426accd277bda5b57c2c19708eca6a8e499f28",
+              "size_bytes": 675
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 18,
+            "member": "debian/patches/arm/local-sigaction.diff",
+            "binding": {
+              "sha256": "3927c011f6971adf4f164cd5522976e3078d0efa3cfcf5c90cb930fb798701c6",
+              "size_bytes": 855
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 19,
+            "member": "debian/patches/arm/unsubmitted-ldso-multilib.diff",
+            "binding": {
+              "sha256": "af842dd5fc858cefbcbeb7371c49d149f3f76d845cfc891a8905839100d3eae4",
+              "size_bytes": 602
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [
+              "elf/dl-load.c"
+            ],
+            "selected_hunk_count": 1,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 20,
+            "member": "debian/patches/arm/local-arm-futex.diff",
+            "binding": {
+              "sha256": "627c5938baf5ccb990525e2ba2ee71de3db63a70fa1bc04000b5cbda439f710c",
+              "size_bytes": 1035
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 21,
+            "member": "debian/patches/hurd-i386/git-proc_reauth.diff",
+            "binding": {
+              "sha256": "df5219e5cd401981ac9d12b699b78674b78bb91264944302915cb2b5005b3602",
+              "size_bytes": 3604
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 22,
+            "member": "debian/patches/hurd-i386/git-mig-strncpy.diff",
+            "binding": {
+              "sha256": "25b2360fbc2aec689b4b8f304979c1848ffddc4520da2821420a95a1a2f0fe1b",
+              "size_bytes": 799
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 23,
+            "member": "debian/patches/hurd-i386/git-pthread_sigmask_nothread.diff",
+            "binding": {
+              "sha256": "9272f6a75e7d4c9d5f61c8f02fd97266cf3956117d219e20ea1136f398fdcb30",
+              "size_bytes": 665
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 24,
+            "member": "debian/patches/hurd-i386/git-rt-timedwait-realtime.diff",
+            "binding": {
+              "sha256": "b1ace84214bcdb73879bf2a080410599a98e8aa552f109854c80504eb1108a2f",
+              "size_bytes": 1711
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 25,
+            "member": "debian/patches/hurd-i386/git-pthread_setcancel.diff",
+            "binding": {
+              "sha256": "4f36183745ccf463c199f0a760637a6387b548800854ccca2176d2980e8de1c4",
+              "size_bytes": 2306
+            },
+            "file_diff_count": 3,
+            "hunk_count": 5,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 26,
+            "member": "debian/patches/hurd-i386/git-dup-refcnt.diff",
+            "binding": {
+              "sha256": "4a91e550eee1b5e40ceea28feba59f96cad24d8afb3765a9253a382ea3395b09",
+              "size_bytes": 5032
+            },
+            "file_diff_count": 2,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 27,
+            "member": "debian/patches/hurd-i386/git-xstate.diff",
+            "binding": {
+              "sha256": "d7b77631fd22a91c01fcfc5e08de53393614ea0cb4cb2c9231292efbb4cc0f12",
+              "size_bytes": 22661
+            },
+            "file_diff_count": 9,
+            "hunk_count": 16,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 28,
+            "member": "debian/patches/hurd-i386/git-utime-EINVAL.diff",
+            "binding": {
+              "sha256": "0e3aa20cbfe3d83ffc433a039749994166a0d3900643f4bf6fc57055ce1e182a",
+              "size_bytes": 6470
+            },
+            "file_diff_count": 3,
+            "hunk_count": 15,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 29,
+            "member": "debian/patches/hurd-i386/git-xstate-initialized.diff",
+            "binding": {
+              "sha256": "faf58f2224ec24a6c90d678f20aa6b410fe15e566629661d50ac0b5665c58491",
+              "size_bytes": 3730
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 30,
+            "member": "debian/patches/hurd-i386/git-signal-fpe-exceptions.diff",
+            "binding": {
+              "sha256": "982943f73a61ff3944b345151847a7e8c593ce97984ced014cc1cb067546df4f",
+              "size_bytes": 1897
+            },
+            "file_diff_count": 1,
+            "hunk_count": 4,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 31,
+            "member": "debian/patches/hurd-i386/git-symlink-eexist.diff",
+            "binding": {
+              "sha256": "dd1bff2b5d8ccd2671cde1c6727d02c21331825d9c679433cd076899ff8516d5",
+              "size_bytes": 859
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 32,
+            "member": "debian/patches/hurd-i386/git-rename.diff",
+            "binding": {
+              "sha256": "9d38d74aff588caa3270479dc1f87db63cde0c225a2ece88862e37f086b6e8b9",
+              "size_bytes": 1686
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 33,
+            "member": "debian/patches/hurd-i386/local-pthread_once.diff",
+            "binding": {
+              "sha256": "cb0e08c2d9730f5fcaba1bee5b8c6355ef36d77d825a14f1c36c27e12ad862d3",
+              "size_bytes": 6571
+            },
+            "file_diff_count": 8,
+            "hunk_count": 17,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 34,
+            "member": "debian/patches/hurd-i386/local-64b-align.diff",
+            "binding": {
+              "sha256": "76453cfc583c57e5c5f5e648bd186b45dff28265e80525421230d2959c961b71",
+              "size_bytes": 1932
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 35,
+            "member": "debian/patches/hurd-i386/local-enable-ldconfig.diff",
+            "binding": {
+              "sha256": "b023aa6e9b45b2e95d01fd1a8feb2b13cf13a6509f27f06d7f653008f3920556",
+              "size_bytes": 879
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 36,
+            "member": "debian/patches/hurd-i386/tg-sysvshm.diff",
+            "binding": {
+              "sha256": "160a37b38e8c2d5432d73e43adfc0125948c109bb8052053d0917bfcf17461e4",
+              "size_bytes": 21953
+            },
+            "file_diff_count": 9,
+            "hunk_count": 9,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 37,
+            "member": "debian/patches/hurd-i386/tg-thread-cancel.diff",
+            "binding": {
+              "sha256": "864d1320e4c51e569bdf58e4b7747781e3559b9d392686cba901c00f158bf651",
+              "size_bytes": 2887
+            },
+            "file_diff_count": 4,
+            "hunk_count": 5,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 38,
+            "member": "debian/patches/hurd-i386/local-disable-ioctls.diff",
+            "binding": {
+              "sha256": "87ff956297b6b9dacb95897c4f9899c73e00c5928391f53b4fb0f85922f32e65",
+              "size_bytes": 1115
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 39,
+            "member": "debian/patches/hurd-i386/tg-sendmsg-SCM_CREDS.diff",
+            "binding": {
+              "sha256": "a6f0801f305ddfcdd4aefadc3f19994d669c5681354200c8ce56a4b4179d10fc",
+              "size_bytes": 7539
+            },
+            "file_diff_count": 3,
+            "hunk_count": 7,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 40,
+            "member": "debian/patches/hurd-i386/tg-mach-hurd-link.diff",
+            "binding": {
+              "sha256": "58e3929cfb0dd3573e9bef0877a9d5480cedf451193bcfcb12adefff8193016b",
+              "size_bytes": 987
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 41,
+            "member": "debian/patches/hurd-i386/local-ED.diff",
+            "binding": {
+              "sha256": "f1a99a0f668ae4967f45257ddb3ddbf67fe9e825fbd95613175e35bc7210ae26",
+              "size_bytes": 1239
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 42,
+            "member": "debian/patches/hurd-i386/local-madvise_warn.diff",
+            "binding": {
+              "sha256": "b9b226e5aa805bc6a884055f41ae8e013ac74f6299ce10fa29686fe78414527c",
+              "size_bytes": 553
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 43,
+            "member": "debian/patches/hurd-i386/local-usr.diff",
+            "binding": {
+              "sha256": "7ff001cfd98568907adb7be727c84dc1c71420d9aefe2d0ceb0efc13c7c9a35c",
+              "size_bytes": 1177
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": [
+              {
+                "old": "sysdeps/mach/hurd/x86_64/libc.abilist.original2",
+                "new": "sysdeps/mach/hurd/x86_64/libc.abilist",
+                "index": "sysdeps/mach/hurd/i386/libc.abilist"
+              }
+            ]
+          },
+          {
+            "order": 44,
+            "member": "debian/patches/hurd-i386/tg-ifaddrs_v6.diff",
+            "binding": {
+              "sha256": "ec0b3065898fbe48af62def4ed85ad1edf06ae53e989a4caeab16d9bc9b31290",
+              "size_bytes": 10986
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 45,
+            "member": "debian/patches/hurd-i386/unsubmitted-clock_t_centiseconds.diff",
+            "binding": {
+              "sha256": "af3139bf83e29c1be1b34058f1c6965fb26ac22a059566ff546d6daca284fe1f",
+              "size_bytes": 1820
+            },
+            "file_diff_count": 3,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 46,
+            "member": "debian/patches/hurd-i386/submitted-path_mounted.diff",
+            "binding": {
+              "sha256": "bf1d4aa6f8abc7190f20fe048e45fe887a0c31e4c0dc7407adf823214a54c4a3",
+              "size_bytes": 1439
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 47,
+            "member": "debian/patches/hurd-i386/submitted-bind_umask2.diff",
+            "binding": {
+              "sha256": "d4f6e790a8bf02d189d133fbaa03548a0cf72c720702e0f0ea97c8d2b5914ca3",
+              "size_bytes": 1626
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 48,
+            "member": "debian/patches/hurd-i386/tg-bootstrap.diff",
+            "binding": {
+              "sha256": "e17d0aa99e83a25772e6caf3e10f4dc55156905611b37733237d2fad8a89e0dc",
+              "size_bytes": 775
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 49,
+            "member": "debian/patches/hurd-i386/tg-libc_rwlock_recursive.diff",
+            "binding": {
+              "sha256": "d30527ddf52e46b6367a2c885fc4a92761d9abc8e6fed6842e792a1bb4017d7e",
+              "size_bytes": 3694
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 50,
+            "member": "debian/patches/hurd-i386/local-no_unsupported_ioctls.diff",
+            "binding": {
+              "sha256": "0a711a3a2fe4859735cb895082c97f454b5946ac5fd35f4c4cd36f458dfb336e",
+              "size_bytes": 2190
+            },
+            "file_diff_count": 1,
+            "hunk_count": 4,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 51,
+            "member": "debian/patches/hurd-i386/local-stack_chk_guard.diff",
+            "binding": {
+              "sha256": "7f1bb2efbb7444247b9f8a6aaa4d2b2cd21ae29abe58adad6813106b52f2cadd",
+              "size_bytes": 1434
+            },
+            "file_diff_count": 3,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": [
+              {
+                "old": "sysdeps/mach/hurd/x86_64/ld.abilist.original",
+                "new": "sysdeps/mach/hurd/x86_64/ld.abilist",
+                "index": "sysdeps/mach/hurd/x86_64/ld.abilist"
+              }
+            ]
+          },
+          {
+            "order": 52,
+            "member": "debian/patches/i386/local-biarch.diff",
+            "binding": {
+              "sha256": "e04e9f90c9521a562706b0ae14f6fcaf683bec3418949d8c2cf81b5745813259",
+              "size_bytes": 507
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 53,
+            "member": "debian/patches/i386/unsubmitted-quiet-ldconfig.diff",
+            "binding": {
+              "sha256": "4499f8d53dbd7317b4edc1dfd98f31389f60c09e54c70a77baa544987a339032",
+              "size_bytes": 383
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 54,
+            "member": "debian/patches/i386/local-setcontext-revert-eax-ecx-edx.patch",
+            "binding": {
+              "sha256": "a19bc16a1d8bfb0da5f2819a83b7bb04fdbf1db8487eddcdbfe3ffab4a82b295",
+              "size_bytes": 3142
+            },
+            "file_diff_count": 4,
+            "hunk_count": 5,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 55,
+            "member": "debian/patches/m68k/local-reloc.diff",
+            "binding": {
+              "sha256": "286055e52c8b7bd5677e99c1fdde1fe639f5e4dbca0f22cb707f053366c770df",
+              "size_bytes": 806
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 56,
+            "member": "debian/patches/mips/submitted-rld_map.diff",
+            "binding": {
+              "sha256": "1ee338abf51f73f455040cb6d94d39bb77b456bcae7bf7a7279a41bcc79ddd9d",
+              "size_bytes": 674
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 57,
+            "member": "debian/patches/powerpc/local-powerpc8xx-dcbz.diff",
+            "binding": {
+              "sha256": "c8f2edfc4fe17f0abf22290c0879a8d1b55f9b66bc9b82e7cd04869d7b6c16a3",
+              "size_bytes": 915
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 58,
+            "member": "debian/patches/sh4/local-fpscr_values.diff",
+            "binding": {
+              "sha256": "27454c3a56b3a1d115cfac1185e1e37d66976d1060cc54270b4ac6680d275ecd",
+              "size_bytes": 964
+            },
+            "file_diff_count": 3,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 59,
+            "member": "debian/patches/all/local-alias-et_EE.diff",
+            "binding": {
+              "sha256": "dcd995608e0ac2fc2f72d86b96ec044898ce4430eca77b4e86b98331fc3b8ff1",
+              "size_bytes": 420
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 60,
+            "member": "debian/patches/all/local-remove-manual.diff",
+            "binding": {
+              "sha256": "f4cac3b4b80413d5a981d93cfd828bae7a8337e3711186580d6bdba44e943f4a",
+              "size_bytes": 8078
+            },
+            "file_diff_count": 4,
+            "hunk_count": 4,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 61,
+            "member": "debian/patches/all/local-ru_RU.diff",
+            "binding": {
+              "sha256": "f73fdd29b5d61fdfecfdc82d6292db6376200b9b53c96e82b13fd8fb230a1d80",
+              "size_bytes": 717
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 62,
+            "member": "debian/patches/all/local-ldd.diff",
+            "binding": {
+              "sha256": "221c95bcddc9535e62212eb8d5e4552533145ee27bc6da9b87492adc9b3b9bfd",
+              "size_bytes": 891
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 63,
+            "member": "debian/patches/any/local-asserth-decls.diff",
+            "binding": {
+              "sha256": "226126f69c8097a5dffda444914b2c58e004f7100d228544d5f1d7d178192e91",
+              "size_bytes": 1152
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 64,
+            "member": "debian/patches/any/local-fhs-linux-paths.diff",
+            "binding": {
+              "sha256": "c1c2eff1d40d6913adfcb928176e1a9d9bb63a14a23a84dc576010fd1999b5b8",
+              "size_bytes": 1026
+            },
+            "file_diff_count": 2,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 65,
+            "member": "debian/patches/any/local-fhs-nscd.diff",
+            "binding": {
+              "sha256": "9756e24882ac856b01bc9c9d3f2f5a19b41524970f4f918173e3255787fe0beb",
+              "size_bytes": 855
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 66,
+            "member": "debian/patches/any/local-ld-multiarch.diff",
+            "binding": {
+              "sha256": "f7c72262826010174c8e432e93bee93254bf60beb96d0294f0418dfc9472b51a",
+              "size_bytes": 1355
+            },
+            "file_diff_count": 2,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 67,
+            "member": "debian/patches/any/local-stubs_h.diff",
+            "binding": {
+              "sha256": "37b1bfd845bdc7317b585c7bfc07079c18212a4c26f7ab70fcfdbf4f2066482c",
+              "size_bytes": 432
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 68,
+            "member": "debian/patches/any/local-tcsetaddr.diff",
+            "binding": {
+              "sha256": "92ed0adbd55da898809932cce39a3f0914462bf09a1f53d0f4697c359496eddc",
+              "size_bytes": 2904
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 69,
+            "member": "debian/patches/any/local-nss-overflow.diff",
+            "binding": {
+              "sha256": "17e5e2d97e30f27e8bcc2d891650cb68dce20827018a179a0a706d6c24f053fc",
+              "size_bytes": 1991
+            },
+            "file_diff_count": 1,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 70,
+            "member": "debian/patches/any/submitted-missing-etc-hosts.diff",
+            "binding": {
+              "sha256": "1a7d9783b9270b97dbe6df55441f8a47d0cab7ae443720259c75e8ce53f5b477",
+              "size_bytes": 306
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 71,
+            "member": "debian/patches/any/submitted-nptl-invalid-td.patch",
+            "binding": {
+              "sha256": "b4d8993b2dbfaa9585acd2f88067a65538d4f75e4f97a838541af555c63ac6a2",
+              "size_bytes": 891
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 72,
+            "member": "debian/patches/any/local-ldconfig-multiarch.diff",
+            "binding": {
+              "sha256": "214e510b8ac7624f2dac8983f2abc7db0a0c72e18f8c2abd0af0bb63d633ee58",
+              "size_bytes": 1558
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 73,
+            "member": "debian/patches/any/local-disable-libnss-db.diff",
+            "binding": {
+              "sha256": "3d9654f23dc0b65f5f91a06e07a9bbee188e1f47317351058a9f3078bc811ba3",
+              "size_bytes": 478
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 74,
+            "member": "debian/patches/any/local-revert-bz13979.diff",
+            "binding": {
+              "sha256": "f10c9b712b83b9430b22bc0b8a4d7553a94122f1e67d960b4270b5a5e2a4fc72",
+              "size_bytes": 1205
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 75,
+            "member": "debian/patches/any/unsubmitted-ldso-machine-mismatch.diff",
+            "binding": {
+              "sha256": "5e79fa2421af1a2c6d9a055c7e6d2b0351eea5bf9a40c7ec5d3387f2f533ed63",
+              "size_bytes": 556
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [
+              "elf/dl-load.c"
+            ],
+            "selected_hunk_count": 1,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 76,
+            "member": "debian/patches/any/local-ldconfig-ignore-ld.so.diff",
+            "binding": {
+              "sha256": "d7f3513bf212a124f085bded16f012933c164fe3c500fc54b51b9d4a8787f613",
+              "size_bytes": 1810
+            },
+            "file_diff_count": 1,
+            "hunk_count": 3,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 77,
+            "member": "debian/patches/any/local-bootstrap-headers.diff",
+            "binding": {
+              "sha256": "4651f6bfd4bb62bd7e8372f970a1f5c4a6f4753c96d3577c29a35f123792469b",
+              "size_bytes": 3245
+            },
+            "file_diff_count": 2,
+            "hunk_count": 4,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 78,
+            "member": "debian/patches/any/local-test-install.diff",
+            "binding": {
+              "sha256": "ecea70be891e06f0961f713b3dcd8851bc010db8b0c17bb336de00724fc7f167",
+              "size_bytes": 641
+            },
+            "file_diff_count": 1,
+            "hunk_count": 1,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          },
+          {
+            "order": 79,
+            "member": "debian/patches/any/local-cross.patch",
+            "binding": {
+              "sha256": "bc6ee0c521a5e705ad4745820563a15a33645e5358a86254beb8a350c9dbd98c",
+              "size_bytes": 722
+            },
+            "file_diff_count": 1,
+            "hunk_count": 2,
+            "selected_files": [],
+            "selected_hunk_count": 0,
+            "unselected_alternative_path_blocks": []
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "elf/dl-deps.c",
+          "original": {
+            "member": "glibc-2.41/elf/dl-deps.c",
+            "binding": {
+              "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+              "size_bytes": 17592
+            }
+          },
+          "patched": {
+            "binding": {
+              "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+              "size_bytes": 17592
+            }
+          },
+          "patch_steps": []
+        },
+        {
+          "path": "elf/dl-load.c",
+          "original": {
+            "member": "glibc-2.41/elf/dl-load.c",
+            "binding": {
+              "sha256": "85f6eb3f2ca4bb18f50853782f41b1fd71ed0530f785312ce2707d1472a0f8d8",
+              "size_bytes": 67986
+            }
+          },
+          "patched": {
+            "binding": {
+              "sha256": "9569f7343a86b0851404bb0ad839b8c7787d73aeaa19e06dc2e62d77b3e05d36",
+              "size_bytes": 68566
+            }
+          },
+          "patch_steps": [
+            {
+              "order": 0,
+              "member": "debian/patches/git-updates.diff",
+              "hunk_count": 3,
+              "before": {
+                "sha256": "85f6eb3f2ca4bb18f50853782f41b1fd71ed0530f785312ce2707d1472a0f8d8",
+                "size_bytes": 67986
+              },
+              "after": {
+                "sha256": "fb4571e742d59897e1646001a567637dd2e767956166ee423c19944aba35ce8d",
+                "size_bytes": 67979
+              },
+              "hunks": [
+                {
+                  "hunk_index": 0,
+                  "old_start": 921,
+                  "old_count": 8,
+                  "new_start": 921,
+                  "new_count": 7,
+                  "expected_current_start": 921,
+                  "applied_current_start": 921,
+                  "line_offset": 0,
+                  "match_method": "declared_coordinates",
+                  "old_hunk": {
+                    "sha256": "c8ffbfbb90b83629ba0e573b8bc4f9eeb7b22df31e26e25271280e1bfec3eca4",
+                    "size_bytes": 281
+                  },
+                  "new_hunk": {
+                    "sha256": "6f6ae1983726e61388faba3c5cd866466d478df0aa773b7253dc99ddf605939f",
+                    "size_bytes": 270
+                  },
+                  "before": {
+                    "sha256": "85f6eb3f2ca4bb18f50853782f41b1fd71ed0530f785312ce2707d1472a0f8d8",
+                    "size_bytes": 67986
+                  },
+                  "after": {
+                    "sha256": "891a9cc3cbd485822908a5988804e20818303eb46fd4485d8df507f335d787a8",
+                    "size_bytes": 67975
+                  }
+                },
+                {
+                  "hunk_index": 1,
+                  "old_start": 945,
+                  "old_count": 7,
+                  "new_start": 944,
+                  "new_count": 7,
+                  "expected_current_start": 944,
+                  "applied_current_start": 944,
+                  "line_offset": 0,
+                  "match_method": "declared_coordinates",
+                  "old_hunk": {
+                    "sha256": "5cc6a933edbe4559282a947f3804a2e2afba6db92102c00160aabfd5c3a92476",
+                    "size_bytes": 256
+                  },
+                  "new_hunk": {
+                    "sha256": "b1e20c612cc1e4c214f780da93eb4c0c91dd5cb1feb8720f09ba35f43cc74cc7",
+                    "size_bytes": 261
+                  },
+                  "before": {
+                    "sha256": "891a9cc3cbd485822908a5988804e20818303eb46fd4485d8df507f335d787a8",
+                    "size_bytes": 67975
+                  },
+                  "after": {
+                    "sha256": "7acfba2ef794633701fd0584b089a407b68fa2615f54c3542eba56e0b4fcbac0",
+                    "size_bytes": 67980
+                  }
+                },
+                {
+                  "hunk_index": 2,
+                  "old_start": 2180,
+                  "old_count": 7,
+                  "new_start": 2179,
+                  "new_count": 7,
+                  "expected_current_start": 2179,
+                  "applied_current_start": 2179,
+                  "line_offset": 0,
+                  "match_method": "declared_coordinates",
+                  "old_hunk": {
+                    "sha256": "a7ce95f25f352ad135705d069a0d0556391140e5eeba99292a17cad9076f3228",
+                    "size_bytes": 176
+                  },
+                  "new_hunk": {
+                    "sha256": "ab1a42f102270bf32eeca676c554b6b89abacd1d22d8785313c6d32e831e295e",
+                    "size_bytes": 175
+                  },
+                  "before": {
+                    "sha256": "7acfba2ef794633701fd0584b089a407b68fa2615f54c3542eba56e0b4fcbac0",
+                    "size_bytes": 67980
+                  },
+                  "after": {
+                    "sha256": "fb4571e742d59897e1646001a567637dd2e767956166ee423c19944aba35ce8d",
+                    "size_bytes": 67979
+                  }
+                }
+              ]
+            },
+            {
+              "order": 19,
+              "member": "debian/patches/arm/unsubmitted-ldso-multilib.diff",
+              "hunk_count": 1,
+              "before": {
+                "sha256": "fb4571e742d59897e1646001a567637dd2e767956166ee423c19944aba35ce8d",
+                "size_bytes": 67979
+              },
+              "after": {
+                "sha256": "c8b966e5640dcbbac74a4f9ae76ecc07b82c9ceb4ee58151eb0307af4b48290c",
+                "size_bytes": 68281
+              },
+              "hunks": [
+                {
+                  "hunk_index": 0,
+                  "old_start": 1706,
+                  "old_count": 6,
+                  "new_start": 1706,
+                  "new_count": 17,
+                  "expected_current_start": 1706,
+                  "applied_current_start": 1646,
+                  "line_offset": -60,
+                  "match_method": "unique_full_context",
+                  "old_hunk": {
+                    "sha256": "5591d4f99257c37453375bcdbcf11eab17700513e3b8ed22bf2eb7ae172f5ee9",
+                    "size_bytes": 147
+                  },
+                  "new_hunk": {
+                    "sha256": "6731df1d09a20d02d4499d27f5fea222aa4350fa2beec9b0b7665a6ab0564bc4",
+                    "size_bytes": 449
+                  },
+                  "before": {
+                    "sha256": "fb4571e742d59897e1646001a567637dd2e767956166ee423c19944aba35ce8d",
+                    "size_bytes": 67979
+                  },
+                  "after": {
+                    "sha256": "c8b966e5640dcbbac74a4f9ae76ecc07b82c9ceb4ee58151eb0307af4b48290c",
+                    "size_bytes": 68281
+                  }
+                }
+              ]
+            },
+            {
+              "order": 75,
+              "member": "debian/patches/any/unsubmitted-ldso-machine-mismatch.diff",
+              "hunk_count": 1,
+              "before": {
+                "sha256": "c8b966e5640dcbbac74a4f9ae76ecc07b82c9ceb4ee58151eb0307af4b48290c",
+                "size_bytes": 68281
+              },
+              "after": {
+                "sha256": "9569f7343a86b0851404bb0ad839b8c7787d73aeaa19e06dc2e62d77b3e05d36",
+                "size_bytes": 68566
+              },
+              "hunks": [
+                {
+                  "hunk_index": 0,
+                  "old_start": 1717,
+                  "old_count": 6,
+                  "new_start": 1717,
+                  "new_count": 14,
+                  "expected_current_start": 1717,
+                  "applied_current_start": 1657,
+                  "line_offset": -60,
+                  "match_method": "unique_full_context",
+                  "old_hunk": {
+                    "sha256": "a825c70d0e19fce475305c5b313d78b4e9fba340dc1f1c3e13ece767be7debba",
+                    "size_bytes": 125
+                  },
+                  "new_hunk": {
+                    "sha256": "7487e133999be47120e602063d0aef46dbc4ad85f7cc2f04ef6175b8b60f57a5",
+                    "size_bytes": 410
+                  },
+                  "before": {
+                    "sha256": "c8b966e5640dcbbac74a4f9ae76ecc07b82c9ceb4ee58151eb0307af4b48290c",
+                    "size_bytes": 68281
+                  },
+                  "after": {
+                    "sha256": "9569f7343a86b0851404bb0ad839b8c7787d73aeaa19e06dc2e62d77b3e05d36",
+                    "size_bytes": 68566
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "include/link.h",
+          "original": {
+            "member": "glibc-2.41/include/link.h",
+            "binding": {
+              "sha256": "0f26df7954b8af2767add8b34b2accb6a7fcd9e3d9a3a729175b4834bd0bece2",
+              "size_bytes": 13963
+            }
+          },
+          "patched": {
+            "binding": {
+              "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+              "size_bytes": 13993
+            }
+          },
+          "patch_steps": [
+            {
+              "order": 0,
+              "member": "debian/patches/git-updates.diff",
+              "hunk_count": 1,
+              "before": {
+                "sha256": "0f26df7954b8af2767add8b34b2accb6a7fcd9e3d9a3a729175b4834bd0bece2",
+                "size_bytes": 13963
+              },
+              "after": {
+                "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+                "size_bytes": 13993
+              },
+              "hunks": [
+                {
+                  "hunk_index": 0,
+                  "old_start": 365,
+                  "old_count": 6,
+                  "new_start": 365,
+                  "new_count": 8,
+                  "expected_current_start": 365,
+                  "applied_current_start": 365,
+                  "line_offset": 0,
+                  "match_method": "declared_coordinates",
+                  "old_hunk": {
+                    "sha256": "b3fc1afe2b80d168889a0dc112017bb073ee2c7bac76f29887b26dabbe41442f",
+                    "size_bytes": 182
+                  },
+                  "new_hunk": {
+                    "sha256": "ec68b35b79cafd619bfac4abc1f2306acfe8478751e81e59668879c47af49571",
+                    "size_bytes": 212
+                  },
+                  "before": {
+                    "sha256": "0f26df7954b8af2767add8b34b2accb6a7fcd9e3d9a3a729175b4834bd0bece2",
+                    "size_bytes": 13963
+                  },
+                  "after": {
+                    "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+                    "size_bytes": 13993
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "sysdeps/generic/ldsodefs.h",
+          "original": {
+            "member": "glibc-2.41/sysdeps/generic/ldsodefs.h",
+            "binding": {
+              "sha256": "21de59362a3d831a4c47bc076d3a03112edf19fe01069439a997bdf40ab9dd0c",
+              "size_bytes": 53291
+            }
+          },
+          "patched": {
+            "binding": {
+              "sha256": "8a17e7e438fcfb2e89c2a58cf76ffe2a79c32f8816b2387de610ed996473e962",
+              "size_bytes": 54340
+            }
+          },
+          "patch_steps": [
+            {
+              "order": 0,
+              "member": "debian/patches/git-updates.diff",
+              "hunk_count": 3,
+              "before": {
+                "sha256": "21de59362a3d831a4c47bc076d3a03112edf19fe01069439a997bdf40ab9dd0c",
+                "size_bytes": 53291
+              },
+              "after": {
+                "sha256": "8a17e7e438fcfb2e89c2a58cf76ffe2a79c32f8816b2387de610ed996473e962",
+                "size_bytes": 54340
+              },
+              "hunks": [
+                {
+                  "hunk_index": 0,
+                  "old_start": 351,
+                  "old_count": 7,
+                  "new_start": 351,
+                  "new_count": 7,
+                  "expected_current_start": 351,
+                  "applied_current_start": 351,
+                  "line_offset": 0,
+                  "match_method": "declared_coordinates",
+                  "old_hunk": {
+                    "sha256": "1248971bbc21717b4f6890f00067969aa14482b88a9ac1794f92738a87c9f615",
+                    "size_bytes": 254
+                  },
+                  "new_hunk": {
+                    "sha256": "60f33c86a249cf1c5c924f99598065a430bfb30238d70b774de481168a46dee3",
+                    "size_bytes": 261
+                  },
+                  "before": {
+                    "sha256": "21de59362a3d831a4c47bc076d3a03112edf19fe01069439a997bdf40ab9dd0c",
+                    "size_bytes": 53291
+                  },
+                  "after": {
+                    "sha256": "dadb1f79e7c05a268733d24bc599b3bc387eddd3d809f97e072b075824efe62a",
+                    "size_bytes": 53298
+                  }
+                },
+                {
+                  "hunk_index": 1,
+                  "old_start": 695,
+                  "old_count": 10,
+                  "new_start": 695,
+                  "new_count": 23,
+                  "expected_current_start": 695,
+                  "applied_current_start": 695,
+                  "line_offset": 0,
+                  "match_method": "declared_coordinates",
+                  "old_hunk": {
+                    "sha256": "aed8a079874bc28b725df99aa7d0f446e5d84f70aa436363d004d905002588ca",
+                    "size_bytes": 438
+                  },
+                  "new_hunk": {
+                    "sha256": "2077c57d2ab9201cbee25545ca636669276e703d1b49526f5d5c2634a7675c48",
+                    "size_bytes": 890
+                  },
+                  "before": {
+                    "sha256": "dadb1f79e7c05a268733d24bc599b3bc387eddd3d809f97e072b075824efe62a",
+                    "size_bytes": 53298
+                  },
+                  "after": {
+                    "sha256": "2c05fd07265f37fc306ed882d0ddbd74624279dd68ea90f13b54582127d87efb",
+                    "size_bytes": 53750
+                  }
+                },
+                {
+                  "hunk_index": 2,
+                  "old_start": 1041,
+                  "old_count": 15,
+                  "new_start": 1054,
+                  "new_count": 29,
+                  "expected_current_start": 1054,
+                  "applied_current_start": 1054,
+                  "line_offset": 0,
+                  "match_method": "declared_coordinates",
+                  "old_hunk": {
+                    "sha256": "a4e741f2a4d7a46570a890ecbf69cf2e9d9ab186ca2132249a492eeb305d47de",
+                    "size_bytes": 705
+                  },
+                  "new_hunk": {
+                    "sha256": "8deb29679d57a998a634bccf3314189dbda48f2515141116be9eb97899bc2f5c",
+                    "size_bytes": 1295
+                  },
+                  "before": {
+                    "sha256": "2c05fd07265f37fc306ed882d0ddbd74624279dd68ea90f13b54582127d87efb",
+                    "size_bytes": 53750
+                  },
+                  "after": {
+                    "sha256": "8a17e7e438fcfb2e89c2a58cf76ffe2a79c32f8816b2387de610ed996473e962",
+                    "size_bytes": 54340
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "sysdeps/x86_64/dl-machine.h",
+          "original": {
+            "member": "glibc-2.41/sysdeps/x86_64/dl-machine.h",
+            "binding": {
+              "sha256": "1545fc722187437ac1c73b5e022fa409ace5998c21915e9d3133c23d0f4413a7",
+              "size_bytes": 24634
+            }
+          },
+          "patched": {
+            "binding": {
+              "sha256": "1545fc722187437ac1c73b5e022fa409ace5998c21915e9d3133c23d0f4413a7",
+              "size_bytes": 24634
+            }
+          },
+          "patch_steps": []
+        },
+        {
+          "path": "dlfcn/dlfcn.h",
+          "original": {
+            "member": "glibc-2.41/dlfcn/dlfcn.h",
+            "binding": {
+              "sha256": "89e69b3e7f8f6863670d9e71d8e0344cff60758656758e549092ef44e566ef7c",
+              "size_bytes": 8581
+            }
+          },
+          "patched": {
+            "binding": {
+              "sha256": "89e69b3e7f8f6863670d9e71d8e0344cff60758656758e549092ef44e566ef7c",
+              "size_bytes": 8581
+            }
+          },
+          "patch_steps": []
+        },
+        {
+          "path": "elf/elf.h",
+          "original": {
+            "member": "glibc-2.41/elf/elf.h",
+            "binding": {
+              "sha256": "1490fa24d00c6e1a803edd0402e24f11bcf9de0683953f83a726a9c5462fe46c",
+              "size_bytes": 196094
+            }
+          },
+          "patched": {
+            "binding": {
+              "sha256": "1490fa24d00c6e1a803edd0402e24f11bcf9de0683953f83a726a9c5462fe46c",
+              "size_bytes": 196094
+            }
+          },
+          "patch_steps": []
+        }
+      ]
+    },
+    "claim_limits": {
+      "signature_freshly_verified": false,
+      "dsc_signature_freshly_verified": false,
+      "source_to_binary_rebuild_performed": false,
+      "signature_trust_basis": "externally_selected_historical_release_evidence",
+      "relationship": "archive_declared_source_and_exact_package_members"
+    }
+  },
+  "static_binary": {
+    "record_type": "required_gate_idempotence_loader_binary_facts_v0",
+    "loader": {
+      "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "size_bytes": 225672,
+      "build_id": "86f7eb4ff495ed3f2831c6d3d662e4321762a2a3"
+    },
+    "debug": {
+      "sha256": "34ab07395545cf33df8e551e809ebee6fd3fc2707ed848e390872dce539c4a78",
+      "size_bytes": 556488,
+      "build_id": "86f7eb4ff495ed3f2831c6d3d662e4321762a2a3"
+    },
+    "debuglink": {
+      "filename": "f7eb4ff495ed3f2831c6d3d662e4321762a2a3.debug",
+      "crc32": "32eb62be"
+    },
+    "byte_and_debug_correlation_passed": true,
+    "signed_distribution_provenance_verified_by_this_script": false,
+    "full_source_build_provenance_gate_passed_by_this_script": false,
+    "source_build_reproduced": false,
+    "runtime_acquisition_performed": false,
+    "runtime_resolution_observed": false,
+    "hardware_stop_qualified": false,
+    "execution_authorized": false,
+    "symbols": {
+      "openaux": {
+        "index": 20,
+        "value": 13888,
+        "size": 55,
+        "type": 2,
+        "section_index": 10
+      },
+      "_dl_map_object": {
+        "index": 630,
+        "value": 37792,
+        "size": 2859,
+        "type": 2,
+        "section_index": 10
+      },
+      "_dl_map_object_deps": {
+        "index": 705,
+        "value": 13952,
+        "size": 3979,
+        "type": 2,
+        "section_index": 10
+      },
+      "_dl_map_object.cold": {
+        "index": 81,
+        "value": 5150,
+        "size": 62,
+        "type": 2,
+        "section_index": 10
+      }
+    },
+    "cu": {
+      "offset": 48293,
+      "length": 13791,
+      "version": 5,
+      "pointer_size": 8,
+      "abbrev_offset": 6132,
+      "abbrev_end": 7936,
+      "forms": [
+        1,
+        5,
+        7,
+        8,
+        11,
+        14,
+        19,
+        23,
+        24,
+        25,
+        31,
+        33
+      ],
+      "die_count": 1253,
+      "die_offset": 48305,
+      "name": "dl-deps.c",
+      "comp_dir": "./elf",
+      "producer": "GNU C11 14.2.0 -mno-mmx -mtune=generic -march=x86-64 -g -O2 -std=gnu11 -fgnu89-inline -fmerge-all-constants -frounding-math -fstack-protector-strong -fno-common -fmath-errno -fPIC -fno-stack-protector -ftls-model=initial-exec -fasynchronous-unwind-tables",
+      "statement_list_offset": 7695,
+      "line_table": {
+        "offset": 7695,
+        "length": 3802,
+        "version": 5,
+        "header_length": 328,
+        "program_offset": 8035,
+        "source_content_hashes_present": false,
+        "directories": [
+          {
+            "index": 0,
+            "path": "./elf"
+          },
+          {
+            "index": 1,
+            "path": "../include"
+          },
+          {
+            "index": 2,
+            "path": "../sysdeps/generic"
+          },
+          {
+            "index": 3,
+            "path": "/usr/lib/gcc/x86_64-linux-gnu/14/include"
+          },
+          {
+            "index": 4,
+            "path": "../posix/bits"
+          },
+          {
+            "index": 5,
+            "path": "../posix/sys"
+          },
+          {
+            "index": 6,
+            "path": "../time/bits/types"
+          },
+          {
+            "index": 7,
+            "path": "../bits"
+          },
+          {
+            "index": 8,
+            "path": "../sysdeps/nptl/bits"
+          },
+          {
+            "index": 9,
+            "path": "../sysdeps/x86/nptl/bits"
+          },
+          {
+            "index": 10,
+            "path": "../stdlib"
+          },
+          {
+            "index": 11,
+            "path": "../elf"
+          },
+          {
+            "index": 12,
+            "path": "../dlfcn"
+          },
+          {
+            "index": 13,
+            "path": "../sysdeps/x86_64"
+          },
+          {
+            "index": 14,
+            "path": "../sysdeps/x86"
+          },
+          {
+            "index": 15,
+            "path": "../sysdeps/x86/bits"
+          },
+          {
+            "index": 16,
+            "path": "../sysdeps/posix"
+          },
+          {
+            "index": 17,
+            "path": "../sysdeps/nptl"
+          },
+          {
+            "index": 18,
+            "path": "../sysdeps/x86/include"
+          },
+          {
+            "index": 19,
+            "path": "../sysdeps/unix/sysv/linux"
+          }
+        ],
+        "files": [
+          {
+            "index": 0,
+            "name": "dl-deps.c",
+            "directory_index": 0,
+            "directory": "./elf",
+            "source_path": "elf/dl-deps.c"
+          },
+          {
+            "index": 1,
+            "name": "dl-deps.c",
+            "directory_index": 0,
+            "directory": "./elf",
+            "source_path": "elf/dl-deps.c"
+          },
+          {
+            "index": 2,
+            "name": "scratch_buffer.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/scratch_buffer.h"
+          },
+          {
+            "index": 3,
+            "name": "rtld-malloc.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/rtld-malloc.h"
+          },
+          {
+            "index": 4,
+            "name": "ldsodefs.h",
+            "directory_index": 2,
+            "directory": "../sysdeps/generic",
+            "source_path": "sysdeps/generic/ldsodefs.h"
+          },
+          {
+            "index": 5,
+            "name": "stddef.h",
+            "directory_index": 3,
+            "directory": "/usr/lib/gcc/x86_64-linux-gnu/14/include",
+            "source_path": "/usr/lib/gcc/x86_64-linux-gnu/14/include/stddef.h"
+          },
+          {
+            "index": 6,
+            "name": "types.h",
+            "directory_index": 4,
+            "directory": "../posix/bits",
+            "source_path": "posix/bits/types.h"
+          },
+          {
+            "index": 7,
+            "name": "types.h",
+            "directory_index": 5,
+            "directory": "../posix/sys",
+            "source_path": "posix/sys/types.h"
+          },
+          {
+            "index": 8,
+            "name": "clockid_t.h",
+            "directory_index": 6,
+            "directory": "../time/bits/types",
+            "source_path": "time/bits/types/clockid_t.h"
+          },
+          {
+            "index": 9,
+            "name": "time_t.h",
+            "directory_index": 6,
+            "directory": "../time/bits/types",
+            "source_path": "time/bits/types/time_t.h"
+          },
+          {
+            "index": 10,
+            "name": "stdint-intn.h",
+            "directory_index": 7,
+            "directory": "../bits",
+            "source_path": "bits/stdint-intn.h"
+          },
+          {
+            "index": 11,
+            "name": "struct_timeval.h",
+            "directory_index": 6,
+            "directory": "../time/bits/types",
+            "source_path": "time/bits/types/struct_timeval.h"
+          },
+          {
+            "index": 12,
+            "name": "struct_timespec.h",
+            "directory_index": 6,
+            "directory": "../time/bits/types",
+            "source_path": "time/bits/types/struct_timespec.h"
+          },
+          {
+            "index": 13,
+            "name": "thread-shared-types.h",
+            "directory_index": 8,
+            "directory": "../sysdeps/nptl/bits",
+            "source_path": "sysdeps/nptl/bits/thread-shared-types.h"
+          },
+          {
+            "index": 14,
+            "name": "struct_mutex.h",
+            "directory_index": 9,
+            "directory": "../sysdeps/x86/nptl/bits",
+            "source_path": "sysdeps/x86/nptl/bits/struct_mutex.h"
+          },
+          {
+            "index": 15,
+            "name": "pthreadtypes.h",
+            "directory_index": 8,
+            "directory": "../sysdeps/nptl/bits",
+            "source_path": "sysdeps/nptl/bits/pthreadtypes.h"
+          },
+          {
+            "index": 16,
+            "name": "stdint-uintn.h",
+            "directory_index": 7,
+            "directory": "../bits",
+            "source_path": "bits/stdint-uintn.h"
+          },
+          {
+            "index": 17,
+            "name": "stdint.h",
+            "directory_index": 10,
+            "directory": "../stdlib",
+            "source_path": "stdlib/stdint.h"
+          },
+          {
+            "index": 18,
+            "name": "elf.h",
+            "directory_index": 11,
+            "directory": "../elf",
+            "source_path": "elf/elf.h"
+          },
+          {
+            "index": 19,
+            "name": "errno.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/errno.h"
+          },
+          {
+            "index": 20,
+            "name": "list_t.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/list_t.h"
+          },
+          {
+            "index": 21,
+            "name": "dlfcn.h",
+            "directory_index": 12,
+            "directory": "../dlfcn",
+            "source_path": "dlfcn/dlfcn.h"
+          },
+          {
+            "index": 22,
+            "name": "link.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/link.h"
+          },
+          {
+            "index": 23,
+            "name": "link_map.h",
+            "directory_index": 13,
+            "directory": "../sysdeps/x86_64",
+            "source_path": "sysdeps/x86_64/link_map.h"
+          },
+          {
+            "index": 24,
+            "name": "link_map.h",
+            "directory_index": 14,
+            "directory": "../sysdeps/x86",
+            "source_path": "sysdeps/x86/link_map.h"
+          },
+          {
+            "index": 25,
+            "name": "link_map.h",
+            "directory_index": 2,
+            "directory": "../sysdeps/generic",
+            "source_path": "sysdeps/generic/link_map.h"
+          },
+          {
+            "index": 26,
+            "name": "elfclass.h",
+            "directory_index": 7,
+            "directory": "../bits",
+            "source_path": "bits/elfclass.h"
+          },
+          {
+            "index": 27,
+            "name": "link.h",
+            "directory_index": 15,
+            "directory": "../sysdeps/x86/bits",
+            "source_path": "sysdeps/x86/bits/link.h"
+          },
+          {
+            "index": 28,
+            "name": "link.h",
+            "directory_index": 11,
+            "directory": "../elf",
+            "source_path": "elf/link.h"
+          },
+          {
+            "index": 29,
+            "name": "linkmap.h",
+            "directory_index": 14,
+            "directory": "../sysdeps/x86",
+            "source_path": "sysdeps/x86/linkmap.h"
+          },
+          {
+            "index": 30,
+            "name": "dl-fileid.h",
+            "directory_index": 16,
+            "directory": "../sysdeps/posix",
+            "source_path": "sysdeps/posix/dl-fileid.h"
+          },
+          {
+            "index": 31,
+            "name": "libc-lockP.h",
+            "directory_index": 17,
+            "directory": "../sysdeps/nptl",
+            "source_path": "sysdeps/nptl/libc-lockP.h"
+          },
+          {
+            "index": 32,
+            "name": "dlfcn.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/dlfcn.h"
+          },
+          {
+            "index": 33,
+            "name": "feature-control.h",
+            "directory_index": 13,
+            "directory": "../sysdeps/x86_64",
+            "source_path": "sysdeps/x86_64/feature-control.h"
+          },
+          {
+            "index": 34,
+            "name": "cpu-features.h",
+            "directory_index": 18,
+            "directory": "../sysdeps/x86/include",
+            "source_path": "sysdeps/x86/include/cpu-features.h"
+          },
+          {
+            "index": 35,
+            "name": "fpu_control.h",
+            "directory_index": 14,
+            "directory": "../sysdeps/x86",
+            "source_path": "sysdeps/x86/fpu_control.h"
+          },
+          {
+            "index": 36,
+            "name": "dl-procruntime.c",
+            "directory_index": 13,
+            "directory": "../sysdeps/x86_64",
+            "source_path": "sysdeps/x86_64/dl-procruntime.c"
+          },
+          {
+            "index": 37,
+            "name": "dl-procinfo.c",
+            "directory_index": 14,
+            "directory": "../sysdeps/x86",
+            "source_path": "sysdeps/x86/dl-procinfo.c"
+          },
+          {
+            "index": 38,
+            "name": "dl-procinfo.c",
+            "directory_index": 13,
+            "directory": "../sysdeps/x86_64",
+            "source_path": "sysdeps/x86_64/dl-procinfo.c"
+          },
+          {
+            "index": 39,
+            "name": "dl-vdso-setup.c",
+            "directory_index": 19,
+            "directory": "../sysdeps/unix/sysv/linux",
+            "source_path": "sysdeps/unix/sysv/linux/dl-vdso-setup.c"
+          },
+          {
+            "index": 40,
+            "name": "unistd.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/unistd.h"
+          },
+          {
+            "index": 41,
+            "name": "string.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/string.h"
+          },
+          {
+            "index": 42,
+            "name": "assert.h",
+            "directory_index": 1,
+            "directory": "../include",
+            "source_path": "include/assert.h"
+          },
+          {
+            "index": 43,
+            "name": "<built-in>",
+            "directory_index": 0,
+            "directory": "./elf",
+            "source_path": "elf/<built-in>"
+          }
+        ],
+        "openaux_rows": [
+          {
+            "address": 13888,
+            "file": 1,
+            "line": 61,
+            "column": 1,
+            "is_stmt": true,
+            "end_sequence": false
+          },
+          {
+            "address": 13888,
+            "file": 1,
+            "line": 62,
+            "column": 3,
+            "is_stmt": true,
+            "end_sequence": false
+          },
+          {
+            "address": 13888,
+            "file": 1,
+            "line": 64,
+            "column": 3,
+            "is_stmt": true,
+            "end_sequence": false
+          },
+          {
+            "address": 13888,
+            "file": 1,
+            "line": 61,
+            "column": 1,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13889,
+            "file": 1,
+            "line": 61,
+            "column": 1,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13892,
+            "file": 1,
+            "line": 68,
+            "column": 14,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13895,
+            "file": 1,
+            "line": 64,
+            "column": 15,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13898,
+            "file": 1,
+            "line": 64,
+            "column": 15,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13902,
+            "file": 1,
+            "line": 65,
+            "column": 29,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13909,
+            "file": 1,
+            "line": 64,
+            "column": 15,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13917,
+            "file": 1,
+            "line": 64,
+            "column": 15,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13932,
+            "file": 1,
+            "line": 64,
+            "column": 15,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13937,
+            "file": 1,
+            "line": 64,
+            "column": 13,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13941,
+            "file": 1,
+            "line": 69,
+            "column": 1,
+            "is_stmt": false,
+            "end_sequence": false
+          },
+          {
+            "address": 13942,
+            "file": 1,
+            "line": 69,
+            "column": 1,
+            "is_stmt": false,
+            "end_sequence": false
+          }
+        ],
+        "total_row_count": 753
+      }
+    },
+    "source_declarations": [
+      {
+        "die_offset": 61777,
+        "name": "openaux",
+        "tag": 46,
+        "decl_file": 1,
+        "decl_line": 60,
+        "source_path": "elf/dl-deps.c"
+      },
+      {
+        "die_offset": 58105,
+        "name": "openaux_args",
+        "tag": 19,
+        "decl_file": 1,
+        "decl_line": 46,
+        "source_path": "elf/dl-deps.c"
+      },
+      {
+        "die_offset": 50352,
+        "name": "link_map",
+        "tag": 19,
+        "decl_file": 22,
+        "decl_line": 95,
+        "source_path": "include/link.h"
+      },
+      {
+        "die_offset": 58292,
+        "name": "_dl_map_object",
+        "tag": 46,
+        "decl_file": 4,
+        "decl_line": 904,
+        "source_path": "sysdeps/generic/ldsodefs.h"
+      },
+      {
+        "die_offset": 50175,
+        "name": "Lmid_t",
+        "tag": 22,
+        "decl_file": 21,
+        "decl_line": 34,
+        "source_path": "dlfcn/dlfcn.h"
+      },
+      {
+        "die_offset": 49926,
+        "name": "Elf64_Dyn",
+        "tag": 22,
+        "decl_file": 18,
+        "decl_line": 883,
+        "source_path": "elf/elf.h"
+      }
+    ],
+    "openaux_instructions": [
+      {
+        "vaddr": 13888,
+        "file_offset": 13888,
+        "size": 1,
+        "hex": "53",
+        "decoded": "push rbx"
+      },
+      {
+        "vaddr": 13889,
+        "file_offset": 13889,
+        "size": 3,
+        "hex": "4889fb",
+        "decoded": "mov rbx,rdi"
+      },
+      {
+        "vaddr": 13892,
+        "file_offset": 13892,
+        "size": 3,
+        "hex": "488b3f",
+        "decoded": "mov rdi,[rdi]"
+      },
+      {
+        "vaddr": 13895,
+        "file_offset": 13895,
+        "size": 3,
+        "hex": "8b4b08",
+        "decoded": "mov ecx,[rbx+8]"
+      },
+      {
+        "vaddr": 13898,
+        "file_offset": 13898,
+        "size": 4,
+        "hex": "488b7318",
+        "decoded": "mov rsi,[rbx+24]"
+      },
+      {
+        "vaddr": 13902,
+        "file_offset": 13902,
+        "size": 7,
+        "hex": "0fb68754030000",
+        "decoded": "movzx eax,byte [rdi+852]"
+      },
+      {
+        "vaddr": 13909,
+        "file_offset": 13909,
+        "size": 4,
+        "hex": "448b430c",
+        "decoded": "mov r8d,[rbx+12]"
+      },
+      {
+        "vaddr": 13913,
+        "file_offset": 13913,
+        "size": 4,
+        "hex": "4c8b4f30",
+        "decoded": "mov r9,[rdi+48]"
+      },
+      {
+        "vaddr": 13917,
+        "file_offset": 13917,
+        "size": 2,
+        "hex": "89c2",
+        "decoded": "mov edx,eax"
+      },
+      {
+        "vaddr": 13919,
+        "file_offset": 13919,
+        "size": 3,
+        "hex": "83e203",
+        "decoded": "and edx,3"
+      },
+      {
+        "vaddr": 13922,
+        "file_offset": 13922,
+        "size": 2,
+        "hex": "a803",
+        "decoded": "test al,3"
+      },
+      {
+        "vaddr": 13924,
+        "file_offset": 13924,
+        "size": 5,
+        "hex": "b801000000",
+        "decoded": "mov eax,1"
+      },
+      {
+        "vaddr": 13929,
+        "file_offset": 13929,
+        "size": 3,
+        "hex": "0f44d0",
+        "decoded": "cmove edx,eax"
+      },
+      {
+        "vaddr": 13932,
+        "file_offset": 13932,
+        "size": 5,
+        "hex": "e82f5d0000",
+        "decoded": "call rel32",
+        "target_vaddr": 37792,
+        "return_vaddr": 13937
+      },
+      {
+        "vaddr": 13937,
+        "file_offset": 13937,
+        "size": 4,
+        "hex": "48894320",
+        "decoded": "mov [rbx+32],rax"
+      },
+      {
+        "vaddr": 13941,
+        "file_offset": 13941,
+        "size": 1,
+        "hex": "5b",
+        "decoded": "pop rbx"
+      },
+      {
+        "vaddr": 13942,
+        "file_offset": 13942,
+        "size": 1,
+        "hex": "c3",
+        "decoded": "ret"
+      }
+    ],
+    "original_byte_ranges": [
+      {
+        "role": "openaux",
+        "vaddr": 13888,
+        "file_offset": 13888,
+        "size_bytes": 55,
+        "sha256": "32094da2338861c71858c6bc80e47157b0f395457b82965c612de3ad13eb5d52",
+        "hex": "534889fb488b3f8b4b08488b73180fb68754030000448b430c4c8b4f3089c283e203a803b8010000000f44d0e82f5d0000488943205bc3"
+      },
+      {
+        "role": "map_object_hot",
+        "vaddr": 37792,
+        "file_offset": 37792,
+        "size_bytes": 2859,
+        "sha256": "759456edab2b4c7d2005ec78396e7a9ed9e8ad054517877643553861ad366472"
+      },
+      {
+        "role": "map_object_cold",
+        "vaddr": 5150,
+        "file_offset": 5150,
+        "size_bytes": 62,
+        "sha256": "6bffab1d5fd9f9690b6f3f7b631d434767c5dd583b2619adae389d581f03b6ac",
+        "hex": "488d0d43bc0200ba82070000488d359e980200488d3dae9a0200e8d9040000488d0d24bc0200ba81070000488d357f980200488d3d859a0200e8ba040000"
+      },
+      {
+        "role": "map_object_return",
+        "vaddr": 38099,
+        "file_offset": 38099,
+        "size_bytes": 21,
+        "sha256": "7193193a7848a32c605f998d901fdb2799faf64f58a672b293be17b0ac3bd4a6",
+        "hex": "4881c4d80300004c89f85b5d415c415d415e415fc3"
+      },
+      {
+        "role": "args_initialization",
+        "vaddr": 14496,
+        "file_offset": 14496,
+        "size_bytes": 63,
+        "sha256": "3103b80e1a3ca3750917f0d9721fde220c843d9b7ac37ac7f4b4e05f783fff55",
+        "hex": "498b4768488b400841f687560300002074034903078b9d48fbffff488985a0fbffff4c89bd90fbffff899d98fbffff8b9d2cfbffff899d9cfbffff498b5f10"
+      },
+      {
+        "role": "needed_name_branch",
+        "vaddr": 14949,
+        "file_offset": 14949,
+        "size_bytes": 45,
+        "sha256": "19abe8d132711e4639bebd4e9c2f50a6be51f1590c420ed9d0aca1991a5b508c",
+        "hex": "4883fa0175754c8bad68fbffff4c036b084c89efe8d23300004989c64885c00f8596feffff4c89e8e921ffffff"
+      },
+      {
+        "role": "needed_callback",
+        "vaddr": 14771,
+        "file_offset": 14771,
+        "size_bytes": 33,
+        "sha256": "bf0ea4eb4cfd0515a5d0f0834d350dbb5e728cfcc5aeaf68b84045a6cdaaca57",
+        "hex": "488d9590fbffff488dbd70fbffff488985a8fbffff488d3571fcffffe84ce9ffff"
+      }
+    ],
+    "return_checkpoint": {
+      "vaddr": 13937,
+      "file_offset": 13937,
+      "instruction_size": 4,
+      "instruction_hex": "48894320",
+      "before_result_store": true,
+      "provider_register": "RAX",
+      "args_register": "RBX",
+      "args_aux_fresh": false,
+      "args_assumed_in_rdi": false,
+      "callsite_die": 61843,
+      "callee_declaration_die": 58292
+    },
+    "args_location": {
+      "variable_die": 61824,
+      "location_list_offset": 11311,
+      "raw_location_list_hex": "0640360000000000000400070155040736015304363704a301559f00",
+      "entries": [
+        {
+          "begin": 13888,
+          "end": 13895,
+          "expression_hex": "55"
+        },
+        {
+          "begin": 13895,
+          "end": 13942,
+          "expression_hex": "53"
+        },
+        {
+          "begin": 13942,
+          "end": 13943,
+          "expression_hex": "a301559f"
+        }
+      ]
+    },
+    "openaux_args": {
+      "die_offset": 58105,
+      "size_bytes": 40,
+      "members": {
+        "map": {
+          "die_offset": 58118,
+          "offset_bytes": 0,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 15,
+            "encoding": null,
+            "chain": [
+              51619
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 51619,
+              "tag": 15,
+              "name": null,
+              "size_bytes": 8,
+              "encoding": null
+            },
+            {
+              "die_offset": 50352,
+              "tag": 19,
+              "name": "link_map",
+              "size_bytes": 1208,
+              "encoding": null,
+              "decl_file": 22,
+              "decl_line": 95,
+              "source_path": "include/link.h"
+            }
+          ],
+          "decl_file": 1,
+          "decl_line": 49,
+          "source_path": "elf/dl-deps.c"
+        },
+        "trace_mode": {
+          "die_offset": 58131,
+          "offset_bytes": 8,
+          "size_bytes": 4,
+          "type": {
+            "size_bytes": 4,
+            "kind": 36,
+            "encoding": 5,
+            "chain": [
+              48373
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 48373,
+              "tag": 36,
+              "name": "int",
+              "size_bytes": 4,
+              "encoding": 5
+            }
+          ],
+          "decl_file": 1,
+          "decl_line": 50,
+          "source_path": "elf/dl-deps.c"
+        },
+        "open_mode": {
+          "die_offset": 58144,
+          "offset_bytes": 12,
+          "size_bytes": 4,
+          "type": {
+            "size_bytes": 4,
+            "kind": 36,
+            "encoding": 5,
+            "chain": [
+              48373
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 48373,
+              "tag": 36,
+              "name": "int",
+              "size_bytes": 4,
+              "encoding": 5
+            }
+          ],
+          "decl_file": 1,
+          "decl_line": 51,
+          "source_path": "elf/dl-deps.c"
+        },
+        "strtab": {
+          "die_offset": 58157,
+          "offset_bytes": 16,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 15,
+            "encoding": null,
+            "chain": [
+              48455
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 48455,
+              "tag": 15,
+              "name": null,
+              "size_bytes": 8,
+              "encoding": null
+            },
+            {
+              "die_offset": 48467,
+              "tag": 38,
+              "name": null,
+              "size_bytes": null,
+              "encoding": null
+            },
+            {
+              "die_offset": 48460,
+              "tag": 36,
+              "name": "char",
+              "size_bytes": 1,
+              "encoding": 6
+            }
+          ],
+          "decl_file": 1,
+          "decl_line": 52,
+          "source_path": "elf/dl-deps.c"
+        },
+        "name": {
+          "die_offset": 58170,
+          "offset_bytes": 24,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 15,
+            "encoding": null,
+            "chain": [
+              48455
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 48455,
+              "tag": 15,
+              "name": null,
+              "size_bytes": 8,
+              "encoding": null
+            },
+            {
+              "die_offset": 48467,
+              "tag": 38,
+              "name": null,
+              "size_bytes": null,
+              "encoding": null
+            },
+            {
+              "die_offset": 48460,
+              "tag": 36,
+              "name": "char",
+              "size_bytes": 1,
+              "encoding": 6
+            }
+          ],
+          "decl_file": 1,
+          "decl_line": 53,
+          "source_path": "elf/dl-deps.c"
+        },
+        "aux": {
+          "die_offset": 58183,
+          "offset_bytes": 32,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 15,
+            "encoding": null,
+            "chain": [
+              51619
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 51619,
+              "tag": 15,
+              "name": null,
+              "size_bytes": 8,
+              "encoding": null
+            },
+            {
+              "die_offset": 50352,
+              "tag": 19,
+              "name": "link_map",
+              "size_bytes": 1208,
+              "encoding": null,
+              "decl_file": 22,
+              "decl_line": 95,
+              "source_path": "include/link.h"
+            }
+          ],
+          "decl_file": 1,
+          "decl_line": 56,
+          "source_path": "elf/dl-deps.c"
+        }
+      }
+    },
+    "link_map": {
+      "die_offset": 50352,
+      "size_bytes": 1208,
+      "required_prefix_bytes": 56,
+      "members": {
+        "l_addr": {
+          "die_offset": 50366,
+          "offset_bytes": 0,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 36,
+            "encoding": 7,
+            "chain": [
+              49208,
+              49095,
+              48548,
+              48366
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 49208,
+              "tag": 22,
+              "name": "Elf64_Addr",
+              "size_bytes": null,
+              "encoding": null,
+              "decl_file": 18,
+              "decl_line": 44,
+              "source_path": "elf/elf.h"
+            },
+            {
+              "die_offset": 49095,
+              "tag": 22,
+              "name": "uint64_t",
+              "size_bytes": null,
+              "encoding": null,
+              "decl_file": 16,
+              "decl_line": 27,
+              "source_path": "bits/stdint-uintn.h"
+            },
+            {
+              "die_offset": 48548,
+              "tag": 22,
+              "name": "__uint64_t",
+              "size_bytes": null,
+              "encoding": null,
+              "decl_file": 6,
+              "decl_line": 45,
+              "source_path": "posix/bits/types.h"
+            },
+            {
+              "die_offset": 48366,
+              "tag": 36,
+              "name": "long unsigned int",
+              "size_bytes": 8,
+              "encoding": 7
+            }
+          ],
+          "decl_file": 22,
+          "decl_line": 100,
+          "source_path": "include/link.h"
+        },
+        "l_ld": {
+          "die_offset": 50392,
+          "offset_bytes": 16,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 15,
+            "encoding": null,
+            "chain": [
+              52439
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 52439,
+              "tag": 15,
+              "name": null,
+              "size_bytes": 8,
+              "encoding": null
+            },
+            {
+              "die_offset": 49926,
+              "tag": 22,
+              "name": "Elf64_Dyn",
+              "size_bytes": null,
+              "encoding": null,
+              "decl_file": 18,
+              "decl_line": 883,
+              "source_path": "elf/elf.h"
+            },
+            {
+              "die_offset": 49887,
+              "tag": 19,
+              "name": null,
+              "size_bytes": 16,
+              "encoding": null,
+              "decl_file": 18,
+              "decl_line": 875,
+              "source_path": "elf/elf.h"
+            }
+          ],
+          "decl_file": 22,
+          "decl_line": 103,
+          "source_path": "include/link.h"
+        },
+        "l_real": {
+          "die_offset": 50431,
+          "offset_bytes": 40,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 15,
+            "encoding": null,
+            "chain": [
+              51619
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 51619,
+              "tag": 15,
+              "name": null,
+              "size_bytes": 8,
+              "encoding": null
+            },
+            {
+              "die_offset": 50352,
+              "tag": 19,
+              "name": "link_map",
+              "size_bytes": 1208,
+              "encoding": null,
+              "decl_file": 22,
+              "decl_line": 95,
+              "source_path": "include/link.h"
+            }
+          ],
+          "decl_file": 22,
+          "decl_line": 112,
+          "source_path": "include/link.h"
+        },
+        "l_ns": {
+          "die_offset": 50444,
+          "offset_bytes": 48,
+          "size_bytes": 8,
+          "type": {
+            "size_bytes": 8,
+            "kind": 36,
+            "encoding": 5,
+            "chain": [
+              50175,
+              48347
+            ]
+          },
+          "full_type_chain": [
+            {
+              "die_offset": 50175,
+              "tag": 22,
+              "name": "Lmid_t",
+              "size_bytes": null,
+              "encoding": null,
+              "decl_file": 21,
+              "decl_line": 34,
+              "source_path": "dlfcn/dlfcn.h"
+            },
+            {
+              "die_offset": 48347,
+              "tag": 36,
+              "name": "long int",
+              "size_bytes": 8,
+              "encoding": 5
+            }
+          ],
+          "decl_file": 22,
+          "decl_line": 115,
+          "source_path": "include/link.h"
+        }
+      },
+      "l_type_bit_offset": 6816,
+      "l_type_bit_size": 2,
+      "l_type_enumerators": {
+        "lt_executable": 0,
+        "lt_library": 1,
+        "lt_loaded": 2
+      }
+    },
+    "original_eh_frame": {
+      "section_offset": 800,
+      "file_offset": 197360,
+      "size_bytes": 28,
+      "sha256": "2a2760b2804c036a6ac3b73aef291fd7f36ecd2370ffd8446cf1cd8f984755ae",
+      "hex": "18000000240300004833fdff3700000000410e108302750e08000000"
+    },
+    "runtime_recipe_conditions": [
+      "Fresh original loader load bias and live RIP must yield load_bias + 0x3671.",
+      "Read args from live RBX, provider link_map from live RAX; never recover args from RDI.",
+      "Two stopped samples must agree on registers and each bounded memory range.",
+      "Read 40 bytes from args, 56 bytes from args.map, and 56 bytes from provider.",
+      "For each map require l_ns == 0, l_real == the map pointer, and current mapped-file identity.",
+      "Bind l_addr and l_ld against fresh original-object PT_LOAD and PT_DYNAMIC relationships.",
+      "Read bounded args.name bytes and require exact original consumer dynstr pointer and bytes.",
+      "Uniquely join original consumer identity and name to its static DT_NEEDED occurrence.",
+      "Do not accept stale args.aux, occurrence order, pathname alone, or precomputed provider expectations."
+    ]
+  },
+  "source_line_bindings": {
+    "physical_line_separator": "LF",
+    "declarations": [
+      {
+        "die_offset": 61777,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 60,
+        "identifier": "openaux",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "1f06fa88d54759fa91dd248e9825f600680d8c09d786fd6cdba2d7571b3e3038",
+          "size_bytes": 17
+        }
+      },
+      {
+        "die_offset": 58105,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 46,
+        "identifier": "openaux_args",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "4cd1e03d73c1207aae5e0c535e57e295fb2f5c59e12684adf5c944614202ae92",
+          "size_bytes": 19
+        }
+      },
+      {
+        "die_offset": 50352,
+        "source_path": "include/link.h",
+        "physical_line": 95,
+        "identifier": "link_map",
+        "source": {
+          "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+          "size_bytes": 13993
+        },
+        "line_without_LF": {
+          "sha256": "8768df46c7d90aa77ce9a0ef5ae5c4106b116a2e5c1b1dd5406db8fe186de358",
+          "size_bytes": 15
+        }
+      },
+      {
+        "die_offset": 58292,
+        "source_path": "sysdeps/generic/ldsodefs.h",
+        "physical_line": 904,
+        "identifier": "_dl_map_object",
+        "source": {
+          "sha256": "8a17e7e438fcfb2e89c2a58cf76ffe2a79c32f8816b2387de610ed996473e962",
+          "size_bytes": 54340
+        },
+        "line_without_LF": {
+          "sha256": "b3d34573d45340b3d97913c15368adec36e9f9fb60374a8a2b86e50fd88b303d",
+          "size_bytes": 64
+        }
+      },
+      {
+        "die_offset": 50175,
+        "source_path": "dlfcn/dlfcn.h",
+        "physical_line": 34,
+        "identifier": "Lmid_t",
+        "source": {
+          "sha256": "89e69b3e7f8f6863670d9e71d8e0344cff60758656758e549092ef44e566ef7c",
+          "size_bytes": 8581
+        },
+        "line_without_LF": {
+          "sha256": "269afc6275d5792fc564058fc317d764d2f64a19988414afd3ede8c31cbc159c",
+          "size_bytes": 24
+        }
+      },
+      {
+        "die_offset": 49926,
+        "source_path": "elf/elf.h",
+        "physical_line": 883,
+        "identifier": "Elf64_Dyn",
+        "source": {
+          "sha256": "1490fa24d00c6e1a803edd0402e24f11bcf9de0683953f83a726a9c5462fe46c",
+          "size_bytes": 196094
+        },
+        "line_without_LF": {
+          "sha256": "d502d205b87147ec1f67e5d09227752c03083079989792ef812d84f34fd10e5f",
+          "size_bytes": 12
+        }
+      },
+      {
+        "die_offset": 58118,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 49,
+        "identifier": "map",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "c17c8440b500714fd5c35fdd41b7d67972abcdb3cc96515d15a6833fa2bcbfb4",
+          "size_bytes": 25
+        }
+      },
+      {
+        "die_offset": 58131,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 50,
+        "identifier": "trace_mode",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "f55bbb920101a5c3b9ae3d81d63dcdb5a2f9d230ee1e71a4d32af8269a6e43d5",
+          "size_bytes": 19
+        }
+      },
+      {
+        "die_offset": 58144,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 51,
+        "identifier": "open_mode",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "72e41c4a7c1baa2a74c0f40225be1bbc75cca8cebaf0b5f494d51d54089c7281",
+          "size_bytes": 18
+        }
+      },
+      {
+        "die_offset": 58157,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 52,
+        "identifier": "strtab",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "a7f9c40958edb8a6e500b14b9321de6fb6fb2015252d2278b17b3653adf2adeb",
+          "size_bytes": 23
+        }
+      },
+      {
+        "die_offset": 58170,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 53,
+        "identifier": "name",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "586282c20d2dbc57a54ffafe029bebe6088e17414d7bf529ddd0554d39c62896",
+          "size_bytes": 21
+        }
+      },
+      {
+        "die_offset": 58183,
+        "source_path": "elf/dl-deps.c",
+        "physical_line": 56,
+        "identifier": "aux",
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        },
+        "line_without_LF": {
+          "sha256": "cd77396d4a463f36e2edc8c8357f51eebd347b06e750ac32ff39eb4de389ffb9",
+          "size_bytes": 25
+        }
+      },
+      {
+        "die_offset": 50366,
+        "source_path": "include/link.h",
+        "physical_line": 100,
+        "identifier": "l_addr",
+        "source": {
+          "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+          "size_bytes": 13993
+        },
+        "line_without_LF": {
+          "sha256": "61ec48538a98e338a5d2ffb7633ca1d939c8eaa526af2693956aee385687bfec",
+          "size_bytes": 68
+        }
+      },
+      {
+        "die_offset": 50392,
+        "source_path": "include/link.h",
+        "physical_line": 103,
+        "identifier": "l_ld",
+        "source": {
+          "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+          "size_bytes": 13993
+        },
+        "line_without_LF": {
+          "sha256": "c28afc0c32da74669a15e22ffead38cf1a7d027e98daed00ce3c3587b9797070",
+          "size_bytes": 66
+        }
+      },
+      {
+        "die_offset": 50431,
+        "source_path": "include/link.h",
+        "physical_line": 112,
+        "identifier": "l_real",
+        "source": {
+          "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+          "size_bytes": 13993
+        },
+        "line_without_LF": {
+          "sha256": "94613fb6dcf1a8dce13d975200d501280c748085566d9bec8793b2e2c0082d27",
+          "size_bytes": 28
+        }
+      },
+      {
+        "die_offset": 50444,
+        "source_path": "include/link.h",
+        "physical_line": 115,
+        "identifier": "l_ns",
+        "source": {
+          "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+          "size_bytes": 13993
+        },
+        "line_without_LF": {
+          "sha256": "a35119aab8f5c6565d4e89cd65cab9debd75b200dfcf6abc7d90a2811c1a1284",
+          "size_bytes": 16
+        }
+      }
+    ],
+    "checkpoint": {
+      "source_path": "elf/dl-deps.c",
+      "physical_line": 64,
+      "identifier": "_dl_map_object",
+      "source": {
+        "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+        "size_bytes": 17592
+      },
+      "line_without_LF": {
+        "sha256": "849f3428fc0b60e8b2bc8c2eba5821adf95e20e7586050588c6b957a32fb4e39",
+        "size_bytes": 52
+      }
+    },
+    "semantic_ranges": [
+      {
+        "role": "args_and_call",
+        "source_path": "elf/dl-deps.c",
+        "first_physical_line": 46,
+        "last_physical_line": 68,
+        "range": {
+          "sha256": "84f9b8e5be1bd46914de4e96c1ddd7bbb65515a8e284939feec2198c55752d4c",
+          "size_bytes": 549
+        },
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        }
+      },
+      {
+        "role": "no_token_pointer_identity",
+        "source_path": "elf/dl-deps.c",
+        "first_physical_line": 83,
+        "last_physical_line": 122,
+        "range": {
+          "sha256": "49b75355e767c6573ba039f6ec5cfe793520a6a8fbaf8e6e95c5ab0ba70e7056",
+          "size_bytes": 1515
+        },
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        }
+      },
+      {
+        "role": "consumer_needed_callback",
+        "source_path": "elf/dl-deps.c",
+        "first_physical_line": 208,
+        "last_physical_line": 232,
+        "range": {
+          "sha256": "b18372edc48100cda9da0d8d0b436c493b63f076fd67cfa72fee7f78056afcf5",
+          "size_bytes": 735
+        },
+        "source": {
+          "sha256": "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b",
+          "size_bytes": 17592
+        }
+      },
+      {
+        "role": "no_token_count",
+        "source_path": "elf/dl-load.c",
+        "first_physical_line": 227,
+        "last_physical_line": 235,
+        "range": {
+          "sha256": "0e85378ff0c9a9aa66a0b16fe063fda3c75cfa6ae86e30b28762d5701a3cdbf8",
+          "size_bytes": 177
+        },
+        "source": {
+          "sha256": "9569f7343a86b0851404bb0ad839b8c7787d73aeaa19e06dc2e62d77b3e05d36",
+          "size_bytes": 68566
+        }
+      },
+      {
+        "role": "already_loaded_return",
+        "source_path": "elf/dl-load.c",
+        "first_physical_line": 1910,
+        "last_physical_line": 1952,
+        "range": {
+          "sha256": "5183ec636b5012b1bb70a345a72b3187515d264ecaf6ceb0b270bee0cfb891c1",
+          "size_bytes": 1137
+        },
+        "source": {
+          "sha256": "9569f7343a86b0851404bb0ad839b8c7787d73aeaa19e06dc2e62d77b3e05d36",
+          "size_bytes": 68566
+        }
+      },
+      {
+        "role": "selected_map_identity",
+        "source_path": "include/link.h",
+        "first_physical_line": 95,
+        "last_physical_line": 115,
+        "range": {
+          "sha256": "71c09f9ef63e3dd1b71781201fb79ba69097049fb1b3056dc24ced15f281bf79",
+          "size_bytes": 857
+        },
+        "source": {
+          "sha256": "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f",
+          "size_bytes": 13993
+        }
+      },
+      {
+        "role": "base_namespace",
+        "source_path": "dlfcn/dlfcn.h",
+        "first_physical_line": 34,
+        "last_physical_line": 38,
+        "range": {
+          "sha256": "14311585533c49df148ec437daf6d12c8d3a80f31bfcb365becb32e073bf50b7",
+          "size_bytes": 177
+        },
+        "source": {
+          "sha256": "89e69b3e7f8f6863670d9e71d8e0344cff60758656758e549092ef44e566ef7c",
+          "size_bytes": 8581
+        }
+      }
+    ],
+    "DWARF_embeds_source_content_hashes": false,
+    "full_source_to_binary_equivalence_established": false
+  },
+  "recipe": {
+    "status": "selected_static_recipe_only",
+    "loader": {
+      "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "size_bytes": 225672,
+      "build_id": "86f7eb4ff495ed3f2831c6d3d662e4321762a2a3"
+    },
+    "checkpoint_vaddr": 13937,
+    "checkpoint_file_offset": 13937,
+    "live_RIP_relation": "fresh_original_loader_load_bias_plus_checkpoint_vaddr",
+    "phase": "before_return_value_store_after_map_object_call",
+    "args_pointer_register": "RBX",
+    "provider_map_register": "RAX",
+    "args_bytes": 40,
+    "consumer_map_bytes": 56,
+    "provider_map_bytes": 56,
+    "args_fields": {
+      "map": {
+        "offset_bytes": 0,
+        "size_bytes": 8
+      },
+      "trace_mode": {
+        "offset_bytes": 8,
+        "size_bytes": 4
+      },
+      "open_mode": {
+        "offset_bytes": 12,
+        "size_bytes": 4
+      },
+      "strtab": {
+        "offset_bytes": 16,
+        "size_bytes": 8
+      },
+      "name": {
+        "offset_bytes": 24,
+        "size_bytes": 8
+      },
+      "aux": {
+        "offset_bytes": 32,
+        "size_bytes": 8
+      }
+    },
+    "map_fields": {
+      "l_addr": {
+        "offset_bytes": 0,
+        "size_bytes": 8
+      },
+      "l_ld": {
+        "offset_bytes": 16,
+        "size_bytes": 8
+      },
+      "l_real": {
+        "offset_bytes": 40,
+        "size_bytes": 8
+      },
+      "l_ns": {
+        "offset_bytes": 48,
+        "size_bytes": 8
+      }
+    },
+    "map_namespace_is_signed": true,
+    "selected_namespace_value": 0,
+    "needed_name_read_size": "unique_original_name_length_plus_one_NUL",
+    "map_pointer_chasing_beyond_selected_prefix": false,
+    "args_aux_fresh_at_checkpoint": false,
+    "args_pointer_assumed_in_RDI": false,
+    "live_readout_qualified": false
+  },
+  "occurrence_bindings": [
+    {
+      "consumer": {
+        "path": "native/bwrap",
+        "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+        "size_bytes": 80248
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 76304,
+      "dynamic_entry_vaddr": 80400,
+      "needed_ordinal": 0,
+      "name": "libselinux.so.1",
+      "string_table_offset": 1171,
+      "name_file_offset": 5171,
+      "expected_provider": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 80400,
+      "strtab_vaddr": 4000,
+      "strtab_size_bytes": 1353,
+      "strtab_file_offset": 4000,
+      "name_pointer_addend_vaddr": 5171,
+      "name_with_NUL": {
+        "sha256": "5586a42892fd37ff5362bc9d019a40a3fd9f9194dabf8b993f1ee9fc832d0263",
+        "size_bytes": 16,
+        "hex": "6c696273656c696e75782e736f2e3100"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/bwrap",
+        "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+        "size_bytes": 80248
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 1,
+      "dynamic_entry_file_offset": 76320,
+      "dynamic_entry_vaddr": 80416,
+      "needed_ordinal": 1,
+      "name": "libcap.so.2",
+      "string_table_offset": 1187,
+      "name_file_offset": 5187,
+      "expected_provider": {
+        "path": "native/libcap.so.2",
+        "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+        "size_bytes": 47288
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 80400,
+      "strtab_vaddr": 4000,
+      "strtab_size_bytes": 1353,
+      "strtab_file_offset": 4000,
+      "name_pointer_addend_vaddr": 5187,
+      "name_with_NUL": {
+        "sha256": "df750d090f85212fb7102f3fa043b3a57a0a183c1c353f7bfcb767a5fb672758",
+        "size_bytes": 12,
+        "hex": "6c69626361702e736f2e3200"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/bwrap",
+        "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+        "size_bytes": 80248
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 2,
+      "dynamic_entry_file_offset": 76336,
+      "dynamic_entry_vaddr": 80432,
+      "needed_ordinal": 2,
+      "name": "libc.so.6",
+      "string_table_offset": 1199,
+      "name_file_offset": 5199,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 80400,
+      "strtab_vaddr": 4000,
+      "strtab_size_bytes": 1353,
+      "strtab_file_offset": 4000,
+      "name_pointer_addend_vaddr": 5199,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 1980736,
+      "dynamic_entry_vaddr": 1984832,
+      "needed_ordinal": 0,
+      "name": "ld-linux-x86-64.so.2",
+      "string_table_offset": 34478,
+      "name_file_offset": 148782,
+      "expected_provider": {
+        "path": "native/ld-linux-x86-64.so.2",
+        "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+        "size_bytes": 225672
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 1984832,
+      "strtab_vaddr": 114304,
+      "strtab_size_bytes": 35011,
+      "strtab_file_offset": 114304,
+      "name_pointer_addend_vaddr": 148782,
+      "name_with_NUL": {
+        "sha256": "a3b2fe6ecbf935bfdb16e511d08dff5838828fb50ba3665a33716f91a3bf6d33",
+        "size_bytes": 21,
+        "hex": "6c642d6c696e75782d7838362d36342e736f2e3200"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libcap.so.2",
+        "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+        "size_bytes": 47288
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 43912,
+      "dynamic_entry_vaddr": 43912,
+      "needed_ordinal": 0,
+      "name": "libc.so.6",
+      "string_table_offset": 1441,
+      "name_file_offset": 5761,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 43912,
+      "strtab_vaddr": 4320,
+      "strtab_size_bytes": 1560,
+      "strtab_file_offset": 4320,
+      "name_pointer_addend_vaddr": 5761,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libpcre2-8.so.0",
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 708056,
+      "dynamic_entry_vaddr": 712152,
+      "needed_ordinal": 0,
+      "name": "libc.so.6",
+      "string_table_offset": 2399,
+      "name_file_offset": 6167,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 712152,
+      "strtab_vaddr": 3768,
+      "strtab_size_bytes": 2480,
+      "strtab_file_offset": 3768,
+      "name_pointer_addend_vaddr": 6167,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 198192,
+      "dynamic_entry_vaddr": 198192,
+      "needed_ordinal": 0,
+      "name": "libpcre2-8.so.0",
+      "string_table_offset": 6778,
+      "name_file_offset": 18938,
+      "expected_provider": {
+        "path": "native/libpcre2-8.so.0",
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 198192,
+      "strtab_vaddr": 12160,
+      "strtab_size_bytes": 7065,
+      "strtab_file_offset": 12160,
+      "name_pointer_addend_vaddr": 18938,
+      "name_with_NUL": {
+        "sha256": "49343975da99a9139f83ec99bb72bce4243d96421a19d5851b9c3c81d34db835",
+        "size_bytes": 16,
+        "hex": "6c696270637265322d382e736f2e3000"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 1,
+      "dynamic_entry_file_offset": 198208,
+      "dynamic_entry_vaddr": 198208,
+      "needed_ordinal": 1,
+      "name": "libc.so.6",
+      "string_table_offset": 6794,
+      "name_file_offset": 18954,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 198192,
+      "strtab_vaddr": 12160,
+      "strtab_size_bytes": 7065,
+      "strtab_file_offset": 12160,
+      "name_pointer_addend_vaddr": 18954,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 2,
+      "dynamic_entry_file_offset": 198224,
+      "dynamic_entry_vaddr": 198224,
+      "needed_ordinal": 2,
+      "name": "ld-linux-x86-64.so.2",
+      "string_table_offset": 6804,
+      "name_file_offset": 18964,
+      "expected_provider": {
+        "path": "native/ld-linux-x86-64.so.2",
+        "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+        "size_bytes": 225672
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 198192,
+      "strtab_vaddr": 12160,
+      "strtab_size_bytes": 7065,
+      "strtab_file_offset": 12160,
+      "name_pointer_addend_vaddr": 18964,
+      "name_with_NUL": {
+        "sha256": "a3b2fe6ecbf935bfdb16e511d08dff5838828fb50ba3665a33716f91a3bf6d33",
+        "size_bytes": 21,
+        "hex": "6c642d6c696e75782d7838362d36342e736f2e3200"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    }
+  ],
+  "future_live_predicates": {
+    "status": "required_not_observed",
+    "fresh_original_input_admission_required": true,
+    "fresh_task_guard_and_two_slot_hardware_qualification_required": true,
+    "fresh_owned_process_and_descriptor_continuity_required": true,
+    "fresh_loader_bias_and_instruction_bytes_required": true,
+    "two_stopped_register_and_memory_samples_must_agree": true,
+    "consumer_and_provider_namespace": "base_LM_ID_BASE_0",
+    "selected_maps_l_real_equals_own_map_pointer": true,
+    "l_addr_l_ld_match_fresh_original_object_mapping": true,
+    "args_strtab_equals_consumer_bias_plus_original_DT_STRTAB": true,
+    "args_name_equals_args_strtab_plus_selected_original_name_offset": true,
+    "raw_needed_name_including_NUL_matches_original": true,
+    "consumer_identity_and_name_select_exactly_one_DT_NEEDED_occurrence": true,
+    "returned_provider_is_bound_from_live_RAX_and_current_backing_identity": true,
+    "trace_mode_and_open_mode_require_selected_invocation_policy": true,
+    "expected_provider_or_event_order_is_observation": false,
+    "all_nine_unique_events_then_original_entry_and_owned_cleanup_required": true,
+    "any_unexpected_stop_is_preserved_without_resume": true,
+    "post_entry_resume_allowed": false,
+    "absence_of_all_unselected_namespace_activity_claimed": false,
+    "static_binding_supplies_live_evidence_or_authorization": false
+  },
+  "gate_progress": {
+    "historical_plan_edited": false,
+    "static_artifact_and_selected_recipe_binding": "verified_in_this_record",
+    "source_relationship": "archive_declared_source_and_exact_package_members",
+    "source_to_binary_equivalence": "not_independently_reproduced",
+    "authenticated_build_process": "not_established",
+    "complete_prior_binary_source_build_gate": "not_closed_by_this_record",
+    "live_private_abi_readout": "not_qualified",
+    "two_slot_hardware_capability": "not_qualified",
+    "new_request_capture_collector_and_independent_checker": "not_implemented",
+    "fresh_original_loader_resolution_acquisition": "not_performed",
+    "b2_issue": 2879,
+    "b2_issue_state_required": "open"
+  },
+  "boundary": {
+    "archive_metadata_relationships_verified": true,
+    "original_loader_package_membership_verified": true,
+    "matching_debug_package_membership_verified": true,
+    "selected_source_patch_relationships_verified": true,
+    "selected_instruction_recipe_verified": true,
+    "selected_private_layout_bindings_verified": true,
+    "source_binary_equivalence_verified": false,
+    "authenticated_build_provenance": false,
+    "distribution_signature_freshly_verified": false,
+    "dsc_signature_freshly_verified": false,
+    "attestation_signature_freshly_verified": false,
+    "current_repository_freshness_verified": false,
+    "full_hosted_replay_performed": false,
+    "live_private_abi_readout_qualified": false,
+    "two_slot_breakpoint_qualified": false,
+    "native_acquisition_performed": false,
+    "consumer_resolution_observed": false,
+    "loader_resolution_verified": false,
+    "complete_native_closure_verified": false,
+    "containment_enforced": false,
+    "execution_ready": false,
+    "execution_authorized": false,
+    "selected_runtime_executed": false,
+    "production_gate_eligible": false,
+    "b2_complete": false,
+    "metric_pass": null,
+    "authority_effect": "none"
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-entry-build:v0",
+  "title": "Fixed entry build request v0",
+  "$ref": "#/$defs/request",
+  "$defs": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "profile",
+        "source_commit",
+        "source",
+        "compiler",
+        "argv_template",
+        "environment",
+        "limits",
+        "context",
+        "diagnostic_only",
+        "runtime_execution_authenticated",
+        "restored_bootstrap_qualified",
+        "loader_resolution_verified",
+        "python_import_closure_verified",
+        "host_environment_qualified",
+        "runtime_closure_verified",
+        "execution_ready",
+        "execution_authorized",
+        "observed_acquisition_supported",
+        "property_semantics_verified",
+        "metric_pass",
+        "actual_reference_claimed",
+        "production_gate_eligible",
+        "authority_effect",
+        "operator_applications",
+        "model_calls",
+        "containment_enforced",
+        "bootstrap_execution_observed",
+        "entry_binary_executed",
+        "compiler_closure_verified",
+        "source_binary_equivalence_verified",
+        "github_build_provenance_verified",
+        "host_launcher_runtime_verified",
+        "toolchain_execution_authenticated"
+      ],
+      "properties": {
+        "format": {
+          "const": "required_gate_idempotence_entry_build_request_v0"
+        },
+        "profile": {
+          "const": "gcc_static_entry_repeat_v0"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/commit"
+        },
+        "source": {
+          "const": {
+            "path": "tools/required_gate_idempotence_containment_entry_v0.c",
+            "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+            "size_bytes": 4598
+          }
+        },
+        "compiler": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 4096,
+              "pattern": "^/(?:[A-Za-z0-9_.+\\-]+/)*[A-Za-z0-9_.+\\-]+$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 134217728
+            }
+          }
+        },
+        "argv_template": {
+          "type": "array",
+          "minItems": 21,
+          "maxItems": 21,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "const": "-v"
+            },
+            {
+              "const": "-std=c11"
+            },
+            {
+              "const": "-O2"
+            },
+            {
+              "const": "-Wall"
+            },
+            {
+              "const": "-Wextra"
+            },
+            {
+              "const": "-Werror"
+            },
+            {
+              "const": "-ffreestanding"
+            },
+            {
+              "const": "-fno-builtin"
+            },
+            {
+              "const": "-fno-pie"
+            },
+            {
+              "const": "-fno-stack-protector"
+            },
+            {
+              "const": "-fno-asynchronous-unwind-tables"
+            },
+            {
+              "const": "-fno-unwind-tables"
+            },
+            {
+              "const": "-nostdlib"
+            },
+            {
+              "const": "-static"
+            },
+            {
+              "const": "-no-pie"
+            },
+            {
+              "const": "-Wl,--build-id=none"
+            },
+            {
+              "const": "-Wl,-z,noexecstack"
+            },
+            {
+              "const": "entry.c"
+            },
+            {
+              "const": "-o"
+            },
+            {
+              "const": "entry"
+            }
+          ],
+          "items": false
+        },
+        "environment": {
+          "const": {
+            "PATH": "/usr/bin:/bin",
+            "LC_ALL": "C",
+            "TZ": "UTC",
+            "SOURCE_DATE_EPOCH": "0",
+            "TMPDIR": "."
+          }
+        },
+        "limits": {
+          "const": {
+            "build_seconds": 30,
+            "query_seconds": 10,
+            "stdout_bytes": 65536,
+            "stderr_bytes": 262144,
+            "entry_bytes": 16777216,
+            "tool_bytes": 134217728,
+            "control_bytes": 1048576,
+            "builds": 2
+          }
+        },
+        "context": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "local_example"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "repository",
+                "workflow_path",
+                "source_commit",
+                "workflow_sha",
+                "ref",
+                "run_id",
+                "run_attempt",
+                "event_name"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "github_workflow"
+                },
+                "repository": {
+                  "const": "HKati/pulse-release-gates-0.1"
+                },
+                "workflow_path": {
+                  "const": ".github/workflows/required_gate_idempotence_entry_build_v0.yml"
+                },
+                "source_commit": {
+                  "$ref": "#/$defs/commit"
+                },
+                "workflow_sha": {
+                  "$ref": "#/$defs/commit"
+                },
+                "ref": {
+                  "const": "refs/heads/main"
+                },
+                "run_id": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9223372036854775807
+                },
+                "run_attempt": {
+                  "const": 1
+                },
+                "event_name": {
+                  "const": "workflow_dispatch"
+                }
+              }
+            }
+          ]
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "runtime_execution_authenticated": {
+          "const": false
+        },
+        "restored_bootstrap_qualified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "python_import_closure_verified": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "runtime_closure_verified": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "observed_acquisition_supported": {
+          "const": false
+        },
+        "property_semantics_verified": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "actual_reference_claimed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "operator_applications": {
+          "const": 0
+        },
+        "model_calls": {
+          "const": 0
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "bootstrap_execution_observed": {
+          "const": false
+        },
+        "entry_binary_executed": {
+          "const": false
+        },
+        "compiler_closure_verified": {
+          "const": false
+        },
+        "source_binary_equivalence_verified": {
+          "const": false
+        },
+        "github_build_provenance_verified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "toolchain_execution_authenticated": {
+          "const": false
+        }
+      }
+    }
+  }
+}

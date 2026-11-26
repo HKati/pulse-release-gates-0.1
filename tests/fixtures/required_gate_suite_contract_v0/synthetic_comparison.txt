@@ -1,0 +1,2 @@
+SYNTHETIC B1 CONTRACT FIXTURE
+Comparison declaration only. Distinct baseline and variant cases are referenced; no semantic relation is computed.

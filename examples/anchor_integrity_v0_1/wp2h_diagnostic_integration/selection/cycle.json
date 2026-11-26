@@ -1,0 +1,25 @@
+{
+  "authority_effect": "none",
+  "binding_profile": "wp2b-json-pointer-v1",
+  "bindings": {
+    "carriers": {
+      "path": "carriers.json",
+      "sha256": "bf5040f19ed913f2213a97f2afffa768e9f9f937d00e5fc52e9c4498c120fcb6"
+    },
+    "input": {
+      "path": "input.json",
+      "sha256": "c86fcd506562c1989cb8bc6252cc8e4fa54dbe61d32d3712eb1d0bcc268c3635"
+    },
+    "record_set": {
+      "path": "record-set.json",
+      "sha256": "69af01180726c6f6db79dd4d8eb7219d7c1a5c97142407c9215612147c4a2672"
+    }
+  },
+  "candidate_status": "diagnostic_only",
+  "cycle_profile": "typed-dependencies-v1",
+  "pipeline": "local-records",
+  "profile": "fresh-anchor-diagnostic-v1",
+  "receipt_context": null,
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_diagnostic_selection_v0_1"
+}

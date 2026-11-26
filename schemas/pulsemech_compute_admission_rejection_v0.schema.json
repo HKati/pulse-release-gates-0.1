@@ -1,0 +1,3235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_admission_rejection_v0.schema.json",
+  "title": "Bounded admission-rejection plan, acquisition and independent report v0",
+  "description": "Non-authorizing. Shape validation never substitutes for source/evidence reconstruction. Nested original validator results retain their own semantic validation.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/plan"
+    },
+    {
+      "$ref": "#/$defs/acquisition"
+    },
+    {
+      "$ref": "#/$defs/report"
+    }
+  ],
+  "$defs": {
+    "bytes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[\\\\:\\x00-\\x1f\\x7f])(?!.*//).+$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "mode",
+        "git_blob_sha1",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[\\\\:\\x00-\\x1f\\x7f])(?!.*//).+$"
+        },
+        "mode": {
+          "enum": [
+            "100644",
+            "100755"
+          ]
+        },
+        "git_blob_sha1": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "semanticSourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "mode",
+        "git_blob_sha1",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[\\\\:\\x00-\\x1f\\x7f])(?!.*//).+$"
+        },
+        "mode": {
+          "enum": [
+            "100644",
+            "100755"
+          ]
+        },
+        "git_blob_sha1": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "sourceStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal",
+        "id",
+        "name",
+        "if",
+        "uses",
+        "run_sha256",
+        "expected_result"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 65536
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "if": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 65536
+        },
+        "uses": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 65536
+        },
+        "run_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_result": {
+          "enum": [
+            "success",
+            "failure",
+            "skipped",
+            "not_instantiated"
+          ]
+        }
+      }
+    },
+    "boundStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal",
+        "id",
+        "name",
+        "if",
+        "uses",
+        "run_sha256",
+        "expected_result",
+        "platform_number",
+        "conclusion"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 65536
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "if": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 65536
+        },
+        "uses": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 65536
+        },
+        "run_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_result": {
+          "enum": [
+            "success",
+            "failure",
+            "skipped",
+            "not_instantiated"
+          ]
+        },
+        "platform_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "conclusion": {
+          "enum": [
+            "success",
+            "failure",
+            "skipped"
+          ]
+        }
+      }
+    },
+    "expectedJob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "needs",
+        "if",
+        "expected_conclusion",
+        "steps"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "needs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "if": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 65536
+        },
+        "expected_conclusion": {
+          "enum": [
+            "success",
+            "failure",
+            "skipped"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceStep"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "profile_id",
+        "authority_effect",
+        "source",
+        "request",
+        "inputs",
+        "dispatch",
+        "expected_graph",
+        "limits",
+        "excluded_claims"
+      ],
+      "properties": {
+        "format": {
+          "const": "pulsemech_compute_admission_rejection_plan_v0"
+        },
+        "profile_id": {
+          "const": "pulse_ci_hosted_admission_rejection_v0"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "commit",
+            "tree",
+            "workflow_path",
+            "workflow_sha256",
+            "policy_sha256",
+            "files"
+          ],
+          "properties": {
+            "repository": {
+              "const": "HKati/pulse-release-gates-0.1"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "tree": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "workflow_path": {
+              "const": ".github/workflows/pulse_ci.yml"
+            },
+            "workflow_sha256": {
+              "const": "7489fca657c4b2541da4946237b3f864aae7f9247198e5a3c6cbc3429a32db6a"
+            },
+            "policy_sha256": {
+              "const": "00fc5eef5fa3f240028aaf636a2e43ba29f1da000484c7a2f1baafcdd3c4ae8c"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/sourceFile"
+              },
+              "minItems": 1,
+              "maxItems": 10000
+            }
+          }
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "bytes",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "const": "input/q2_request.json"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16384
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "capture",
+            "capsule"
+          ],
+          "properties": {
+            "capture": {
+              "$ref": "#/$defs/bytes"
+            },
+            "capsule": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bytes",
+                "sha256",
+                "manifest_sha256"
+              ],
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "manifest_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          }
+        },
+        "dispatch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event",
+            "ref",
+            "strict_external_evidence",
+            "llamaguard_evidence_mode"
+          ],
+          "properties": {
+            "event": {
+              "const": "workflow_dispatch"
+            },
+            "ref": {
+              "const": "refs/heads/main"
+            },
+            "strict_external_evidence": {
+              "const": true
+            },
+            "llamaguard_evidence_mode": {
+              "const": "hosted_full_runtime"
+            }
+          }
+        },
+        "expected_graph": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expectedJob"
+          },
+          "minItems": 8,
+          "maxItems": 8
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_json_bytes",
+            "max_log_bytes",
+            "max_artifact_bytes",
+            "max_total_bytes",
+            "max_jobs",
+            "max_artifacts",
+            "max_pages",
+            "max_redirects",
+            "request_timeout_seconds"
+          ],
+          "properties": {
+            "max_json_bytes": {
+              "const": 16777216
+            },
+            "max_log_bytes": {
+              "const": 33554432
+            },
+            "max_artifact_bytes": {
+              "const": 134217728
+            },
+            "max_total_bytes": {
+              "const": 536870912
+            },
+            "max_jobs": {
+              "const": 64
+            },
+            "max_artifacts": {
+              "const": 64
+            },
+            "max_pages": {
+              "const": 16
+            },
+            "max_redirects": {
+              "const": 5
+            },
+            "request_timeout_seconds": {
+              "const": 60
+            }
+          }
+        },
+        "excluded_claims": {
+          "const": [
+            "positive_full_workflow_completion",
+            "final_check_gates_decision",
+            "release_authority",
+            "external_tool_and_host_source_closure",
+            "resource_and_timing_measurement",
+            "original_runtime_consumption_proved_by_later_replay",
+            "human_semantic_label_correctness"
+          ]
+        }
+      }
+    },
+    "acquisitionFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "bytes",
+        "sha256",
+        "kind",
+        "endpoint"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[\\\\:\\x00-\\x1f\\x7f])(?!.*//).+$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "kind": {
+          "enum": [
+            "run",
+            "jobs",
+            "artifacts",
+            "log",
+            "archive"
+          ]
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^repos/HKati/pulse-release-gates-0\\.1/actions/"
+        }
+      }
+    },
+    "acquisition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "profile_id",
+        "authority_effect",
+        "plan_sha256",
+        "repository",
+        "run_id",
+        "run_attempt",
+        "source_commit",
+        "completed",
+        "errors",
+        "files"
+      ],
+      "properties": {
+        "format": {
+          "const": "pulsemech_compute_admission_rejection_acquisition_v0"
+        },
+        "profile_id": {
+          "const": "pulse_ci_hosted_admission_rejection_v0"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_attempt": {
+          "const": 1
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 10
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/acquisitionFile"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "completed": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "const": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    "platformStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "platform_number",
+        "conclusion"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "platform_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "conclusion": {
+          "enum": [
+            "success",
+            "skipped"
+          ]
+        }
+      }
+    },
+    "observedJob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "platform_job_id",
+        "conclusion",
+        "source_steps",
+        "platform_steps"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "platform_job_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "conclusion": {
+          "enum": [
+            "success",
+            "failure",
+            "skipped"
+          ]
+        },
+        "source_steps": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sourceStep"
+              },
+              {
+                "$ref": "#/$defs/boundStep"
+              }
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "platform_steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/platformStep"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        }
+      }
+    },
+    "runIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "source_commit",
+        "run_id",
+        "run_attempt",
+        "event",
+        "ref",
+        "run_started_at",
+        "updated_at"
+      ],
+      "properties": {
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_attempt": {
+          "const": 1
+        },
+        "event": {
+          "const": "workflow_dispatch"
+        },
+        "ref": {
+          "const": "refs/heads/main"
+        },
+        "run_started_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "updated_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_script_sha256",
+        "job_log_sha256",
+        "actual_output_sha256",
+        "exit_code",
+        "echo_group_excluded"
+      ],
+      "properties": {
+        "source_script_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "job_log_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "actual_output_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "exit_code": {
+          "const": 1
+        },
+        "echo_group_excluded": {
+          "const": true
+        }
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "bytes",
+        "sha256",
+        "members"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file"
+          },
+          "minItems": 1,
+          "maxItems": 5000
+        }
+      }
+    },
+    "gateRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "count",
+        "passed",
+        "failed",
+        "policy_sha256",
+        "records",
+        "unpreserved_recipe_intermediates",
+        "generic_six_metrics_independently_replayed"
+      ],
+      "properties": {
+        "count": {
+          "const": 19
+        },
+        "passed": {
+          "const": 6
+        },
+        "failed": {
+          "const": 13
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "gate_id",
+              "value",
+              "verification",
+              "result_sha256"
+            ],
+            "properties": {
+              "gate_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "value": {
+                "type": "boolean"
+              },
+              "verification": {
+                "enum": [
+                  "source_contract_failure",
+                  "independent_q2_replay_required",
+                  "recorded_success_only"
+                ]
+              },
+              "result_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "minItems": 19,
+          "maxItems": 19
+        },
+        "unpreserved_recipe_intermediates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*[\\\\:\\x00-\\x1f\\x7f])(?!.*//).+$"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        },
+        "generic_six_metrics_independently_replayed": {
+          "const": false
+        }
+      }
+    },
+    "replayPython": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executable",
+        "runtime",
+        "trust_scope",
+        "original_runtime_identity_proven"
+      ],
+      "properties": {
+        "executable": {
+          "$ref": "#/$defs/bytes"
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "implementation",
+            "version",
+            "unicode",
+            "jsonschema",
+            "PyYAML"
+          ],
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "version": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "unicode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "jsonschema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "PyYAML": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        "trust_scope": {
+          "const": "caller_trusted_local_interpreter"
+        },
+        "original_runtime_identity_proven": {
+          "const": false
+        }
+      }
+    },
+    "q2Semantic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "validation_scope",
+        "request",
+        "capture",
+        "capsule",
+        "source_bindings",
+        "replay_python",
+        "fresh_result",
+        "fresh_result_sha256",
+        "saved_result_sha256",
+        "fresh_independent_checker_executed",
+        "saved_records_matched_fresh_result",
+        "metric_pass",
+        "process_exit",
+        "private_cleanup",
+        "current_inference_count",
+        "archive_executables_invoked",
+        "original_runtime_reads_proven",
+        "production_gate_eligible",
+        "authority_effect"
+      ],
+      "properties": {
+        "format": {
+          "const": "pulsemech_admission_rejection_q2_semantics_v0"
+        },
+        "validation_scope": {
+          "const": "later_offline_private_input_replay"
+        },
+        "request": {
+          "$ref": "#/$defs/bytes"
+        },
+        "capture": {
+          "$ref": "#/$defs/bytes"
+        },
+        "capsule": {
+          "$ref": "#/$defs/bytes"
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/semanticSourceFile"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        },
+        "replay_python": {
+          "$ref": "#/$defs/replayPython"
+        },
+        "fresh_result": {
+          "$ref": "#/$defs/q2PrivateResult"
+        },
+        "fresh_result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "saved_result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fresh_independent_checker_executed": {
+          "const": true
+        },
+        "saved_records_matched_fresh_result": {
+          "const": true
+        },
+        "metric_pass": {
+          "const": false
+        },
+        "process_exit": {
+          "const": 1
+        },
+        "private_cleanup": {
+          "const": "verified_removed"
+        },
+        "current_inference_count": {
+          "const": 0
+        },
+        "archive_executables_invoked": {
+          "const": false
+        },
+        "original_runtime_reads_proven": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "llamaguardSemantic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "validation_scope",
+        "members",
+        "source_bindings",
+        "replay_python",
+        "backend_identity",
+        "content",
+        "attestation",
+        "fresh_content_checker_executed",
+        "fresh_signature_backend_executed",
+        "saved_verifier_report_matched_fresh_result",
+        "private_cleanup",
+        "time_bounds",
+        "original_runtime_reads_proven",
+        "model_execution_replayed",
+        "model_output_semantic_correctness_verified",
+        "authority_effect"
+      ],
+      "properties": {
+        "format": {
+          "const": "pulsemech_admission_rejection_llamaguard_semantics_v0"
+        },
+        "validation_scope": {
+          "const": "later_content_and_trusted_signature_replay"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "bytes",
+              "sha256"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/semanticSourceFile"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        },
+        "replay_python": {
+          "$ref": "#/$defs/replayPython"
+        },
+        "backend_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bytes",
+            "sha256",
+            "trust_scope",
+            "origin_authenticated_by_this_checker"
+          ],
+          "properties": {
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "trust_scope": {
+              "const": "root_owned_system_gh_executable"
+            },
+            "origin_authenticated_by_this_checker": {
+              "const": false
+            }
+          }
+        },
+        "content": {
+          "type": "object",
+          "description": "Validated in full by the pinned original LlamaGuard content driver."
+        },
+        "attestation": {
+          "type": "object",
+          "description": "Validated in full by the pinned original attestation driver and trusted signature backend."
+        },
+        "fresh_content_checker_executed": {
+          "const": true
+        },
+        "fresh_signature_backend_executed": {
+          "const": true
+        },
+        "saved_verifier_report_matched_fresh_result": {
+          "const": true
+        },
+        "private_cleanup": {
+          "const": "verified_removed"
+        },
+        "time_bounds": {
+          "const": "supplied_original_run_utc_bounds_checked"
+        },
+        "original_runtime_reads_proven": {
+          "const": false
+        },
+        "model_execution_replayed": {
+          "const": false
+        },
+        "model_output_semantic_correctness_verified": {
+          "const": false
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state:step5c:advisory-reference-bundle",
+        "state:step5c:artifact-binding-attestation",
+        "state:step5c:artifact-provenance-binding",
+        "state:step5c:complete-release-grade-reference-package",
+        "state:step5c:compute-binding-report",
+        "state:step5c:effective-required-argument-list",
+        "state:step5c:external-signer-policy",
+        "state:step5c:final-status",
+        "state:step5c:final-status-summary",
+        "state:step5c:folded-non-active-candidate-status",
+        "state:step5c:gate-policy",
+        "state:step5c:gate-registry",
+        "state:step5c:llamaguard-attestation-bundle",
+        "state:step5c:llamaguard-attestation-envelope",
+        "state:step5c:llamaguard-attestation-verifier",
+        "state:step5c:llamaguard-dataset",
+        "state:step5c:llamaguard-evaluator-manifest",
+        "state:step5c:llamaguard-input:benign_factual_response",
+        "state:step5c:llamaguard-input:credential_theft_refusal",
+        "state:step5c:llamaguard-input:hate_content_refusal",
+        "state:step5c:llamaguard-input:private_address_refusal",
+        "state:step5c:llamaguard-input:self_harm_support",
+        "state:step5c:llamaguard-input:violent_harm_refusal",
+        "state:step5c:llamaguard-output:benign_factual_response",
+        "state:step5c:llamaguard-output:credential_theft_refusal",
+        "state:step5c:llamaguard-output:hate_content_refusal",
+        "state:step5c:llamaguard-output:private_address_refusal",
+        "state:step5c:llamaguard-output:self_harm_support",
+        "state:step5c:llamaguard-output:violent_harm_refusal",
+        "state:step5c:llamaguard-raw-evidence",
+        "state:step5c:llamaguard-summary",
+        "state:step5c:materialized-release-required-gate-set",
+        "state:step5c:package-completeness-report",
+        "state:step5c:package-digest-inventory",
+        "state:step5c:package-run-metadata",
+        "state:step5c:package-verification-report",
+        "state:step5c:planned-observed-relation",
+        "state:step5c:pre-attestation-pulse-artifacts",
+        "state:step5c:pre-materialization-status",
+        "state:step5c:quality-ledger-final",
+        "state:step5c:quality-ledger-pre-authority",
+        "state:step5c:recorded-candidate-index",
+        "state:step5c:recorded-release-candidate-envelopes",
+        "state:step5c:recorded-release-evidence-verifier",
+        "state:step5c:release-authority-audit-bundle",
+        "state:step5c:release-authority-manifest",
+        "state:step5c:release-decision",
+        "state:step5c:release-decision-ledger-section",
+        "state:step5c:release-decision-report",
+        "state:step5c:release-evidence-input-manifest",
+        "state:step5c:release-grade-junit",
+        "state:step5c:release-grade-sarif",
+        "state:step5c:required-gate-evidence",
+        "state:step5c:runtime-observation-diagnostic",
+        "state:step5c:runtime-observation-packet",
+        "state:step5c:self-contained-evidence-floor",
+        "state:step5c:status-baseline",
+        "state:step5c:step3f-current-run-carrier",
+        "state:step5c:step3f-current-run-expectation",
+        "state:step5c:step3f-subject-input-packet",
+        "state:step5c:threshold-policy",
+        "state:step5c:workflow-source"
+      ],
+      "properties": {
+        "state:step5c:advisory-reference-bundle": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_tree_and_carrier"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:artifact-binding-attestation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "required_action_metadata_with_receipt_gap"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:artifact-provenance-binding": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:complete-release-grade-reference-package": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_archive"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:compute-binding-report": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_downstream_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:effective-required-argument-list": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_source_argv_derivation_with_runtime_receipt_gap"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:external-signer-policy": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_source_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:final-status": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:final-status-summary": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:folded-non-active-candidate-status": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_downstream_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:gate-policy": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_source_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:gate-registry": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_source_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-attestation-bundle": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-attestation-envelope": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-attestation-verifier": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-dataset": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_source_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-evaluator-manifest": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-input:benign_factual_response": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-input:credential_theft_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-input:hate_content_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-input:private_address_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-input:self_harm_support": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-input:violent_harm_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-output:benign_factual_response": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-output:credential_theft_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-output:hate_content_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-output:private_address_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-output:self_harm_support": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-output:violent_harm_refusal": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_controlled_case_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-raw-evidence": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:llamaguard-summary": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:materialized-release-required-gate-set": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_status_policy_projection"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:package-completeness-report": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_archive"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:package-digest-inventory": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:package-run-metadata": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:package-verification-report": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_archive"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:planned-observed-relation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_downstream_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:pre-attestation-pulse-artifacts": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_archive"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:pre-materialization-status": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:quality-ledger-final": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:quality-ledger-pre-authority": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "required_explicit_content_gap"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:recorded-candidate-index": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:recorded-release-candidate-envelopes": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_tree"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:recorded-release-evidence-verifier": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-authority-audit-bundle": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_tree"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-authority-manifest": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-decision": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-decision-ledger-section": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-decision-report": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-evidence-input-manifest": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-grade-junit": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:release-grade-sarif": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:required-gate-evidence": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:runtime-observation-diagnostic": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_downstream_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:runtime-observation-packet": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "checked_downstream_derivation"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:self-contained-evidence-floor": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:status-baseline": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_preserved_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:step3f-current-run-carrier": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_provider_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:step3f-current-run-expectation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_provider_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:step3f-subject-input-packet": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_provider_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:threshold-policy": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_source_content"
+                }
+              }
+            }
+          ]
+        },
+        "state:step5c:workflow-source": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/roleStatus"
+            },
+            {
+              "properties": {
+                "legacy_obligation": {
+                  "const": "exact_source_content"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "acceptedReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "profile_id",
+        "authority_effect",
+        "accepted",
+        "bounded_claim",
+        "source",
+        "run",
+        "plan_sha256",
+        "acquisition_sha256",
+        "observed_jobs",
+        "source_step_templates",
+        "instantiated_source_steps",
+        "rejection_log_relation",
+        "required_gate_relation",
+        "archives",
+        "raw_evidence",
+        "semantic_replay",
+        "verifier",
+        "legacy_role_status",
+        "limitations",
+        "excluded_claims"
+      ],
+      "properties": {
+        "format": {
+          "const": "pulsemech_compute_admission_rejection_report_v0"
+        },
+        "profile_id": {
+          "const": "pulse_ci_hosted_admission_rejection_v0"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "accepted": {
+          "const": true
+        },
+        "bounded_claim": {
+          "const": "source_bound_admission_rejection_and_downstream_guard_observed"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "commit",
+            "tree",
+            "file_count",
+            "closure_sha256",
+            "workflow_sha256",
+            "policy_sha256"
+          ],
+          "properties": {
+            "repository": {
+              "const": "HKati/pulse-release-gates-0.1"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "tree": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "file_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "closure_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "workflow_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "policy_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "run": {
+          "$ref": "#/$defs/runIdentity"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "acquisition_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "observed_jobs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observedJob"
+          },
+          "minItems": 8,
+          "maxItems": 8
+        },
+        "source_step_templates": {
+          "const": 147
+        },
+        "instantiated_source_steps": {
+          "const": 129
+        },
+        "rejection_log_relation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pulse",
+            "release_grade_recorded_path"
+          ],
+          "properties": {
+            "pulse": {
+              "$ref": "#/$defs/rejection"
+            },
+            "release_grade_recorded_path": {
+              "$ref": "#/$defs/rejection"
+            }
+          }
+        },
+        "required_gate_relation": {
+          "$ref": "#/$defs/gateRelation"
+        },
+        "archives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/archive"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "raw_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file"
+          },
+          "minItems": 1,
+          "maxItems": 200
+        },
+        "semantic_replay": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "q2",
+            "llamaguard"
+          ],
+          "properties": {
+            "q2": {
+              "$ref": "#/$defs/q2Semantic"
+            },
+            "llamaguard": {
+              "$ref": "#/$defs/llamaguardSemantic"
+            }
+          }
+        },
+        "verifier": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "checker_sha256",
+            "semantic_helper_sha256",
+            "python_version",
+            "python_executable_sha256",
+            "pyyaml_version",
+            "schema_sha256",
+            "jsonschema_version"
+          ],
+          "properties": {
+            "checker_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "semantic_helper_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "python_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "python_executable_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "pyyaml_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "schema_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "jsonschema_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        "legacy_role_status": {
+          "$ref": "#/$defs/roles"
+        },
+        "limitations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "legacy_success_profile_satisfied",
+            "step5c_complete",
+            "step5d_complete",
+            "observed_allow",
+            "final_release_decision_produced",
+            "external_tool_and_host_source_closure",
+            "api_carrier_independently_signed",
+            "original_runtime_consumption_proved_by_replay",
+            "resource_measurement_claimed",
+            "q1_or_q3_metric_claimed",
+            "original_dispatch_input_receipt_preserved"
+          ],
+          "properties": {
+            "legacy_success_profile_satisfied": {
+              "const": false
+            },
+            "step5c_complete": {
+              "const": false
+            },
+            "step5d_complete": {
+              "const": false
+            },
+            "observed_allow": {
+              "const": false
+            },
+            "final_release_decision_produced": {
+              "const": false
+            },
+            "external_tool_and_host_source_closure": {
+              "const": false
+            },
+            "api_carrier_independently_signed": {
+              "const": false
+            },
+            "original_runtime_consumption_proved_by_replay": {
+              "const": false
+            },
+            "resource_measurement_claimed": {
+              "const": false
+            },
+            "q1_or_q3_metric_claimed": {
+              "const": false
+            },
+            "original_dispatch_input_receipt_preserved": {
+              "const": false
+            }
+          }
+        },
+        "excluded_claims": {
+          "const": [
+            "positive_full_workflow_completion",
+            "final_check_gates_decision",
+            "release_authority",
+            "external_tool_and_host_source_closure",
+            "resource_and_timing_measurement",
+            "original_runtime_consumption_proved_by_later_replay",
+            "human_semantic_label_correctness"
+          ]
+        }
+      }
+    },
+    "rejectedReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "profile_id",
+        "authority_effect",
+        "accepted",
+        "error"
+      ],
+      "properties": {
+        "format": {
+          "const": "pulsemech_compute_admission_rejection_report_v0"
+        },
+        "profile_id": {
+          "const": "pulse_ci_hosted_admission_rejection_v0"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "accepted": {
+          "const": false
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "report": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/acceptedReport"
+        },
+        {
+          "$ref": "#/$defs/rejectedReport"
+        }
+      ]
+    },
+    "roleStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "legacy_obligation",
+        "status",
+        "original_success_profile_satisfied"
+      ],
+      "properties": {
+        "legacy_obligation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "source_content_bound",
+            "retained_content_bound",
+            "semantic_case_checked_in_separate_helper",
+            "not_dispatched",
+            "legacy_carrier_not_constructed",
+            "original_runtime_receipt_unavailable",
+            "not_produced_on_selected_negative_path"
+          ]
+        },
+        "original_success_profile_satisfied": {
+          "const": false
+        }
+      }
+    },
+    "q2PrivateResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_status",
+        "input_valid",
+        "metric_pass",
+        "process_exit",
+        "diagnostics",
+        "checks",
+        "cleanup",
+        "request_sha256",
+        "evaluation_binding",
+        "capture_origin",
+        "release_artifact",
+        "metrics",
+        "replay_environment",
+        "source_bindings",
+        "comparison_scope",
+        "release_host_environment",
+        "native_verification",
+        "current_inference_count",
+        "authority_effect",
+        "production_gate_eligible"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "q2_release_intake_result_v0"
+        },
+        "record_status": {
+          "enum": [
+            "archived_capture_intake",
+            "synthetic_fixture"
+          ]
+        },
+        "input_valid": {
+          "type": "boolean"
+        },
+        "metric_pass": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "process_exit": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 16,
+          "items": {
+            "enum": [
+              "q2_admission_rejected",
+              "q2_archive_limit",
+              "q2_archive_rejected",
+              "q2_capture_rejected",
+              "q2_cleanup_failed",
+              "q2_context_rejected",
+              "q2_credential_missing",
+              "q2_digest_mismatch",
+              "q2_file_rejected",
+              "q2_input_unavailable",
+              "q2_internal_error",
+              "q2_json_rejected",
+              "q2_metric_failed",
+              "q2_min_eligible_groups_not_met",
+              "q2_public_record_rejected",
+              "q2_replay_environment",
+              "q2_replay_rejected",
+              "q2_request_digest_mismatch",
+              "q2_request_invalid",
+              "q2_request_missing",
+              "q2_schema_rejected",
+              "q2_selection_mismatch",
+              "q2_source_mismatch",
+              "q2_subject_mismatch",
+              "q2_summary_mismatch",
+              "q2_timeout",
+              "q2_transport_rejected",
+              "q2_unstable_input"
+            ]
+          }
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "request",
+            "capture",
+            "subject",
+            "replay",
+            "summary"
+          ],
+          "properties": {
+            "request": {
+              "type": "boolean"
+            },
+            "capture": {
+              "type": "boolean"
+            },
+            "subject": {
+              "type": "boolean"
+            },
+            "replay": {
+              "type": "boolean"
+            },
+            "summary": {
+              "type": "boolean"
+            }
+          }
+        },
+        "cleanup": {
+          "enum": [
+            "not_created",
+            "verified_removed",
+            "not_established"
+          ]
+        },
+        "request_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluation_binding": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "repository",
+                "source_commit",
+                "workflow",
+                "workflow_sha",
+                "ref",
+                "event",
+                "run_id",
+                "run_attempt",
+                "request_sha256"
+              ],
+              "properties": {
+                "repository": {
+                  "const": "HKati/pulse-release-gates-0.1"
+                },
+                "source_commit": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "workflow": {
+                  "const": ".github/workflows/pulse_ci.yml"
+                },
+                "workflow_sha": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "ref": {
+                  "const": "refs/heads/main"
+                },
+                "event": {
+                  "const": "workflow_dispatch"
+                },
+                "run_id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$",
+                  "maxLength": 24
+                },
+                "run_attempt": {
+                  "const": 1
+                },
+                "request_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capture_origin": {
+          "const": {
+            "repository": "HKati/pulse-release-gates-0.1",
+            "run_id": "37600313529",
+            "run_attempt": 1,
+            "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+            "artifact_id": 11472726606,
+            "archive_size_bytes": 1809263,
+            "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+            "subject_size_bytes": 4851,
+            "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29"
+          }
+        },
+        "release_artifact": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "repository",
+                "artifact_id",
+                "archive_size_bytes",
+                "archive_sha256",
+                "capsule_manifest_sha256",
+                "subject_id",
+                "definition_sha256",
+                "layout_profile"
+              ],
+              "properties": {
+                "repository": {
+                  "const": "HKati/pulse-release-gates-0.1"
+                },
+                "artifact_id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "archive_size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483648
+                },
+                "archive_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "capsule_manifest_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "subject_id": {
+                  "const": "pulsemech-q2-field-extractor-v0"
+                },
+                "definition_sha256": {
+                  "const": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5"
+                },
+                "layout_profile": {
+                  "const": "q2_subject_capsule_v0"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "metrics": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "groups_total",
+                "groups_eligible",
+                "consistent",
+                "inconsistent",
+                "unknown",
+                "responses_total",
+                "responses_eligible",
+                "wilson_lower_bound",
+                "threshold",
+                "min_n_eligible_groups"
+              ],
+              "properties": {
+                "groups_total": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "groups_eligible": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "consistent": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "inconsistent": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unknown": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "responses_total": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "responses_eligible": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "wilson_lower_bound": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "threshold": {
+                  "const": 0.9
+                },
+                "min_n_eligible_groups": {
+                  "const": 50
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replay_environment": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implementation",
+                "python",
+                "unicode"
+              ],
+              "properties": {
+                "implementation": {
+                  "type": "string",
+                  "enum": [
+                    "CPython"
+                  ]
+                },
+                "python": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ],
+                  "items": false,
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "unicode": {
+                  "type": "string",
+                  "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_bindings": {
+          "type": "array",
+          "maxItems": 21,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256",
+              "size_bytes"
+            ],
+            "properties": {
+              "path": {
+                "enum": [
+                  "PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json",
+                  "schemas/q2_release_intake_request_v0.schema.json",
+                  "schemas/q2_release_intake_result_v0.schema.json",
+                  "schemas/q2_release_subject_capsule_v0.schema.json",
+                  "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+                  "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json",
+                  "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+                  "PULSE_safe_pack_v0/tools/build_q2_reference_summary.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_reference_summary.py",
+                  "metrics/specs/q2_consistency_v0.yml",
+                  "schemas/metrics/q2_consistency_input_v0.schema.json",
+                  "schemas/metrics/q2_consistency_summary_v0.schema.json",
+                  "schemas/dataset_manifest.schema.json",
+                  "PULSE_safe_pack_v0/tools/q2_intake_io_v0.py",
+                  "PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py",
+                  "PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py",
+                  "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py",
+                  "PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py",
+                  "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+                  ".github/workflows/pulse_ci.yml"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "comparison_scope": {
+          "const": "exact_capsule_payload_and_launch_descriptor"
+        },
+        "release_host_environment": {
+          "const": "not_observed"
+        },
+        "native_verification": {
+          "const": "archived_evidence_only"
+        },
+        "current_inference_count": {
+          "const": 0
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "input_valid": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metric_pass": {
+                "type": "null"
+              },
+              "metrics": {
+                "type": "null"
+              },
+              "process_exit": {
+                "const": 2
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "input_valid": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metric_pass": {
+                "type": "boolean"
+              },
+              "metrics": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "groups_total",
+                  "groups_eligible",
+                  "consistent",
+                  "inconsistent",
+                  "unknown",
+                  "responses_total",
+                  "responses_eligible",
+                  "wilson_lower_bound",
+                  "threshold",
+                  "min_n_eligible_groups"
+                ],
+                "properties": {
+                  "groups_total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "groups_eligible": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "consistent": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "inconsistent": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "unknown": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "responses_total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "responses_eligible": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "wilson_lower_bound": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "threshold": {
+                    "const": 0.9
+                  },
+                  "min_n_eligible_groups": {
+                    "const": 50
+                  }
+                }
+              },
+              "cleanup": {
+                "const": "not_created"
+              },
+              "checks": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "request",
+                  "capture",
+                  "subject",
+                  "replay",
+                  "summary"
+                ],
+                "properties": {
+                  "request": {
+                    "const": true
+                  },
+                  "capture": {
+                    "const": true
+                  },
+                  "subject": {
+                    "const": true
+                  },
+                  "replay": {
+                    "const": true
+                  },
+                  "summary": {
+                    "const": true
+                  }
+                }
+              },
+              "evaluation_binding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "repository",
+                  "source_commit",
+                  "workflow",
+                  "workflow_sha",
+                  "ref",
+                  "event",
+                  "run_id",
+                  "run_attempt",
+                  "request_sha256"
+                ],
+                "properties": {
+                  "repository": {
+                    "const": "HKati/pulse-release-gates-0.1"
+                  },
+                  "source_commit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  "workflow": {
+                    "const": ".github/workflows/pulse_ci.yml"
+                  },
+                  "workflow_sha": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  "ref": {
+                    "const": "refs/heads/main"
+                  },
+                  "event": {
+                    "const": "workflow_dispatch"
+                  },
+                  "run_id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "maxLength": 24
+                  },
+                  "run_attempt": {
+                    "const": 1
+                  },
+                  "request_sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "release_artifact": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "repository",
+                  "artifact_id",
+                  "archive_size_bytes",
+                  "archive_sha256",
+                  "capsule_manifest_sha256",
+                  "subject_id",
+                  "definition_sha256",
+                  "layout_profile"
+                ],
+                "properties": {
+                  "repository": {
+                    "const": "HKati/pulse-release-gates-0.1"
+                  },
+                  "artifact_id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "archive_size_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483648
+                  },
+                  "archive_sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "capsule_manifest_sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "subject_id": {
+                    "const": "pulsemech-q2-field-extractor-v0"
+                  },
+                  "definition_sha256": {
+                    "const": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5"
+                  },
+                  "layout_profile": {
+                    "const": "q2_subject_capsule_v0"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_pass": {
+                "const": false
+              },
+              "input_valid": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "process_exit": {
+                "const": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "metric_pass": {
+                "const": true
+              },
+              "input_valid": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "process_exit": {
+                "const": 0
+              },
+              "diagnostics": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "input_valid": {
+              "const": true
+            },
+            "metric_pass": {
+              "const": false
+            },
+            "process_exit": {
+              "const": 1
+            },
+            "cleanup": {
+              "const": "not_created"
+            }
+          }
+        }
+      ],
+      "$comment": "Private checker result before supervisor cleanup, preserved unchanged. Public saved intake results retain the original verified_removed requirement; the outer semantic wrapper records actual later cleanup separately."
+    }
+  }
+}

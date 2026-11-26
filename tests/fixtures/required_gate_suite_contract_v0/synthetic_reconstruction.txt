@@ -1,0 +1,2 @@
+SYNTHETIC B1 CONTRACT FIXTURE
+Observation mapping declaration only. Named executions consume their named input states and produce their named output states. No collector, analyzer or subject is executed.

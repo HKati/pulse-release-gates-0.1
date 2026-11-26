@@ -1,0 +1,13 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "key_id": "public-rfc8032-test-2",
+  "record_id": "synthetic-record-1",
+  "record_sha256": "0be77be7933aee0bd5cc47bfc8cdeddcb2e18f1348c0cc24278e6a295c6b6de0",
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_record_signature_v0_1",
+  "signature_domain": "PULSEMECH-ANCHOR-RECORD-SIGNATURE-V1",
+  "signature_hex": "08c2143f69c78c25208d1cb7eb396fcf494a64d2d47e51cdc7e16493d64ff29a0d9dd377a8fd2cea6316b3226d913876be27b95fcb19274734849d23f051d609",
+  "signature_suite": "ed25519",
+  "trust_policy_sha256": "833e2a5c9cdbb021d4c59f0c5269e04cebe9b6c6c719ccc872a52d679950bb32"
+}

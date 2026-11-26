@@ -30,9 +30,9 @@ TEST_RELATIVE_PATH = (
 EXPECTED_WORKFLOW_LINES = 2171
 EXPECTED_WORKFLOW_BYTES = 94315
 EXPECTED_WORKFLOW_SHA256 = (
-    "3d27349f468677b35dd1d5986bb9b29f08edfb1772bfe9f8f2df8241df2645e0"
+    "b95a5bae67a3d2e50218ec3b40cc83c92891dab571a2ef37113307ef13506376"
 )
-EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "c9316f326e95073d05fb1b8171febb635082c7ad"
+EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "bf0baf78f2e0230b5e027be7f61ec6a97556ff6f"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -312,7 +312,7 @@ def test_workflow_artifact_identity_matches_reviewed_fix() -> None:
 
 def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> None:
     entries = manifest_entries()
-    assert len(entries) == 167
+    assert len(entries) == 190
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)
@@ -451,7 +451,7 @@ def test_all_reusable_actions_are_full_sha_pinned() -> None:
         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
         "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
     ]
     assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in action_uses)
 
@@ -661,7 +661,7 @@ def test_upload_occurs_only_after_final_reverification() -> None:
     assert final_index < upload_index < record_index
     upload = steps[upload_index]
     assert upload["uses"] == (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
     )
     assert upload["with"]["path"] == "${{ steps.verify.outputs.candidate_root }}/"
     assert upload["with"]["if-no-files-found"] == "error"

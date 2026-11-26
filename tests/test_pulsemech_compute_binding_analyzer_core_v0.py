@@ -1381,7 +1381,9 @@ def _intake_function_source(source, name):
                 if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name == name)
     return ast.get_source_segment(source, node)
 
-_INTAKE_UNCHANGED_FUNCTION_SHA256 = {'validate_preservation_manifest': '47a185eb72ab160fba94e90a8d7aabd5443a6eff47fa09f732fd66ccd7ee4556', 'validate_package_inventory': '59023a3fe6b389d47e8cbe63983660ef2236949c62ed4b7b80faac0076eabbd4', 'load_observed_bundle': '20992555c8a0547c2009c1a5c4d7dd5b0d7c26365aa4cdc70f9a1741209d8d47', 'index_runtime_packet_sources': 'b0f3a4e7e99c7aa275e8fbb74f16b3b2222f266edb2fe3977fac34747bfd3ca3', 'build_runtime_report': '9b7e7b2e5cb2f75a40448082e0481f2883641abadba545d1545e29ed93bf6bd9', '_bounded_support': '84b0e0a42df315d934d6015ce895715242d538ec63795595cf15a123207d34a3', 'build_bounded_reference_report': 'cfff6acf87500bfb032ef8d81ecbff0ecea7806813a0bc3c46e86b30bdde4b1d'}
+# The runtime-index pin includes the explicit standalone_operator_v0 dispatch.
+# The legacy branch retains its behavior; source-byte admission is profile-specific.
+_INTAKE_UNCHANGED_FUNCTION_SHA256 = {'validate_preservation_manifest': '47a185eb72ab160fba94e90a8d7aabd5443a6eff47fa09f732fd66ccd7ee4556', 'validate_package_inventory': '59023a3fe6b389d47e8cbe63983660ef2236949c62ed4b7b80faac0076eabbd4', 'load_observed_bundle': '20992555c8a0547c2009c1a5c4d7dd5b0d7c26365aa4cdc70f9a1741209d8d47', 'index_runtime_packet_sources': '5a88a841c64972da1667a3490b76031120ac0234dce419df8d5005cafec23a93', 'build_runtime_report': '9b7e7b2e5cb2f75a40448082e0481f2883641abadba545d1545e29ed93bf6bd9', '_bounded_support': '84b0e0a42df315d934d6015ce895715242d538ec63795595cf15a123207d34a3', 'build_bounded_reference_report': 'cfff6acf87500bfb032ef8d81ecbff0ecea7806813a0bc3c46e86b30bdde4b1d'}
 
 def test_intake_artifact_identity_is_immutable():
  with pytest.raises(dataclasses.FrozenInstanceError):_INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY.run_id=70000001

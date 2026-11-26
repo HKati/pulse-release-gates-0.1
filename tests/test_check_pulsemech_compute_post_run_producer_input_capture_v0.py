@@ -3049,7 +3049,7 @@ def test_tar_upload_requires_successful_roundtrip_and_exact_transport_members() 
     assert upload.get("continue-on-error", False) is False
     assert upload["if"] == "${{ success() && steps.archive.outcome == 'success' }}"
     assert upload["uses"] == (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
     )
     options = upload["with"]
     assert options["path"].splitlines() == [

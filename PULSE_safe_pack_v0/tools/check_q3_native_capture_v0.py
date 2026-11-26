@@ -6,6 +6,7 @@ no Q2 module, generation worker, supervisor or metric producer is imported.
 """
 from __future__ import annotations
 import argparse
+import ast
 import base64
 import configparser
 import csv
@@ -51,6 +52,26 @@ ARCHIVE_SHA = 'b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9'
 
 
 ARCHIVE_SIZE = 508460811
+
+
+RUNTIME_CONTROLLER = 'PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py'
+RUNTIME_SPLIT_MANIFEST_SHA256 = '67eff809f8cf000f82b8365f1fc535ca82ffea167e2834488166915454c87f37'
+# Independent pin of C.encode(the original manifest's ordered 20-part list).
+# The controller's retained literal rows are accepted only after this pin agrees.
+RUNTIME_PARTS_SHA256 = '0f7af070258c3bb6206c240e00cfe5464169666fbaf9fa9540b68c7ee384d341'
+# Independent pins of canonical release source and all 25 uploaded asset rows.
+# These are not selected by receipt contents or imported from the controller.
+RUNTIME_RELEASE_SOURCE_SHA256 = '16ac2d147f12e0bd4db769b0bf9a9fe717465ab834a0a1cb047ce38aefb9ddac'
+RUNTIME_RELEASE_ASSETS_SHA256 = '58c9e698caea11381e3bf2c916568cc18b0fe7bdac4cb5de2e3b2f4e81ed00dc'
+RUNTIME_ORIGIN = {
+    'filename': 'q2-runtime-preparation-37148637546-1.zip',
+    'size_bytes': ARCHIVE_SIZE,
+    'sha256': ARCHIVE_SHA,
+    'original_run_id': '37148637546',
+    'original_run_attempt': 1,
+    'original_artifact_id': 11282419957,
+    'original_source_commit': '77fc5d51896568db50a2a87f650711a65db8fe8c',
+}
 
 
 RECORDS = {
@@ -358,6 +379,110 @@ def verify_archive(archive, destination, source):
             'archive_size':ARCHIVE_SIZE,'member_count':78,'wheel_count':30,'claims':dict(C.CLAIMS)}
 
 
+def runtime_transport_source(source,*,with_release_assets=False):
+    """Read sealed transport literals without importing/executing the controller.
+
+    The independent checker pins the original archive and split. A different
+    delivery location must be a reviewed source-byte change; receipt contents
+    cannot choose their own source or override an inactive configuration.
+    """
+    raw=C.source_read(source,RUNTIME_CONTROLLER)
+    required={'RUNTIME_TRANSPORT','RUNTIME_ORIGIN','RUNTIME_PARTS','RUNTIME_SPLIT_MANIFEST_SHA256'}
+    names=required|{'RUNTIME_RELEASE_ASSETS'}
+    values={}
+    try:
+        tree=ast.parse(raw,filename=RUNTIME_CONTROLLER)
+        for node in tree.body:
+            if isinstance(node,ast.Assign):
+                targets={n.id for target in node.targets for n in ast.walk(target)
+                         if isinstance(n,ast.Name)}
+                selected=targets&names
+                if not selected:continue
+                check(len(node.targets)==1 and isinstance(node.targets[0],ast.Name)
+                      and len(selected)==1,'runtime_transport_source_literal')
+                name=node.targets[0].id
+                check(name not in values,'runtime_transport_source_duplicate')
+                for item in ast.walk(node.value):
+                    if isinstance(item,ast.Dict):
+                        keys=[ast.literal_eval(k) for k in item.keys if k is not None]
+                        check(len(keys)==len(item.keys) and all(type(k) is str for k in keys)
+                              and len(set(keys))==len(keys),'runtime_transport_source_duplicate')
+                values[name]=ast.literal_eval(node.value)
+            elif isinstance(node,(ast.AnnAssign,ast.AugAssign)):
+                check(not any(isinstance(n,ast.Name) and n.id in names
+                              for n in ast.walk(node.target)),'runtime_transport_source_literal')
+        check(required<=set(values)<=names,'runtime_transport_source_scope')
+        check(encoded(values['RUNTIME_ORIGIN'])==encoded(RUNTIME_ORIGIN)
+              and values['RUNTIME_SPLIT_MANIFEST_SHA256']==RUNTIME_SPLIT_MANIFEST_SHA256,
+              'runtime_transport_source_origin')
+        parts=values['RUNTIME_PARTS']
+        check(type(parts) is tuple and len(parts)==20
+              and sha(encoded(list(parts)))==RUNTIME_PARTS_SHA256,'runtime_transport_source_parts')
+    except (SyntaxError,TypeError,UnicodeError,RecursionError) as exc:
+        raise C.ContractError('runtime_transport_source_literal') from exc
+    except ValueError as exc:
+        if isinstance(exc,C.ContractError):raise
+        raise C.ContractError('runtime_transport_source_literal') from exc
+    transport=values['RUNTIME_TRANSPORT']
+    assets=[]
+    if type(transport) is dict and transport.get('kind')=='github-release-assets-v0':
+        fields(transport,{'kind','repository','repository_id','release_id','tag','tag_commit'},
+               'runtime_transport_source_fields')
+        check(sha(encoded(transport))==RUNTIME_RELEASE_SOURCE_SHA256,'runtime_transport_release_source')
+        assets=values.get('RUNTIME_RELEASE_ASSETS')
+        check(type(assets) is tuple and len(assets)==25
+              and sha(encoded(assets))==RUNTIME_RELEASE_ASSETS_SHA256,'runtime_transport_release_assets')
+        assets=list(assets)
+    else:
+        fields(transport,{'kind','repository','commit','prefix'},'runtime_transport_source_fields')
+        check(transport['repository']==C.REPOSITORY,'runtime_transport_repository')
+        if transport['kind']=='original-actions-artifact-v0':
+            check(transport['commit'] is None and transport['prefix'] is None,'runtime_transport_legacy_source')
+        else:
+            check(transport['kind']=='github-repository-parts-v0','runtime_transport_kind')
+            check(type(transport['commit']) is str and re.fullmatch(r'[a-f0-9]{40}',transport['commit'])
+                  and transport['commit']!='0'*40 and type(transport['prefix']) is str,
+                  'runtime_transport_unconfigured')
+            C.relative(transport['prefix'])
+            for part in parts:C.relative(transport['prefix']+'/'+part['filename'])
+    if with_release_assets:return transport,list(parts),sha(raw),assets
+    return transport,list(parts),sha(raw)
+
+
+def validate_runtime_transport(source,data,request,pre):
+    """Check retained retrieval evidence, not perform or authenticate retrieval."""
+    check('runtime-transport.json' in data,'runtime_transport_missing')
+    raw=data['runtime-transport.json'];value=parse(raw)
+    check(pre['runtime_transport_sha256']==sha(raw),'runtime_transport_prelaunch_binding')
+    transport,parts,controller_sha,assets=runtime_transport_source(source,with_release_assets=True)
+    split=transport['kind']=='github-repository-parts-v0'
+    expected={'record_type':'q3_runtime_transport_v0','transport':transport,'origin':RUNTIME_ORIGIN,
+              'split_manifest_sha256':RUNTIME_SPLIT_MANIFEST_SHA256 if split else None,
+              'parts':[{**p,'path':transport['prefix']+'/'+p['filename']} for p in parts] if split else [],
+              'archive_size_bytes':ARCHIVE_SIZE,'archive_sha256':ARCHIVE_SHA,
+              'binding':{'request_sha256':sha(data['request.json']),'source_commit':request['source_commit'],
+                         'run_id':pre['run_id'],'run_attempt':1,'controller_sha256':controller_sha},
+              'claims':dict(C.CLAIMS)}
+    if transport['kind']=='github-release-assets-v0':
+        lookup={row['filename']:row for row in assets}
+        def endpoint(row):
+            return ('https://api.github.com/repos/'+transport['repository']+'/releases/assets/'+str(row['asset_id']))
+        metadata={'repository':{'id':transport['repository_id'],'full_name':transport['repository'],'private':False},
+                  'release':{'id':transport['release_id'],'tag_name':transport['tag'],'draft':False,'immutable':True},
+                  'tag':{'ref':'refs/tags/'+transport['tag'],'object_type':'commit','commit':transport['tag_commit']},
+                  'assets':[{**row,'state':'uploaded'} for row in assets]}
+        manifest=lookup['Q3_RUNTIME_PARTS.json']
+        expected.update({'record_type':'q3_runtime_transport_v1',
+            'split_manifest_sha256':RUNTIME_SPLIT_MANIFEST_SHA256,
+            'metadata_checks':{'before':metadata,'after':metadata},
+            'manifest_asset':{**manifest,'endpoint':endpoint(manifest)},
+            'parts':[{**p,'asset_id':lookup[p['filename']]['asset_id'],
+                      'endpoint':endpoint(lookup[p['filename']])} for p in parts]})
+    fields(value,set(expected),'runtime_transport_fields')
+    check(encoded(value)==encoded(expected),'runtime_transport_record')
+    return value
+
+
 def validate_token_map(value,frame,p):
     fields(value,{'record_type','profile_sha256','model_revision','task_file_sha256','rows'})
     check(value['record_type']=='q3_token_map_v0' and value['profile_sha256']==C.PROFILE_SHA256
@@ -422,7 +547,7 @@ def validate_protocol(source,data,require_complete=True):
         check(name in data,'evidence_member_missing');return parse(data[name])
     request=C.validate_request(data['request.json'],p)
     pre=get('prelaunch.json');platform=get('platform.json');control=get('control-plane.json')
-    fields(pre,set('record_type request source_commit run_id run_attempt source_files platform_sha256 control_plane_sha256 installation_sha256 started_at clock_relation'.split()))
+    fields(pre,set('record_type request source_commit run_id run_attempt source_files platform_sha256 control_plane_sha256 installation_sha256 runtime_transport_sha256 started_at clock_relation'.split()))
     fields(platform,set('os architecture python runner_image kernel libc bootstrap_python_sha256 contract historical_platform_equivalence'.split()))
     fields(control,set('run_id run_attempt source_commit repository repository_private event workflow head_branch actor triggering_actor clock_relation'.split()))
     check(pre['clock_relation']==control['clock_relation']=='not_verified','clock_claim')
@@ -451,6 +576,7 @@ def validate_protocol(source,data,require_complete=True):
     for path,digest in pre['source_files'].items():
         check('source/'+path in data and sha(data['source/'+path])==digest
               and data['source/'+path]==C.source_read(source,path),'source_byte_binding')
+    validate_runtime_transport(source,data,request,pre)
     binding={'prelaunch_sha256':sha(data['prelaunch.json']),'source_commit':pre['source_commit'],
              'run_id':pre['run_id'],'run_attempt':1}
     ready=get('worker-ready.json')
@@ -645,7 +771,7 @@ def verify_lifecycle(data,mode):
 
 
 def expected_members(p,frame,mode):
-    common={'request.json','prelaunch.json','platform.json','control-plane.json','input-check.json',
+    common={'request.json','prelaunch.json','platform.json','control-plane.json','input-check.json','runtime-transport.json',
             'bootstrap.json','pip-report.json','installation.json','worker-ready.json','token-map.json',
             'token-map-end.json','session-end.json','terminal.json','token-check.json','lifecycle.json',
             'installer-sandbox.json','installer-cleanup.json','installcheck-sandbox.json','installcheck-cleanup.json',

@@ -1,0 +1,5 @@
+{
+  "fixture_role": "opaque_synthetic_legacy_carrier",
+  "note": "Only byte/tag binding is exercised; no legacy metric is consumed.",
+  "schema": "anchor_integrity_v0"
+}

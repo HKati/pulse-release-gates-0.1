@@ -1,0 +1,67 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "challenge": "1515151515151515151515151515151515151515151515151515151515151515",
+  "entrypoint_sha256": "009c850afc88c2a460b3a738cf77af227190723de99c5183bbdc36329ab87c28",
+  "execution_id": "synthetic-execution-001",
+  "input_sha256": {
+    "claim_text": "4d228a0f6cdd189785ca1f773e2a8a52d2684a2b89797064f7dbe1aa2c160184",
+    "evidence_content": "8e55e3f190cfa261f8a0d1f6aab231eabf4fa8adf2c1147706961fa3e568e36c",
+    "source_content": "e2e9ac2e7e1ccd842e00075e39f5efec84d09a3fa810591a646a285b758ea6f8"
+  },
+  "invocation": {
+    "argv": [
+      "synthetic-verifier-NOT-EXECUTED",
+      "--request",
+      "synthetic"
+    ],
+    "cwd_label": "synthetic-working-directory",
+    "environment": [
+      {
+        "name": "LANG",
+        "value": "C"
+      }
+    ]
+  },
+  "observation_basis": "synthetic_fixture",
+  "observer": {
+    "implementation_sha256": "1bed153481685fa2999fcc207c6f5b19e869d120b63f171d7e4dc17e09f0823d",
+    "observer_id": "synthetic-observer-NOT-EXECUTED"
+  },
+  "process": {
+    "duration_ms": 1,
+    "exit_code": 0,
+    "state": "completed",
+    "stderr_complete": true,
+    "stdout_complete": true
+  },
+  "profile": "single-record-execution-contract-v1",
+  "record_binding": {
+    "record_id": "synthetic-record-1",
+    "sha256": "a5f70f2879459140fa30ee44af236df97d4dfa1fee02eaff03558e1bc2e0ff29"
+  },
+  "release_authority_activation": false,
+  "request_sha256": "ebcc2dbee3f1b70f9715de82ec04ce607902a2974b30daa27475419295f2ac6a",
+  "runtime_manifest_sha256": "7655d81a36587c568d05d0ec9c9bc2c41e4015dcc101ed7b50ccdca2d6da2d60",
+  "schema_version": "anchor_integrity_execution_receipt_v0_1",
+  "stderr": {
+    "path": "execution/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "size_bytes": 0
+  },
+  "stdout": {
+    "path": "execution/stdout.json",
+    "sha256": "9fa903db688b625f48c3466e13b371103f73b949f70104f9549f8096844d683c",
+    "size_bytes": 1313
+  },
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2b-synthetic-001"
+  },
+  "verifier": {
+    "implementation_sha256": "009c850afc88c2a460b3a738cf77af227190723de99c5183bbdc36329ab87c28",
+    "method_id": "synthetic-record-only",
+    "method_version": "1",
+    "verifier_id": "synthetic-verifier"
+  }
+}

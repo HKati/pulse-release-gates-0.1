@@ -29,6 +29,7 @@ def load_profile(repo):
                profile.get("selection", {}).get("sha256") ==
                "e81a9dd0a5080d84dae8c4bbfc843b46510f580e74254c1aed0dddbe76375f3e",
                "q2_source_mismatch")
+    io.validate_release_delivery(profile)
     return profile
 
 
@@ -184,12 +185,11 @@ def consume(repo, *, consumer, environment=None):
             result["checks"]["request"] = True
             with io.private_workspace(repo, env.get("PULSE_Q2_SUPERVISOR_ROOT")) as work:
                 private = work["path"]
-                transport = io.GitHubArtifactTransport(token)
+                transport = io.GitHubReleaseTransport(token)
+                transport.acquire(profile, request, private, deadline)
                 for label, expectation in (("capture", request["capture_expectation"]),
                                            ("capsule", request["release_subject"])):
                     destination = private / (label + ".zip")
-                    transport.download(expectation["repository"], expectation["artifact_id"],
-                                       expectation, destination, deadline)
                     actual = io.file_binding(destination, profile["limits"]["capsule_archive_bytes"], deadline)
                     io.require(all(actual[k] == expectation[k] for k in actual), "q2_digest_mismatch")
                     destination.chmod(0o400)

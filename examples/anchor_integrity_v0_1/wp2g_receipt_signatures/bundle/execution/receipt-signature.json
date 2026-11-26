@@ -1,0 +1,17 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "execution_id": "synthetic-execution-001",
+  "key_id": "RFC8032-TEST1-observer",
+  "observer_id": "synthetic-observer-NOT-EXECUTED",
+  "observer_policy_sha256": "e0168bb0d71baaf65077b89752af853b5f003dc63dccb6e943e29b93e98def55",
+  "profile": "pinned-ed25519-execution-observers-v1",
+  "receipt_sha256": "fe766b25a1d9e520844dce3ef43ec1f1275407ba878e3738bb11811a0711222c",
+  "record_id": "synthetic-record-1",
+  "record_signer_policy_sha256": "c49350c60de03b58e2ce10579ac9b8013665e5d4ad7c1f91ba158e5c7add970f",
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_execution_receipt_signature_v0_1",
+  "signature_domain": "PULSEMECH-ANCHOR-EXECUTION-RECEIPT-SIGNATURE-V1",
+  "signature_hex": "280da899800627009ffae6522d4eabff9f4ad076e7e5c960739e9c5e79a35126fa9b2ee802623c633e7819915a7dbc073777299a4451f640864c0fd6836c7105",
+  "signature_suite": "ed25519"
+}

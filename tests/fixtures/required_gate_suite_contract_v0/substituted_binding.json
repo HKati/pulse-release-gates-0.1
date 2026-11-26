@@ -1,0 +1,91 @@
+{
+  "authority_effect": "none",
+  "binding_sha256": {
+    "comparison": "a1fa3156b5760b524a64e93d60fbfeab4b95787baad9872ddaa47a8246ecd9b2",
+    "observation_mapping": "018e42326de0e33ef9ede0f2b72e8b67542f2368335f72be63a84ca18e496a14",
+    "operator": "0000000000000000000000000000000000000000000000000000000000000000",
+    "privacy": "3c2318a271ec658e76c34517febb773a5883ddec05d3942220958ae6d520c580",
+    "protocol": "93d70e1d163057ba66264b7860f52b7b93bc8d4bba26a6bf48ddf6425a683a8c",
+    "runtime_packet": "3dea7a0b67760d968cabeb0b36de4a246360acff3125eab0619ab868de0d91b2",
+    "subject_packet": "3d7fa82b9527b681b0fec609e8cbbc6a1073f6e115dd0804b4fb10befa6b75b6"
+  },
+  "cases": [
+    {
+      "baseline_case_id": null,
+      "case_id": "baseline",
+      "input_id": "baseline-input",
+      "variant_id": null
+    },
+    {
+      "baseline_case_id": "baseline",
+      "case_id": "variant",
+      "input_id": "variant-input",
+      "variant_id": "perturbation-1"
+    }
+  ],
+  "declaration_state": "complete",
+  "obligations": [
+    {
+      "case_ids": [
+        "baseline",
+        "variant"
+      ],
+      "gate_id": "effect_present",
+      "obligation_id": "effect-declaration",
+      "occurrence_ids": [
+        "baseline-observation",
+        "variant-observation"
+      ]
+    },
+    {
+      "case_ids": [
+        "baseline",
+        "variant"
+      ],
+      "gate_id": "psf_idempotence_ok",
+      "obligation_id": "psf-declaration",
+      "occurrence_ids": [
+        "baseline-observation",
+        "variant-observation"
+      ]
+    }
+  ],
+  "occurrences": [
+    {
+      "case_id": "baseline",
+      "execution_id": "execution:b1:baseline",
+      "input_state_ids": [
+        "state:b1:baseline-input"
+      ],
+      "occurrence_id": "baseline-observation",
+      "output_state_ids": [
+        "state:b1:baseline-output"
+      ],
+      "packet_id": "runtime-observation:required-gate-suite/b1/synthetic"
+    },
+    {
+      "case_id": "variant",
+      "execution_id": "execution:b1:variant",
+      "input_state_ids": [
+        "state:b1:variant-input"
+      ],
+      "occurrence_id": "variant-observation",
+      "output_state_ids": [
+        "state:b1:variant-output"
+      ],
+      "packet_id": "runtime-observation:required-gate-suite/b1/synthetic"
+    }
+  ],
+  "origin": "synthetic_fixture",
+  "record_type": "required_gate_suite_contract_v0",
+  "selected_gate_ids": [
+    "effect_present",
+    "psf_idempotence_ok"
+  ],
+  "source": {
+    "commit": "1111111111111111111111111111111111111111",
+    "repository": "synthetic/required-gate-suite"
+  },
+  "suite_id": "synthetic-b1",
+  "unresolved_decisions": []
+}

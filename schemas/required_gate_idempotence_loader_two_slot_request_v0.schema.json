@@ -1,0 +1,511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pulsemech.dev/schemas/required_gate_idempotence_loader_two_slot_request_v0.schema.json",
+  "title": "Loader two-slot qualification request v0",
+  "description": "Pre-execution selection only; not authorization identity, physical execution authentication, original acquisition admission or release authority.",
+  "type": "object",
+  "properties": {
+    "record_type": {
+      "type": "string",
+      "const": "required_gate_idempotence_loader_two_slot_request_v0"
+    },
+    "profile": {
+      "type": "string",
+      "const": "linux_x86_64_loader_two_slot_attempt_v0"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "acknowledgement": {
+      "type": "string",
+      "const": "QUALIFY_LOADER_TWO_SLOT_ONLY"
+    },
+    "expected_context": {
+      "$ref": "#/$defs/context"
+    },
+    "sources": {
+      "$ref": "#/$defs/sources"
+    },
+    "probe": {
+      "type": "object",
+      "properties": {
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 138,
+          "maximum": 138
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "const": {
+        "size_bytes": 138,
+        "sha256": "a11a3dd04b380325cfef6aaaf72c39fd6193be313a0e0f7ed4d592bd8965093d"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "native_attempts": {
+          "type": "integer",
+          "const": 1
+        },
+        "observation_ns": {
+          "type": "integer",
+          "const": 15000000000
+        },
+        "cleanup_ns": {
+          "type": "integer",
+          "const": 2000000000
+        },
+        "qualification_bytes": {
+          "type": "integer",
+          "const": 1048576
+        },
+        "decoded_raw_bytes": {
+          "type": "integer",
+          "const": 262144
+        },
+        "raw_files": {
+          "type": "integer",
+          "const": 160
+        },
+        "operations": {
+          "type": "integer",
+          "const": 128
+        }
+      },
+      "required": [
+        "native_attempts",
+        "observation_ns",
+        "cleanup_ns",
+        "qualification_bytes",
+        "decoded_raw_bytes",
+        "raw_files",
+        "operations"
+      ],
+      "additionalProperties": false
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "original_native_acquisition_performed": {
+          "type": "boolean",
+          "const": false
+        },
+        "original_acquisition_ready": {
+          "type": "boolean",
+          "const": false
+        },
+        "source_build_gate_satisfied": {
+          "type": "boolean",
+          "const": false
+        },
+        "b2_complete": {
+          "type": "boolean",
+          "const": false
+        },
+        "consumer_resolution_observed": {
+          "type": "boolean",
+          "const": false
+        },
+        "physical_execution_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "current_host_admission_satisfied": {
+          "type": "boolean",
+          "const": false
+        },
+        "metric_pass": {
+          "type": "null",
+          "const": null
+        },
+        "authority_effect": {
+          "type": "string",
+          "const": "none"
+        }
+      },
+      "required": [
+        "original_native_acquisition_performed",
+        "original_acquisition_ready",
+        "source_build_gate_satisfied",
+        "b2_complete",
+        "consumer_resolution_observed",
+        "physical_execution_authenticated",
+        "current_host_admission_satisfied",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "record_type",
+    "profile",
+    "request_id",
+    "acknowledgement",
+    "expected_context",
+    "sources",
+    "probe",
+    "limits",
+    "boundary"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "context": {
+      "type": "object",
+      "properties": {
+        "uname": {
+          "type": "object",
+          "properties": {
+            "sysname": {
+              "type": "string",
+              "const": "Linux"
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "machine": {
+              "type": "string",
+              "const": "x86_64"
+            }
+          },
+          "required": [
+            "sysname",
+            "release",
+            "version",
+            "machine"
+          ],
+          "additionalProperties": false
+        },
+        "boot_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "observer": {
+          "type": "object",
+          "properties": {
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 67108864
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "namespaces": {
+          "type": "object",
+          "properties": {
+            "cgroup": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^cgroup:\\[[1-9][0-9]*\\]$"
+            },
+            "ipc": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^ipc:\\[[1-9][0-9]*\\]$"
+            },
+            "mnt": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^mnt:\\[[1-9][0-9]*\\]$"
+            },
+            "net": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^net:\\[[1-9][0-9]*\\]$"
+            },
+            "pid": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^pid:\\[[1-9][0-9]*\\]$"
+            },
+            "pid_for_children": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^pid:\\[[1-9][0-9]*\\]$"
+            },
+            "time": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128,
+                  "pattern": "^time:\\[[1-9][0-9]*\\]$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "time_for_children": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128,
+                  "pattern": "^time:\\[[1-9][0-9]*\\]$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "user": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^user:\\[[1-9][0-9]*\\]$"
+            },
+            "uts": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^uts:\\[[1-9][0-9]*\\]$"
+            }
+          },
+          "required": [
+            "cgroup",
+            "ipc",
+            "mnt",
+            "net",
+            "pid",
+            "pid_for_children",
+            "time",
+            "time_for_children",
+            "user",
+            "uts"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "uname",
+        "boot_id",
+        "observer",
+        "namespaces"
+      ],
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "schemas/required_gate_idempotence_loader_two_slot_attempt_v0.schema.json"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "schemas/required_gate_idempotence_loader_two_slot_qualification_v0.schema.json"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "schemas/required_gate_idempotence_loader_two_slot_request_v0.schema.json"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/check_required_gate_idempotence_loader_two_slot_attempt_v0.py"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/check_required_gate_idempotence_loader_two_slot_qualification_v0.py"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/prepare_required_gate_idempotence_loader_two_slot_v0.py"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/qualify_required_gate_idempotence_loader_two_slot_v0.py"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "const": "tools/required_gate_idempotence_loader_two_slot_v0.py"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "items": false
+    }
+  }
+}

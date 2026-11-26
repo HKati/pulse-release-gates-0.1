@@ -1,0 +1,59 @@
+{
+  "schema_version": "pd_sm_02_w1_admission_target_v0",
+  "metadata_observed_at_utc": "2026-10-31T22:54:57Z",
+  "host": {
+    "provider": "github_hosted",
+    "runner_label": "ubuntu-24.04",
+    "system": "Linux",
+    "machine": "x86_64",
+    "cgroup_version": "2",
+    "docker_endpoint": "unix:///var/run/docker.sock",
+    "instance_status": "NOT_OBSERVED"
+  },
+  "image": {
+    "repository": "docker.io/library/python",
+    "discovery_tag": "3.13.5-slim-bookworm",
+    "platform": "linux/amd64",
+    "index_digest": "sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419",
+    "manifest_digest": "sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718",
+    "image_id": "sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3",
+    "pull_reference": "docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718",
+    "source_commit": "3fae0a14ac171f46e47d7ce41567e40524af5bcc",
+    "source_path": "3.13/slim-bookworm/Dockerfile",
+    "source_sha256": "8ddf061339de82c96b0f8e66480ddcb9f756df838a817a161cf7882425ce58d3",
+    "review_scope": "REGISTRY_METADATA_AND_RECORDED_DOCKERFILE",
+    "layers_inspected": false,
+    "runtime_observed": false
+  },
+  "runtime": {
+    "implementation": "CPython",
+    "version": "3.13.5",
+    "system": "Linux",
+    "machine": "x86_64"
+  },
+  "controls": [
+    "probe-time",
+    "probe-output"
+  ],
+  "maximum_candidate_invocations": 0,
+  "metadata": {
+    "index": {
+      "repository_path": "docs/experiments/PD_SM_02_W1_IMAGE_v0/index.json",
+      "bytes": 9124,
+      "sha256": "4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419"
+    },
+    "manifest": {
+      "repository_path": "docs/experiments/PD_SM_02_W1_IMAGE_v0/manifest.json",
+      "bytes": 1751,
+      "sha256": "a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718"
+    },
+    "config": {
+      "repository_path": "docs/experiments/PD_SM_02_W1_IMAGE_v0/config.json",
+      "bytes": 5433,
+      "sha256": "38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3"
+    }
+  },
+  "live_admission_status": "NOT_RUN",
+  "execution_authorized": false,
+  "authority_effect": "none"
+}

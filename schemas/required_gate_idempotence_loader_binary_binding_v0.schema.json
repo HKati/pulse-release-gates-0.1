@@ -1,0 +1,3445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/blob/main/schemas/required_gate_idempotence_loader_binary_binding_v0.schema.json",
+  "title": "B2 exact original-loader binary/debug/source static binding v0",
+  "description": "Closed control shape only. Independent original-byte reconstruction remains required; schema validity supplies neither evidence nor execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "boundary",
+    "future_live_predicates",
+    "gate_progress",
+    "historical_distribution_inputs",
+    "historical_entry",
+    "input_manifest",
+    "occurrence_bindings",
+    "prior_plan",
+    "profile",
+    "recipe",
+    "record_type",
+    "source_binding",
+    "source_line_bindings",
+    "static_binary"
+  ],
+  "properties": {
+    "boundary": {
+      "const": {
+        "archive_metadata_relationships_verified": true,
+        "original_loader_package_membership_verified": true,
+        "matching_debug_package_membership_verified": true,
+        "selected_source_patch_relationships_verified": true,
+        "selected_instruction_recipe_verified": true,
+        "selected_private_layout_bindings_verified": true,
+        "source_binary_equivalence_verified": false,
+        "authenticated_build_provenance": false,
+        "distribution_signature_freshly_verified": false,
+        "dsc_signature_freshly_verified": false,
+        "attestation_signature_freshly_verified": false,
+        "current_repository_freshness_verified": false,
+        "full_hosted_replay_performed": false,
+        "live_private_abi_readout_qualified": false,
+        "two_slot_breakpoint_qualified": false,
+        "native_acquisition_performed": false,
+        "consumer_resolution_observed": false,
+        "loader_resolution_verified": false,
+        "complete_native_closure_verified": false,
+        "containment_enforced": false,
+        "execution_ready": false,
+        "execution_authorized": false,
+        "selected_runtime_executed": false,
+        "production_gate_eligible": false,
+        "b2_complete": false,
+        "metric_pass": null,
+        "authority_effect": "none"
+      }
+    },
+    "future_live_predicates": {
+      "const": {
+        "status": "required_not_observed",
+        "fresh_original_input_admission_required": true,
+        "fresh_task_guard_and_two_slot_hardware_qualification_required": true,
+        "fresh_owned_process_and_descriptor_continuity_required": true,
+        "fresh_loader_bias_and_instruction_bytes_required": true,
+        "two_stopped_register_and_memory_samples_must_agree": true,
+        "consumer_and_provider_namespace": "base_LM_ID_BASE_0",
+        "selected_maps_l_real_equals_own_map_pointer": true,
+        "l_addr_l_ld_match_fresh_original_object_mapping": true,
+        "args_strtab_equals_consumer_bias_plus_original_DT_STRTAB": true,
+        "args_name_equals_args_strtab_plus_selected_original_name_offset": true,
+        "raw_needed_name_including_NUL_matches_original": true,
+        "consumer_identity_and_name_select_exactly_one_DT_NEEDED_occurrence": true,
+        "returned_provider_is_bound_from_live_RAX_and_current_backing_identity": true,
+        "trace_mode_and_open_mode_require_selected_invocation_policy": true,
+        "expected_provider_or_event_order_is_observation": false,
+        "all_nine_unique_events_then_original_entry_and_owned_cleanup_required": true,
+        "any_unexpected_stop_is_preserved_without_resume": true,
+        "post_entry_resume_allowed": false,
+        "absence_of_all_unselected_namespace_activity_claimed": false,
+        "static_binding_supplies_live_evidence_or_authorization": false
+      }
+    },
+    "gate_progress": {
+      "const": {
+        "historical_plan_edited": false,
+        "static_artifact_and_selected_recipe_binding": "verified_in_this_record",
+        "source_relationship": "archive_declared_source_and_exact_package_members",
+        "source_to_binary_equivalence": "not_independently_reproduced",
+        "authenticated_build_process": "not_established",
+        "complete_prior_binary_source_build_gate": "not_closed_by_this_record",
+        "live_private_abi_readout": "not_qualified",
+        "two_slot_hardware_capability": "not_qualified",
+        "new_request_capture_collector_and_independent_checker": "not_implemented",
+        "fresh_original_loader_resolution_acquisition": "not_performed",
+        "b2_issue": 2879,
+        "b2_issue_state_required": "open"
+      }
+    },
+    "historical_distribution_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier",
+        "carrier_path",
+        "current_archive_freshness_verified",
+        "externally_selected_archive_keyring_trust_required",
+        "fresh_signature_verification_performed",
+        "selected_members",
+        "signature_evidence"
+      ],
+      "properties": {
+        "carrier": {
+          "$ref": "#/$defs/shape_27"
+        },
+        "carrier_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "current_archive_freshness_verified": {
+          "type": "boolean"
+        },
+        "externally_selected_archive_keyring_trust_required": {
+          "type": "boolean"
+        },
+        "fresh_signature_verification_performed": {
+          "type": "boolean"
+        },
+        "selected_members": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "controls/distribution-trust-policy.json",
+            "distribution-origin/Packages",
+            "distribution-origin/Release",
+            "distribution-origin/Release.gpg",
+            "distribution-origin/debian-archive-keyring.gpg",
+            "distribution-origin/gpg-status.original",
+            "distribution-origin/gpg-stderr.original",
+            "launcher-distribution-record.json"
+          ],
+          "properties": {
+            "controls/distribution-trust-policy.json": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "distribution-origin/Packages": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "distribution-origin/Release": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "distribution-origin/Release.gpg": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "distribution-origin/debian-archive-keyring.gpg": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "distribution-origin/gpg-status.original": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "distribution-origin/gpg-stderr.original": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "launcher-distribution-record.json": {
+              "$ref": "#/$defs/shape_27"
+            }
+          }
+        },
+        "signature_evidence": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      }
+    },
+    "historical_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive",
+        "archive_decoded_size_bytes",
+        "archive_member_count",
+        "archive_path",
+        "attempt_id",
+        "complete_hosted_replay_carrier",
+        "fresh_signature_verification_claimed",
+        "historical_child_resumable",
+        "historical_child_terminated",
+        "historical_consumer_resolution_observed",
+        "lower_level_reconstruction_accepted",
+        "pins",
+        "run_attempt",
+        "run_id",
+        "scope",
+        "source_bindings_sha256",
+        "source_commit",
+        "source_file_count"
+      ],
+      "properties": {
+        "archive": {
+          "$ref": "#/$defs/shape_27"
+        },
+        "archive_decoded_size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "archive_member_count": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "archive_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "attempt_id": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "complete_hosted_replay_carrier": {
+          "type": "boolean"
+        },
+        "fresh_signature_verification_claimed": {
+          "type": "boolean"
+        },
+        "historical_child_resumable": {
+          "type": "boolean"
+        },
+        "historical_child_terminated": {
+          "type": "boolean"
+        },
+        "historical_consumer_resolution_observed": {
+          "type": "boolean"
+        },
+        "lower_level_reconstruction_accepted": {
+          "type": "boolean"
+        },
+        "pins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "capture",
+            "receipt",
+            "report",
+            "request",
+            "verified_binding"
+          ],
+          "properties": {
+            "capture": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "receipt": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "report": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "request": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "verified_binding": {
+              "$ref": "#/$defs/shape_27"
+            }
+          }
+        },
+        "run_attempt": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "scope": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "source_bindings_sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "source_commit": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "source_file_count": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "input_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_count",
+        "part_count",
+        "part_size_bytes_max",
+        "path",
+        "sha256",
+        "size_bytes",
+        "total_artifact_bytes"
+      ],
+      "properties": {
+        "artifact_count": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "part_count": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "part_size_bytes_max": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "total_artifact_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "occurrence_bindings": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "consumer",
+          "consumer_resolution_observed",
+          "dynamic_entry_file_offset",
+          "dynamic_entry_ordinal",
+          "dynamic_entry_vaddr",
+          "dynamic_program_header_index",
+          "dynamic_vaddr",
+          "evidence_role",
+          "expected_provider",
+          "name",
+          "name_file_offset",
+          "name_pointer_addend_vaddr",
+          "name_with_NUL",
+          "needed_ordinal",
+          "pointer_base",
+          "runtime_pointer_or_map_observed",
+          "string_table_offset",
+          "strtab_file_offset",
+          "strtab_size_bytes",
+          "strtab_vaddr"
+        ],
+        "properties": {
+          "consumer": {
+            "$ref": "#/$defs/shape_26"
+          },
+          "consumer_resolution_observed": {
+            "type": "boolean"
+          },
+          "dynamic_entry_file_offset": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "dynamic_entry_ordinal": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "dynamic_entry_vaddr": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "dynamic_program_header_index": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "dynamic_vaddr": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "evidence_role": {
+            "type": "string",
+            "maxLength": 65536
+          },
+          "expected_provider": {
+            "$ref": "#/$defs/shape_26"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 65536
+          },
+          "name_file_offset": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "name_pointer_addend_vaddr": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "name_with_NUL": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "hex",
+              "sha256",
+              "size_bytes"
+            ],
+            "properties": {
+              "hex": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              }
+            }
+          },
+          "needed_ordinal": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "pointer_base": {
+            "type": "string",
+            "maxLength": 65536
+          },
+          "runtime_pointer_or_map_observed": {
+            "type": "boolean"
+          },
+          "string_table_offset": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "strtab_file_offset": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "strtab_size_bytes": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          },
+          "strtab_vaddr": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          }
+        }
+      }
+    },
+    "prior_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "historical_authored_plan_unchanged",
+        "sources",
+        "verification_report"
+      ],
+      "properties": {
+        "historical_authored_plan_unchanged": {
+          "type": "boolean"
+        },
+        "sources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "docs/compute/required_gate_idempotence_loader_resolution_plan_v0/plan_v0.json",
+            "schemas/required_gate_idempotence_loader_resolution_plan_v0.schema.json",
+            "tools/check_required_gate_idempotence_loader_resolution_plan_v0.py"
+          ],
+          "properties": {
+            "docs/compute/required_gate_idempotence_loader_resolution_plan_v0/plan_v0.json": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "schemas/required_gate_idempotence_loader_resolution_plan_v0.schema.json": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "tools/check_required_gate_idempotence_loader_resolution_plan_v0.py": {
+              "$ref": "#/$defs/shape_27"
+            }
+          }
+        },
+        "verification_report": {
+          "$ref": "#/$defs/shape_27"
+        }
+      }
+    },
+    "profile": {
+      "const": "linux_x86_64_original_loader_binary_binding_v0"
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "args_aux_fresh_at_checkpoint",
+        "args_bytes",
+        "args_fields",
+        "args_pointer_assumed_in_RDI",
+        "args_pointer_register",
+        "checkpoint_file_offset",
+        "checkpoint_vaddr",
+        "consumer_map_bytes",
+        "live_RIP_relation",
+        "live_readout_qualified",
+        "loader",
+        "map_fields",
+        "map_namespace_is_signed",
+        "map_pointer_chasing_beyond_selected_prefix",
+        "needed_name_read_size",
+        "phase",
+        "provider_map_bytes",
+        "provider_map_register",
+        "selected_namespace_value",
+        "status"
+      ],
+      "properties": {
+        "args_aux_fresh_at_checkpoint": {
+          "type": "boolean"
+        },
+        "args_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "args_fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "aux",
+            "map",
+            "name",
+            "open_mode",
+            "strtab",
+            "trace_mode"
+          ],
+          "properties": {
+            "aux": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "map": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "name": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "open_mode": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "strtab": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "trace_mode": {
+              "$ref": "#/$defs/shape_25"
+            }
+          }
+        },
+        "args_pointer_assumed_in_RDI": {
+          "type": "boolean"
+        },
+        "args_pointer_register": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "checkpoint_file_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "checkpoint_vaddr": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "consumer_map_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "live_RIP_relation": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "live_readout_qualified": {
+          "type": "boolean"
+        },
+        "loader": {
+          "$ref": "#/$defs/shape_7"
+        },
+        "map_fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "l_addr",
+            "l_ld",
+            "l_ns",
+            "l_real"
+          ],
+          "properties": {
+            "l_addr": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "l_ld": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "l_ns": {
+              "$ref": "#/$defs/shape_25"
+            },
+            "l_real": {
+              "$ref": "#/$defs/shape_25"
+            }
+          }
+        },
+        "map_namespace_is_signed": {
+          "type": "boolean"
+        },
+        "map_pointer_chasing_beyond_selected_prefix": {
+          "type": "boolean"
+        },
+        "needed_name_read_size": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "phase": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "provider_map_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "provider_map_register": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "selected_namespace_value": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "status": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      }
+    },
+    "record_type": {
+      "const": "required_gate_idempotence_loader_binary_binding_v0"
+    },
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_limits",
+        "inputs",
+        "metadata",
+        "packages",
+        "source"
+      ],
+      "properties": {
+        "claim_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dsc_signature_freshly_verified",
+            "relationship",
+            "signature_freshly_verified",
+            "signature_trust_basis",
+            "source_to_binary_rebuild_performed"
+          ],
+          "properties": {
+            "dsc_signature_freshly_verified": {
+              "type": "boolean"
+            },
+            "relationship": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "signature_freshly_verified": {
+              "type": "boolean"
+            },
+            "signature_trust_basis": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "source_to_binary_rebuild_performed": {
+              "type": "boolean"
+            }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "filename",
+              "sha256",
+              "size_bytes"
+            ],
+            "properties": {
+              "filename": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              }
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "packages_index",
+            "release",
+            "sources_index"
+          ],
+          "properties": {
+            "packages_index": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "binding",
+                "paragraph_count",
+                "path"
+              ],
+              "properties": {
+                "binding": {
+                  "$ref": "#/$defs/shape_27"
+                },
+                "paragraph_count": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 65536
+                }
+              }
+            },
+            "release": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "binding",
+                "identity"
+              ],
+              "properties": {
+                "binding": {
+                  "$ref": "#/$defs/shape_27"
+                },
+                "identity": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "codename",
+                    "date",
+                    "label",
+                    "origin",
+                    "suite",
+                    "version"
+                  ],
+                  "properties": {
+                    "codename": {
+                      "type": "string",
+                      "maxLength": 65536
+                    },
+                    "date": {
+                      "type": "string",
+                      "maxLength": 65536
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 65536
+                    },
+                    "origin": {
+                      "type": "string",
+                      "maxLength": 65536
+                    },
+                    "suite": {
+                      "type": "string",
+                      "maxLength": 65536
+                    },
+                    "version": {
+                      "type": "string",
+                      "maxLength": 65536
+                    }
+                  }
+                }
+              }
+            },
+            "sources_index": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "compressed",
+                "decoded",
+                "paragraph_count"
+              ],
+              "properties": {
+                "compressed": {
+                  "$ref": "#/$defs/shape_5"
+                },
+                "decoded": {
+                  "$ref": "#/$defs/shape_5"
+                },
+                "paragraph_count": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                }
+              }
+            }
+          }
+        },
+        "packages": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "libc6",
+            "libc6-dbg"
+          ],
+          "properties": {
+            "libc6": {
+              "$ref": "#/$defs/shape_3"
+            },
+            "libc6-dbg": {
+              "$ref": "#/$defs/shape_3"
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "archives",
+            "components",
+            "directory",
+            "files",
+            "name",
+            "series",
+            "version"
+          ],
+          "properties": {
+            "archives": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "debian",
+                "original"
+              ],
+              "properties": {
+                "debian": {
+                  "$ref": "#/$defs/shape_10"
+                },
+                "original": {
+                  "$ref": "#/$defs/shape_10"
+                }
+              }
+            },
+            "components": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "binding",
+                  "filename"
+                ],
+                "properties": {
+                  "binding": {
+                    "$ref": "#/$defs/shape_27"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "maxLength": 65536
+                  }
+                }
+              }
+            },
+            "directory": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "files": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "original",
+                      "patch_steps",
+                      "patched",
+                      "path"
+                    ],
+                    "properties": {
+                      "original": {
+                        "$ref": "#/$defs/shape_4"
+                      },
+                      "patch_steps": {
+                        "type": "array",
+                        "maxItems": 16,
+                        "items": false
+                      },
+                      "patched": {
+                        "$ref": "#/$defs/shape_6"
+                      },
+                      "path": {
+                        "type": "string",
+                        "maxLength": 65536
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "original",
+                      "patch_steps",
+                      "patched",
+                      "path"
+                    ],
+                    "properties": {
+                      "original": {
+                        "$ref": "#/$defs/shape_4"
+                      },
+                      "patch_steps": {
+                        "type": "array",
+                        "maxItems": 16,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "after",
+                            "before",
+                            "hunk_count",
+                            "hunks",
+                            "member",
+                            "order"
+                          ],
+                          "properties": {
+                            "after": {
+                              "$ref": "#/$defs/shape_27"
+                            },
+                            "before": {
+                              "$ref": "#/$defs/shape_27"
+                            },
+                            "hunk_count": {
+                              "type": "integer",
+                              "minimum": -9223372036854775808,
+                              "maximum": 18446744073709551615
+                            },
+                            "hunks": {
+                              "type": "array",
+                              "maxItems": 16,
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "after",
+                                  "applied_current_start",
+                                  "before",
+                                  "expected_current_start",
+                                  "hunk_index",
+                                  "line_offset",
+                                  "match_method",
+                                  "new_count",
+                                  "new_hunk",
+                                  "new_start",
+                                  "old_count",
+                                  "old_hunk",
+                                  "old_start"
+                                ],
+                                "properties": {
+                                  "after": {
+                                    "$ref": "#/$defs/shape_27"
+                                  },
+                                  "applied_current_start": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  },
+                                  "before": {
+                                    "$ref": "#/$defs/shape_27"
+                                  },
+                                  "expected_current_start": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  },
+                                  "hunk_index": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  },
+                                  "line_offset": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  },
+                                  "match_method": {
+                                    "type": "string",
+                                    "maxLength": 65536
+                                  },
+                                  "new_count": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  },
+                                  "new_hunk": {
+                                    "$ref": "#/$defs/shape_27"
+                                  },
+                                  "new_start": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  },
+                                  "old_count": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  },
+                                  "old_hunk": {
+                                    "$ref": "#/$defs/shape_27"
+                                  },
+                                  "old_start": {
+                                    "type": "integer",
+                                    "minimum": -9223372036854775808,
+                                    "maximum": 18446744073709551615
+                                  }
+                                }
+                              }
+                            },
+                            "member": {
+                              "type": "string",
+                              "maxLength": 65536
+                            },
+                            "order": {
+                              "type": "integer",
+                              "minimum": -9223372036854775808,
+                              "maximum": 18446744073709551615
+                            }
+                          }
+                        }
+                      },
+                      "patched": {
+                        "$ref": "#/$defs/shape_6"
+                      },
+                      "path": {
+                        "type": "string",
+                        "maxLength": 65536
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "series": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "active_patch_count",
+                "all_active_patches_scanned",
+                "binding",
+                "member",
+                "patch_policy",
+                "patches"
+              ],
+              "properties": {
+                "active_patch_count": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "all_active_patches_scanned": {
+                  "type": "boolean"
+                },
+                "binding": {
+                  "$ref": "#/$defs/shape_27"
+                },
+                "member": {
+                  "type": "string",
+                  "maxLength": 65536
+                },
+                "patch_policy": {
+                  "type": "string",
+                  "maxLength": 65536
+                },
+                "patches": {
+                  "type": "array",
+                  "maxItems": 80,
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "binding",
+                          "file_diff_count",
+                          "hunk_count",
+                          "member",
+                          "order",
+                          "selected_files",
+                          "selected_hunk_count",
+                          "unselected_alternative_path_blocks"
+                        ],
+                        "properties": {
+                          "binding": {
+                            "$ref": "#/$defs/shape_27"
+                          },
+                          "file_diff_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "hunk_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "member": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "order": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "selected_files": {
+                            "type": "array",
+                            "maxItems": 16,
+                            "items": {
+                              "type": "string",
+                              "maxLength": 65536
+                            }
+                          },
+                          "selected_hunk_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "unselected_alternative_path_blocks": {
+                            "type": "array",
+                            "maxItems": 16,
+                            "items": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "binding",
+                          "file_diff_count",
+                          "hunk_count",
+                          "member",
+                          "order",
+                          "selected_files",
+                          "selected_hunk_count",
+                          "unselected_alternative_path_blocks"
+                        ],
+                        "properties": {
+                          "binding": {
+                            "$ref": "#/$defs/shape_27"
+                          },
+                          "file_diff_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "hunk_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "member": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "order": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "selected_files": {
+                            "type": "array",
+                            "maxItems": 16,
+                            "items": false
+                          },
+                          "selected_hunk_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "unselected_alternative_path_blocks": {
+                            "type": "array",
+                            "maxItems": 16,
+                            "items": false
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "binding",
+                          "file_diff_count",
+                          "hunk_count",
+                          "member",
+                          "order",
+                          "selected_files",
+                          "selected_hunk_count",
+                          "unselected_alternative_path_blocks"
+                        ],
+                        "properties": {
+                          "binding": {
+                            "$ref": "#/$defs/shape_27"
+                          },
+                          "file_diff_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "hunk_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "member": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "order": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "selected_files": {
+                            "type": "array",
+                            "maxItems": 16,
+                            "items": false
+                          },
+                          "selected_hunk_count": {
+                            "type": "integer",
+                            "minimum": -9223372036854775808,
+                            "maximum": 18446744073709551615
+                          },
+                          "unselected_alternative_path_blocks": {
+                            "type": "array",
+                            "maxItems": 16,
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "index",
+                                "new",
+                                "old"
+                              ],
+                              "properties": {
+                                "index": {
+                                  "type": "string",
+                                  "maxLength": 65536
+                                },
+                                "new": {
+                                  "type": "string",
+                                  "maxLength": 65536
+                                },
+                                "old": {
+                                  "type": "string",
+                                  "maxLength": 65536
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "version": {
+              "type": "string",
+              "maxLength": 65536
+            }
+          }
+        }
+      }
+    },
+    "source_line_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "DWARF_embeds_source_content_hashes",
+        "checkpoint",
+        "declarations",
+        "full_source_to_binary_equivalence_established",
+        "physical_line_separator",
+        "semantic_ranges"
+      ],
+      "properties": {
+        "DWARF_embeds_source_content_hashes": {
+          "type": "boolean"
+        },
+        "checkpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "identifier",
+            "line_without_LF",
+            "physical_line",
+            "source",
+            "source_path"
+          ],
+          "properties": {
+            "identifier": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "line_without_LF": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "physical_line": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "source": {
+              "$ref": "#/$defs/shape_27"
+            },
+            "source_path": {
+              "type": "string",
+              "maxLength": 65536
+            }
+          }
+        },
+        "declarations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "die_offset",
+              "identifier",
+              "line_without_LF",
+              "physical_line",
+              "source",
+              "source_path"
+            ],
+            "properties": {
+              "die_offset": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              },
+              "identifier": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "line_without_LF": {
+                "$ref": "#/$defs/shape_27"
+              },
+              "physical_line": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              },
+              "source": {
+                "$ref": "#/$defs/shape_27"
+              },
+              "source_path": {
+                "type": "string",
+                "maxLength": 65536
+              }
+            }
+          }
+        },
+        "full_source_to_binary_equivalence_established": {
+          "type": "boolean"
+        },
+        "physical_line_separator": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "semantic_ranges": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "first_physical_line",
+              "last_physical_line",
+              "range",
+              "role",
+              "source",
+              "source_path"
+            ],
+            "properties": {
+              "first_physical_line": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              },
+              "last_physical_line": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              },
+              "range": {
+                "$ref": "#/$defs/shape_27"
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "source": {
+                "$ref": "#/$defs/shape_27"
+              },
+              "source_path": {
+                "type": "string",
+                "maxLength": 65536
+              }
+            }
+          }
+        }
+      }
+    },
+    "static_binary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "args_location",
+        "byte_and_debug_correlation_passed",
+        "cu",
+        "debug",
+        "debuglink",
+        "execution_authorized",
+        "full_source_build_provenance_gate_passed_by_this_script",
+        "hardware_stop_qualified",
+        "link_map",
+        "loader",
+        "openaux_args",
+        "openaux_instructions",
+        "original_byte_ranges",
+        "original_eh_frame",
+        "record_type",
+        "return_checkpoint",
+        "runtime_acquisition_performed",
+        "runtime_recipe_conditions",
+        "runtime_resolution_observed",
+        "signed_distribution_provenance_verified_by_this_script",
+        "source_build_reproduced",
+        "source_declarations",
+        "symbols"
+      ],
+      "properties": {
+        "args_location": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries",
+            "location_list_offset",
+            "raw_location_list_hex",
+            "variable_die"
+          ],
+          "properties": {
+            "entries": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "begin",
+                  "end",
+                  "expression_hex"
+                ],
+                "properties": {
+                  "begin": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "expression_hex": {
+                    "type": "string",
+                    "maxLength": 65536
+                  }
+                }
+              }
+            },
+            "location_list_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "raw_location_list_hex": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "variable_die": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            }
+          }
+        },
+        "byte_and_debug_correlation_passed": {
+          "type": "boolean"
+        },
+        "cu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "abbrev_end",
+            "abbrev_offset",
+            "comp_dir",
+            "die_count",
+            "die_offset",
+            "forms",
+            "length",
+            "line_table",
+            "name",
+            "offset",
+            "pointer_size",
+            "producer",
+            "statement_list_offset",
+            "version"
+          ],
+          "properties": {
+            "abbrev_end": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "abbrev_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "comp_dir": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "die_count": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "die_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "forms": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              }
+            },
+            "length": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "line_table": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "directories",
+                "files",
+                "header_length",
+                "length",
+                "offset",
+                "openaux_rows",
+                "program_offset",
+                "source_content_hashes_present",
+                "total_row_count",
+                "version"
+              ],
+              "properties": {
+                "directories": {
+                  "type": "array",
+                  "maxItems": 20,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "index",
+                      "path"
+                    ],
+                    "properties": {
+                      "index": {
+                        "type": "integer",
+                        "minimum": -9223372036854775808,
+                        "maximum": 18446744073709551615
+                      },
+                      "path": {
+                        "type": "string",
+                        "maxLength": 65536
+                      }
+                    }
+                  }
+                },
+                "files": {
+                  "type": "array",
+                  "maxItems": 44,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "directory",
+                      "directory_index",
+                      "index",
+                      "name",
+                      "source_path"
+                    ],
+                    "properties": {
+                      "directory": {
+                        "type": "string",
+                        "maxLength": 65536
+                      },
+                      "directory_index": {
+                        "type": "integer",
+                        "minimum": -9223372036854775808,
+                        "maximum": 18446744073709551615
+                      },
+                      "index": {
+                        "type": "integer",
+                        "minimum": -9223372036854775808,
+                        "maximum": 18446744073709551615
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 65536
+                      },
+                      "source_path": {
+                        "type": "string",
+                        "maxLength": 65536
+                      }
+                    }
+                  }
+                },
+                "header_length": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "offset": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "openaux_rows": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "address",
+                      "column",
+                      "end_sequence",
+                      "file",
+                      "is_stmt",
+                      "line"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "integer",
+                        "minimum": -9223372036854775808,
+                        "maximum": 18446744073709551615
+                      },
+                      "column": {
+                        "type": "integer",
+                        "minimum": -9223372036854775808,
+                        "maximum": 18446744073709551615
+                      },
+                      "end_sequence": {
+                        "type": "boolean"
+                      },
+                      "file": {
+                        "type": "integer",
+                        "minimum": -9223372036854775808,
+                        "maximum": 18446744073709551615
+                      },
+                      "is_stmt": {
+                        "type": "boolean"
+                      },
+                      "line": {
+                        "type": "integer",
+                        "minimum": -9223372036854775808,
+                        "maximum": 18446744073709551615
+                      }
+                    }
+                  }
+                },
+                "program_offset": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "source_content_hashes_present": {
+                  "type": "boolean"
+                },
+                "total_row_count": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                }
+              }
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "pointer_size": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "producer": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "statement_list_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "version": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            }
+          }
+        },
+        "debug": {
+          "$ref": "#/$defs/shape_7"
+        },
+        "debuglink": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "crc32",
+            "filename"
+          ],
+          "properties": {
+            "crc32": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "filename": {
+              "type": "string",
+              "maxLength": 65536
+            }
+          }
+        },
+        "execution_authorized": {
+          "type": "boolean"
+        },
+        "full_source_build_provenance_gate_passed_by_this_script": {
+          "type": "boolean"
+        },
+        "hardware_stop_qualified": {
+          "type": "boolean"
+        },
+        "link_map": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "die_offset",
+            "l_type_bit_offset",
+            "l_type_bit_size",
+            "l_type_enumerators",
+            "members",
+            "required_prefix_bytes",
+            "size_bytes"
+          ],
+          "properties": {
+            "die_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "l_type_bit_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "l_type_bit_size": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "l_type_enumerators": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "lt_executable",
+                "lt_library",
+                "lt_loaded"
+              ],
+              "properties": {
+                "lt_executable": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "lt_library": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                },
+                "lt_loaded": {
+                  "type": "integer",
+                  "minimum": -9223372036854775808,
+                  "maximum": 18446744073709551615
+                }
+              }
+            },
+            "members": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "l_addr",
+                "l_ld",
+                "l_ns",
+                "l_real"
+              ],
+              "properties": {
+                "l_addr": {
+                  "$ref": "#/$defs/shape_14"
+                },
+                "l_ld": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "decl_file",
+                    "decl_line",
+                    "die_offset",
+                    "full_type_chain",
+                    "offset_bytes",
+                    "size_bytes",
+                    "source_path",
+                    "type"
+                  ],
+                  "properties": {
+                    "decl_file": {
+                      "type": "integer",
+                      "minimum": -9223372036854775808,
+                      "maximum": 18446744073709551615
+                    },
+                    "decl_line": {
+                      "type": "integer",
+                      "minimum": -9223372036854775808,
+                      "maximum": 18446744073709551615
+                    },
+                    "die_offset": {
+                      "type": "integer",
+                      "minimum": -9223372036854775808,
+                      "maximum": 18446744073709551615
+                    },
+                    "full_type_chain": {
+                      "type": "array",
+                      "maxItems": 16,
+                      "items": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/shape_18"
+                          },
+                          {
+                            "$ref": "#/$defs/shape_12"
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "decl_file",
+                              "decl_line",
+                              "die_offset",
+                              "encoding",
+                              "name",
+                              "size_bytes",
+                              "source_path",
+                              "tag"
+                            ],
+                            "properties": {
+                              "decl_file": {
+                                "type": "integer",
+                                "minimum": -9223372036854775808,
+                                "maximum": 18446744073709551615
+                              },
+                              "decl_line": {
+                                "type": "integer",
+                                "minimum": -9223372036854775808,
+                                "maximum": 18446744073709551615
+                              },
+                              "die_offset": {
+                                "type": "integer",
+                                "minimum": -9223372036854775808,
+                                "maximum": 18446744073709551615
+                              },
+                              "encoding": {
+                                "type": "null"
+                              },
+                              "name": {
+                                "type": "null"
+                              },
+                              "size_bytes": {
+                                "type": "integer",
+                                "minimum": -9223372036854775808,
+                                "maximum": 18446744073709551615
+                              },
+                              "source_path": {
+                                "type": "string",
+                                "maxLength": 65536
+                              },
+                              "tag": {
+                                "type": "integer",
+                                "minimum": -9223372036854775808,
+                                "maximum": 18446744073709551615
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "offset_bytes": {
+                      "type": "integer",
+                      "minimum": -9223372036854775808,
+                      "maximum": 18446744073709551615
+                    },
+                    "size_bytes": {
+                      "type": "integer",
+                      "minimum": -9223372036854775808,
+                      "maximum": 18446744073709551615
+                    },
+                    "source_path": {
+                      "type": "string",
+                      "maxLength": 65536
+                    },
+                    "type": {
+                      "$ref": "#/$defs/shape_9"
+                    }
+                  }
+                },
+                "l_ns": {
+                  "$ref": "#/$defs/shape_14"
+                },
+                "l_real": {
+                  "$ref": "#/$defs/shape_15"
+                }
+              }
+            },
+            "required_prefix_bytes": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            }
+          }
+        },
+        "loader": {
+          "$ref": "#/$defs/shape_7"
+        },
+        "openaux_args": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "die_offset",
+            "members",
+            "size_bytes"
+          ],
+          "properties": {
+            "die_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "members": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "aux",
+                "map",
+                "name",
+                "open_mode",
+                "strtab",
+                "trace_mode"
+              ],
+              "properties": {
+                "aux": {
+                  "$ref": "#/$defs/shape_15"
+                },
+                "map": {
+                  "$ref": "#/$defs/shape_15"
+                },
+                "name": {
+                  "$ref": "#/$defs/shape_16"
+                },
+                "open_mode": {
+                  "$ref": "#/$defs/shape_13"
+                },
+                "strtab": {
+                  "$ref": "#/$defs/shape_16"
+                },
+                "trace_mode": {
+                  "$ref": "#/$defs/shape_13"
+                }
+              }
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            }
+          }
+        },
+        "openaux_instructions": {
+          "type": "array",
+          "maxItems": 17,
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "decoded",
+                  "file_offset",
+                  "hex",
+                  "size",
+                  "vaddr"
+                ],
+                "properties": {
+                  "decoded": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "file_offset": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "hex": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "size": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "vaddr": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "decoded",
+                  "file_offset",
+                  "hex",
+                  "return_vaddr",
+                  "size",
+                  "target_vaddr",
+                  "vaddr"
+                ],
+                "properties": {
+                  "decoded": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "file_offset": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "hex": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "return_vaddr": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "size": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "target_vaddr": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "vaddr": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "original_byte_ranges": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file_offset",
+                  "hex",
+                  "role",
+                  "sha256",
+                  "size_bytes",
+                  "vaddr"
+                ],
+                "properties": {
+                  "file_offset": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "hex": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "role": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "vaddr": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file_offset",
+                  "role",
+                  "sha256",
+                  "size_bytes",
+                  "vaddr"
+                ],
+                "properties": {
+                  "file_offset": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "role": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  },
+                  "vaddr": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 18446744073709551615
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "original_eh_frame": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "file_offset",
+            "hex",
+            "section_offset",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "file_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "hex": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "section_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "sha256": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            }
+          }
+        },
+        "record_type": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "return_checkpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "args_assumed_in_rdi",
+            "args_aux_fresh",
+            "args_register",
+            "before_result_store",
+            "callee_declaration_die",
+            "callsite_die",
+            "file_offset",
+            "instruction_hex",
+            "instruction_size",
+            "provider_register",
+            "vaddr"
+          ],
+          "properties": {
+            "args_assumed_in_rdi": {
+              "type": "boolean"
+            },
+            "args_aux_fresh": {
+              "type": "boolean"
+            },
+            "args_register": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "before_result_store": {
+              "type": "boolean"
+            },
+            "callee_declaration_die": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "callsite_die": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "file_offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "instruction_hex": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "instruction_size": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            },
+            "provider_register": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "vaddr": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 18446744073709551615
+            }
+          }
+        },
+        "runtime_acquisition_performed": {
+          "type": "boolean"
+        },
+        "runtime_recipe_conditions": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 65536
+          }
+        },
+        "runtime_resolution_observed": {
+          "type": "boolean"
+        },
+        "signed_distribution_provenance_verified_by_this_script": {
+          "type": "boolean"
+        },
+        "source_build_reproduced": {
+          "type": "boolean"
+        },
+        "source_declarations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "decl_file",
+              "decl_line",
+              "die_offset",
+              "name",
+              "source_path",
+              "tag"
+            ],
+            "properties": {
+              "decl_file": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              },
+              "decl_line": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              },
+              "die_offset": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "source_path": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "tag": {
+                "type": "integer",
+                "minimum": -9223372036854775808,
+                "maximum": 18446744073709551615
+              }
+            }
+          }
+        },
+        "symbols": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "_dl_map_object",
+            "_dl_map_object.cold",
+            "_dl_map_object_deps",
+            "openaux"
+          ],
+          "properties": {
+            "_dl_map_object": {
+              "$ref": "#/$defs/shape_20"
+            },
+            "_dl_map_object.cold": {
+              "$ref": "#/$defs/shape_20"
+            },
+            "_dl_map_object_deps": {
+              "$ref": "#/$defs/shape_20"
+            },
+            "openaux": {
+              "$ref": "#/$defs/shape_20"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "shape_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture",
+        "filename",
+        "name",
+        "sha256",
+        "size_bytes",
+        "source",
+        "version"
+      ],
+      "properties": {
+        "architecture": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "filename": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "source": {
+          "$ref": "#/$defs/shape_24"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      }
+    },
+    "shape_2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture",
+        "name",
+        "version"
+      ],
+      "properties": {
+        "architecture": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      }
+    },
+    "shape_3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_members",
+        "control",
+        "control_source",
+        "index",
+        "member",
+        "package",
+        "tar_archives"
+      ],
+      "properties": {
+        "archive_members": {
+          "$ref": "#/$defs/shape_33"
+        },
+        "control": {
+          "$ref": "#/$defs/shape_2"
+        },
+        "control_source": {
+          "$ref": "#/$defs/shape_24"
+        },
+        "index": {
+          "$ref": "#/$defs/shape_1"
+        },
+        "member": {
+          "$ref": "#/$defs/shape_22"
+        },
+        "package": {
+          "$ref": "#/$defs/shape_27"
+        },
+        "tar_archives": {
+          "$ref": "#/$defs/shape_32"
+        }
+      }
+    },
+    "shape_4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "member"
+      ],
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/shape_27"
+        },
+        "member": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      }
+    },
+    "shape_5": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "path"
+      ],
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/shape_27"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      }
+    },
+    "shape_6": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding"
+      ],
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/shape_27"
+        }
+      }
+    },
+    "shape_7": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "build_id",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "build_id": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_8": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chain",
+        "encoding",
+        "kind",
+        "size_bytes"
+      ],
+      "properties": {
+        "chain": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          }
+        },
+        "encoding": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "kind": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_9": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chain",
+        "encoding",
+        "kind",
+        "size_bytes"
+      ],
+      "properties": {
+        "chain": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 18446744073709551615
+          }
+        },
+        "encoding": {
+          "type": "null"
+        },
+        "kind": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_10": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compressed",
+        "decoded",
+        "member_count",
+        "member_payload_size_bytes",
+        "selected_member_count",
+        "selected_payload_size_bytes"
+      ],
+      "properties": {
+        "compressed": {
+          "$ref": "#/$defs/shape_27"
+        },
+        "decoded": {
+          "$ref": "#/$defs/shape_27"
+        },
+        "member_count": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "member_payload_size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "selected_member_count": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "selected_payload_size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_11": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decl_file",
+        "decl_line",
+        "die_offset",
+        "encoding",
+        "name",
+        "size_bytes",
+        "source_path",
+        "tag"
+      ],
+      "properties": {
+        "decl_file": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "decl_line": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "encoding": {
+          "type": "null"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "source_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "tag": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_12": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decl_file",
+        "decl_line",
+        "die_offset",
+        "encoding",
+        "name",
+        "size_bytes",
+        "source_path",
+        "tag"
+      ],
+      "properties": {
+        "decl_file": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "decl_line": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "encoding": {
+          "type": "null"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "null"
+        },
+        "source_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "tag": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_13": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decl_file",
+        "decl_line",
+        "die_offset",
+        "full_type_chain",
+        "offset_bytes",
+        "size_bytes",
+        "source_path",
+        "type"
+      ],
+      "properties": {
+        "decl_file": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "decl_line": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "full_type_chain": {
+          "$ref": "#/$defs/shape_31"
+        },
+        "offset_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "source_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "type": {
+          "$ref": "#/$defs/shape_8"
+        }
+      }
+    },
+    "shape_14": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decl_file",
+        "decl_line",
+        "die_offset",
+        "full_type_chain",
+        "offset_bytes",
+        "size_bytes",
+        "source_path",
+        "type"
+      ],
+      "properties": {
+        "decl_file": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "decl_line": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "full_type_chain": {
+          "$ref": "#/$defs/shape_34"
+        },
+        "offset_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "source_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "type": {
+          "$ref": "#/$defs/shape_8"
+        }
+      }
+    },
+    "shape_15": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decl_file",
+        "decl_line",
+        "die_offset",
+        "full_type_chain",
+        "offset_bytes",
+        "size_bytes",
+        "source_path",
+        "type"
+      ],
+      "properties": {
+        "decl_file": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "decl_line": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "full_type_chain": {
+          "$ref": "#/$defs/shape_35"
+        },
+        "offset_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "source_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "type": {
+          "$ref": "#/$defs/shape_9"
+        }
+      }
+    },
+    "shape_16": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decl_file",
+        "decl_line",
+        "die_offset",
+        "full_type_chain",
+        "offset_bytes",
+        "size_bytes",
+        "source_path",
+        "type"
+      ],
+      "properties": {
+        "decl_file": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "decl_line": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "full_type_chain": {
+          "$ref": "#/$defs/shape_36"
+        },
+        "offset_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "source_path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "type": {
+          "$ref": "#/$defs/shape_9"
+        }
+      }
+    },
+    "shape_17": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "die_offset",
+        "encoding",
+        "name",
+        "size_bytes",
+        "tag"
+      ],
+      "properties": {
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "encoding": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "tag": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_18": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "die_offset",
+        "encoding",
+        "name",
+        "size_bytes",
+        "tag"
+      ],
+      "properties": {
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "encoding": {
+          "type": "null"
+        },
+        "name": {
+          "type": "null"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "tag": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_19": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "die_offset",
+        "encoding",
+        "name",
+        "size_bytes",
+        "tag"
+      ],
+      "properties": {
+        "die_offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "encoding": {
+          "type": "null"
+        },
+        "name": {
+          "type": "null"
+        },
+        "size_bytes": {
+          "type": "null"
+        },
+        "tag": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_20": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "section_index",
+        "size",
+        "type",
+        "value"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "section_index": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "type": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "value": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_21": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member_count",
+        "name",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "member_count": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_22": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_23": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_24": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "version_explicit"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "version_explicit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "shape_25": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "offset_bytes",
+        "size_bytes"
+      ],
+      "properties": {
+        "offset_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_26": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_27": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "shape_28": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_12"
+        },
+        {
+          "$ref": "#/$defs/shape_17"
+        }
+      ]
+    },
+    "shape_29": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_18"
+        },
+        {
+          "$ref": "#/$defs/shape_11"
+        }
+      ]
+    },
+    "shape_30": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/shape_18"
+        },
+        {
+          "$ref": "#/$defs/shape_19"
+        },
+        {
+          "$ref": "#/$defs/shape_17"
+        }
+      ]
+    },
+    "shape_31": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/shape_17"
+      }
+    },
+    "shape_32": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/shape_21"
+      }
+    },
+    "shape_33": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/shape_23"
+      }
+    },
+    "shape_34": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/shape_28"
+      }
+    },
+    "shape_35": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/shape_29"
+      }
+    },
+    "shape_36": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/shape_30"
+      }
+    }
+  }
+}

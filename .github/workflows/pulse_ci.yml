@@ -588,7 +588,7 @@ jobs:
       - name: release-grade upload current-run LlamaGuard evidence
         id: llamaguard_evidence_upload
         if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: llamaguard-current-run-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -675,7 +675,7 @@ jobs:
 
       - name: Upload release-grade required-gate diagnostics
         if: ${{ always() && steps.release_mode.outputs.is_release == '1' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-grade-required-gate-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -774,7 +774,7 @@ jobs:
 
       - name: upload self-contained PULSE evidence floor
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: self-contained-pulse-evidence-floor-v0-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -1030,7 +1030,7 @@ jobs:
 
       - name: Upload release-grade pre-attestation pulse artifacts
         if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: pulse-pre-attestation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -1291,7 +1291,7 @@ jobs:
       - name: Upload release authority manifest (audit-only)
         if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-authority-v0
           path: ${{ env.PACK_DIR }}/artifacts/release_authority_v0.json
@@ -1409,7 +1409,7 @@ jobs:
       - name: Upload release authority audit bundle (audit-only)
         if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-authority-audit-bundle
           path: ${{ env.PACK_DIR }}/artifacts/release_authority_audit_bundle/
@@ -1995,7 +1995,7 @@ jobs:
 
       - name: "Upload release authority artifact binding v0"
         if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-authority-artifact-binding-v0
           if-no-files-found: warn
@@ -2004,7 +2004,7 @@ jobs:
 
       - name: "Upload release decision v0 artifact bundle"
         if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-decision-v0
           if-no-files-found: warn
@@ -2358,7 +2358,7 @@ jobs:
 
       - name: upload release-grade reference bundle
         if: ${{ (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') && env.REFERENCE_BUNDLE_DIR != '' && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-grade-reference-run-v0
           path: ${{ env.REFERENCE_BUNDLE_DIR }}
@@ -2368,7 +2368,7 @@ jobs:
       - name: Upload artifacts
         if: ${{ always() && (steps.release_mode.outputs.is_release != '1' || steps.release_mode.outputs.llamaguard_evidence_mode != 'hosted_full_runtime') && steps.quality_ledger_final_render.outcome == 'success' && steps.quality_ledger_status_parity.outcome == 'success' }}
 
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: pulse-report
           if-no-files-found: warn
@@ -2588,7 +2588,7 @@ jobs:
             --out "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json"
 
       - name: Upload attested LlamaGuard external evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: llamaguard-attested-current-run-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -3249,7 +3249,7 @@ jobs:
           echo "OK: final release-grade artifact postconditions satisfied"
 
       - name: Upload final release authority manifest
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-authority-v0
           path: PULSE_safe_pack_v0/artifacts/release_authority_v0.json
@@ -3257,7 +3257,7 @@ jobs:
           retention-days: 30
 
       - name: Upload final release authority audit bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-authority-audit-bundle
           path: PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/
@@ -3265,7 +3265,7 @@ jobs:
           retention-days: 30
 
       - name: Upload final release authority artifact binding
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-authority-artifact-binding-v0
           path: PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json
@@ -3273,7 +3273,7 @@ jobs:
           retention-days: 30
 
       - name: Upload final release decision v0 artifact bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-decision-v0
           path: |
@@ -3285,7 +3285,7 @@ jobs:
           retention-days: 30
 
       - name: Upload final pulse report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: pulse-report
           path: |
@@ -3298,7 +3298,7 @@ jobs:
 
       - name: Upload advisory release-grade reference bundle
         if: ${{ env.REFERENCE_BUNDLE_DIR != '' && env.REFERENCE_RUN_QUALIFIED == 'true' && env.REFERENCE_LEDGER_PARITY_OK == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-grade-reference-run-v0
           path: ${{ env.REFERENCE_BUNDLE_DIR }}
@@ -3306,7 +3306,7 @@ jobs:
           retention-days: 30
 
       - name: Upload release-grade recorded path artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-grade-recorded-path-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -3517,7 +3517,7 @@ jobs:
           done
 
       - name: Upload complete release-grade reference package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: complete-release-grade-reference-package-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/complete-release-grade-reference-package/
@@ -3621,7 +3621,7 @@ jobs:
 
       - name: Upload release-grade package completeness report
         if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-grade-package-completeness-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{runner.temp}}/release_grade_package_completeness_v1.json
@@ -3654,7 +3654,7 @@ jobs:
           sha256sum "${VERIFY_OUT}"
 
       - name: Upload release-grade reference package verification report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # pinned
         with:
           name: release-grade-reference-package-verification-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/release_grade_reference_package_verification_v0.json

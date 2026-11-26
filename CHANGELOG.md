@@ -6,6 +6,470 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Reconcile the setup-python v7.1.0 dependency update with the current
+  workflows and exact source-binding contracts. Retain the later action-pin
+  updates, include newly added Python workflows, and refresh the corresponding
+  inventory and regression expectations. Preserve historical workflow bytes
+  through narrowly checked test-input reconstruction and keep the release
+  authority and evidence-admission rules unchanged.
+
+- Fix the original-loader checkpoint comparison after the first
+  [hosted observation attempt](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#first-hosted-attempt-455866533791).
+  Preserve both original process samples while excluding only validated RSS
+  accounting values from stopped-sample equality in the collector and native
+  replay. Keep identity, security, mappings, registers and memory checks strict;
+  retain the historical fixture contracts. Add unchanged samples from the
+  incomplete attempt and regressions through collection and independent replay.
+  The recorded failure remains incomplete; a fresh owner dispatch is still
+  required, with B2 and #2879 open and `authority_effect=none`.
+
+- Add the separate [hosted B2 original-loader resolution route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md).
+  Bind manual owner dispatch to the reviewed source and explicitly selected
+  rebuild policy; preserve the complete offline admission closure and exact
+  GPG/OpenSSL/native environment. Supervise one bounded original collector,
+  independently replay raw evidence in a separate job, require equal checker
+  reports and owned cleanup, and attest only completed verification. Preserve
+  incomplete prefixes and classify the new workflow explicitly. This unit
+  implements the route without dispatching it; B2 and whole-runtime #2879
+  remain open, with `metric_pass=null` and `authority_effect=none`.
+
+- Fix the [B2 original-loader collector regressions](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md#verification-and-next-boundary)
+  to distinguish scripted original-signature transport from fresh cryptographic
+  verification with an explicitly selected test-host verifier. Exercise the
+  unchanged original signature inputs with real GPG, reject changed signed
+  bytes, and prove that an unselected verifier still stops production admission
+  before any probe or original execution. Keep the historical verifier pin,
+  production admission and existing runtime profiles unchanged.
+
+- Add the separate [B2 bounded original-loader collector and independent replay](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md).
+  Reconstruct the full original-input and explicitly selected rebuild-policy
+  chains before fresh fixed guard/two-slot probes, then permit one acknowledged
+  original attempt with nine unique raw consumer/provider returns and a terminal
+  entry stop. Bind contemporaneous backing reads, paired raw samples, exact
+  continuation counts and owned cleanup; preserve incomplete attempts and keep
+  scripted tests distinct from native evidence. This unit performs no original
+  acquisition or workflow dispatch. Existing profiles, B2 completion and
+  whole-runtime #2879 retain their scope; `metric_pass=null` and
+  `authority_effect=none`.
+
+- Add a bounded [B2 original-loader rebuild acceptance policy](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ACCEPTANCE_v0.md)
+  and independent data-only checker. Preserve the exact public service snapshot,
+  join its source-resolution records to all three complete original source
+  inputs, and freshly reconstruct the preceding package and signature proof.
+  Default evaluation leaves policy selection pending. An externally selected
+  exact policy can satisfy only the scoped source/build prerequisite under its
+  explicit current-service endorsement and unsigned source-association trust
+  assumptions. Retain truncation, unverified historical authority and original
+  signature limits; original acquisition, future-host admission, B2 and
+  whole-runtime #2879 remain open, with `metric_pass=null` and `authority_effect=none`.
+
+- Preserve the completed [B2 hosted two-slot qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861)
+  from owner-dispatched run `45253188286/1` at source `624713608bcf5467c6d4be44cd026f906c45f274`.
+  Retain 255 unchanged original control/evidence members, exact artifact and
+  source bindings, four identical hosted reports, cleanup and hosted attestation
+  verification. Two fresh data-only checker processes reproduced the reports;
+  complete original evidence reconstructed the attested binding unchanged under
+  its recorded absolute input-path requirement. Keep complete original ZIPs in
+  separate custody and the first failed attempt incomplete. Original-loader
+  acquisition, source/build acceptance, B2 and whole-runtime #2879 remain open;
+  `metric_pass=null` and `authority_effect=none`.
+
+- Fix the [B2 loader two-slot hosted qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
+  container creation to select `apparmor=docker-default` explicitly in both
+  acquisition and verification. Keep strict prestart and terminal profile
+  checks, independently reconstruct the exact selected command, and add
+  regressions from the first hosted attempt's actual prestart inspection.
+  The original incomplete attempt remains incomplete; actual qualification,
+  original-loader acquisition and release authority remain separate.
+
+- Add a separate [B2 loader two-slot hosted qualification route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
+  with a manual owner-bound workflow, exact source/input preservation, one
+  synthetic probe in a restricted container and independent offline replay in
+  a fresh verification job. Bind current-run artifacts, fixed commands, native
+  reports, owned container cleanup and completed-statement attestation;
+  preserve incomplete prefixes without promoting them. This implementation
+  does not run the workflow. Actual qualification, original source/build
+  admission, original acquisition, B2 completion and release authority remain
+  separate; issue #2879 retains its complete whole-runtime scope.
+
+- Add the [B2 loader two-slot qualification request and attempt adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_ACQUISITION_v0.md)
+  with independently selected pre-execution context, exact implementation
+  bindings, one acknowledged fixed-probe invocation and closed complete or
+  incomplete preservation. Reuse the existing raw checker for independent
+  reconstruction and retain scripted/native origin separation. Actual hosted
+  qualification, original loader acquisition, source/build admission, B2
+  completion and release authority remain open.
+
+- Add the [B2 loader two-slot qualification implementation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_QUALIFICATION_v0.md)
+  with a separate fixed-probe producer, a closed bounded native record and an
+  independent raw-record checker. Bind repeated hardware stops, RF/TF state,
+  exact continuation counts, process identity and owned cleanup; preserve
+  incomplete attempts and distinguish scripted backend tests from native
+  records. Actual selected-environment qualification, original loader readouts,
+  source/build admission, B2 completion and release authority remain open.
+
+- Add the [B2 original-loader rebuild-attestation binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ATTESTATION_BINDING_v0.md)
+  with exact preserved rebuilder statements and public-key response, bounded
+  canonical-message/key derivation and fresh Ed25519 verification. Reconstruct
+  the unchanged build-record prerequisite and join both selected original
+  packages and the complete buildinfo carrier to every signed digest. Retain
+  the other signature as unverified and the API aliases as one evidence set.
+  Historical key authority, direct signed source-input coverage, accepted build
+  policy, the source/build gate, live acquisition and B2 completion remain open.
+
+- Add the [B2 original-loader build-record binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BUILD_RECORD_BINDING_v0.md)
+  with exact recovered buildinfo/changes preservation, bounded envelope and
+  Deb822 parsing, complete cross-record inventory joins and fresh checks of the
+  two selected original package byte streams. Reconstruct the unchanged startup
+  prerequisite and retain declaration-only scope for the other eighteen outputs.
+  Signature verification, builder authorization, authenticated build provenance,
+  the source/build gate, live acquisition and B2 completion remain open.
+
+- Add the [B2 original-loader startup and resume acceptance contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_STARTUP_CONTRACT_v0.md)
+  with fresh prior reconstruction, original source/debug/instruction mode
+  derivation, complete bounded initial-stack fixture checks and explicit
+  RF/TF predicates for the selected hardware stops. Preserve incomplete
+  outcomes and the existing historical/source boundaries. Actual invocation,
+  hardware qualification, authenticated build provenance, original acquisition,
+  B2 completion and release authority remain open.
+
+- Add the [B2 loader readout checker contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_READOUT_CONTRACT_v0.md)
+  with fresh reconstruction of the pinned static prerequisite, raw register and
+  memory occurrence checks, and a separate two-slot repeated-stop transcript
+  checker. Closed, explicitly authored test fixtures exercise the rules without
+  native execution or qualification claims. Build provenance, invocation modes,
+  live capability and original acquisition remain blocked. Historical sources,
+  the 190/41 CI inventories and non-authority boundaries remain unchanged.
+
+- Add the [B2 exact original-loader binary/debug/source binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BINARY_BINDING_v0.md)
+  with six complete preserved distribution artifacts in nine ordinary-size
+  byte parts and a data-only independent checker. Reconstruct the historical
+  entry evidence, package membership and selected patched source; correlate the
+  original instructions and raw DWARF at the pre-store return checkpoint with
+  the RBX argument and RAX provider recipe. Bind exact private field layouts and
+  the nine original consumer/name pointer obligations without importing host
+  layouts or executing the loader. Retain the unchanged authored plan, all 81
+  historical source bindings and the 190/41 CI lists. Reproducible source/build
+  equivalence, live readout and hardware qualification, loader-resolution
+  acquisition, B2 completion and release authority remain open.
+
+- Add the [B2 per-consumer loader-resolution plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_PLAN_v0.md)
+  with a closed proposal schema and independent data-only checker. Reconstruct
+  the preserved original entry capture with all 81 historical source bindings;
+  derive nine original `DT_NEEDED` occurrences and three separate interpreter
+  declarations directly from the original ELF bytes. Select a bounded proposed
+  return-event witness with a final original-entry stop, exact occurrence joins
+  and explicit unsatisfied binary/ABI, capability and implementation gates.
+  No new acquisition or workflow is introduced; loader-resolution verification,
+  B2 completion, selected-runtime execution and release authority remain open.
+
+- Add [LRM-05 preserved candidate import and evaluation](docs/PULSEMECH_LANGUAGE_RELATION_ADAPTER_EVALUATION_v0.md)
+  on a fixed source-only inventory of 23 HU/EN cases and 24 questions. Bind saved
+  responses to exact request/source bytes, retain failed, missing and unsupported
+  cases, and run the independent LRM-02 representation checker. Preserve exact
+  admitted input and verification artifacts for the existing measurement path.
+  Separate producer declarations, confidence, source mapping and unresolved
+  target selection; publish operational counts without an extraction-accuracy
+  claim. No live model call, reference-answer input, acceptance promotion,
+  workflow change or release-authority activation is introduced.
+
+- Add [B2 original launcher exec-stop GitHub observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md)
+  as a manual owner-scoped repository process with separate acquisition and
+  verification jobs. Preserve the complete 114-file original-input carrier,
+  fixed environment inputs and unchanged historical sources. Build the pinned
+  CPython 3.11.16 image offline with its already selected loader; retain the
+  restricted container policy and permit one original cp0 attempt without
+  post-exec continuation. Preserve failed prerequisites, bounded command logs,
+  raw capture prefixes and source/run receipts. Independently reconstruct the
+  uploaded attempt twice with fresh original-chain signature checks; attest
+  only completed verification and verify the original attestation bundle.
+  Pass all 914 containment cases (668 prior plus 246 hosted) and all 61 normative
+  inventory cases without changing the 189/40 CI rosters. Fresh preparation and
+  two separate checks from the new carrier reproduce byte-identical accepted
+  reports while retaining all 53 original source bindings. The first
+  manual hosted observation remains pending; Q2's negative result, unsupported
+  gates, previous observations and all authority boundaries remain unchanged.
+
+- Add [B2 original launcher exec-stop acquisition](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md)
+  with a closed original-input request, explicit owner collector and independent
+  checker. Freshly reconstruct the preserved launcher/distribution chain before
+  request preparation or checking. Bind the exact original launcher/interpreter,
+  eight ELF load-segment occurrences and four RX memory-sample obligations to
+  one kernel exec stop with no later resume. Preserve failed prerequisites,
+  bounded diagnostics and owned-child cleanup. Previous observations and
+  original bytes remain unchanged. Actual original-target acquisition requires
+  a separately authorized eligible owner environment; selected-runtime execution
+  stays closed and `authority_effect=none`.
+
+- Add [B2 fixed-probe private-memory transition observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MEMORY_OBSERVATION_v0.md)
+  with a separately pinned two-stop authored ELF and one fixed data-byte write.
+  Preserve two samples of each selected code/data page at each checkpoint;
+  independently bind every occurrence to its ELF range, process and backing
+  object. Check unchanged sealed backing bytes alongside changed private data,
+  with exactly one bounded continuation and terminal owned-child cleanup.
+  Retain denied and short reads as incomplete evidence, reuse corrected
+  nonblocking input admission, and keep the original single-stop profile and
+  source-bound observations unchanged. A completed local capture preserved
+  39 raw members; two separate checker processes reproduced byte-identical
+  accepted canonical reports. Pass all 600 containment cases (508 prior plus
+  92 new) without changing the 189/40 CI rosters. Original launcher/loader acquisition, host
+  qualification and selected execution remain open; B2 is incomplete and
+  `authority_effect=none`.
+
+- Fix the [B2 mapping checker FIFO substitution race](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md#fifo-substitution-review-correction)
+  by opening shared checker inputs with `O_NONBLOCK` before validating the
+  resulting descriptor identity. Cover selection, capture record and raw-member
+  replacement at the stat/open boundary with bounded isolated regressions.
+  Reproduce all three blocking paths on the reviewed checker and verify prompt
+  rejection after the fix; pass all 508 containment cases (505 prior plus 3 new).
+  Preserve the original source-bound observation and reports unchanged; record
+  a fresh completed observation and two byte-identical independent-checker
+  reports for the corrected source selection. Keep the fixed probe, collector,
+  CI rosters, original evidence and all authority boundaries unchanged.
+
+- Add [B2 fixed-probe stopped mapping observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md)
+  for one exact built-in authored static executable. Bind the retained sealed
+  object, actual stopped-child executable descriptor and every file-backed
+  mapping occurrence using preserved kernel evidence and an independent checker.
+  Retain raw process identities, maps, executable bytes, bounded failed attempts
+  and terminal cleanup. Require external selection/capture bindings and reject
+  substituted objects, cross-attempt evidence and incomplete preservation.
+  Keep the cooperative checkpoint distinct from ptrace exec interception,
+  process-memory equality and original launcher/runtime observation.
+  Two separate checker processes reproduced the same accepted canonical report
+  from a completed local fixed-probe capture with 20 preserved raw files.
+  Pass all 505 containment cases (409 existing plus 96 new) and keep the 189/40
+  CI rosters unchanged.
+  Preserve original evidence and all authority boundaries; actual launcher/loader
+  coverage, host qualification and selected execution remain open.
+
+- Add [B2 launcher distribution authentication](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCHER_DISTRIBUTION_v0.md)
+  with a separately pinned trust policy, exact original keyring and GPG identity,
+  complete signer roster and explicit evaluation epoch. Freshly verify each
+  detached Release signature, reconstruct the full compressed/decoded Packages
+  bindings and connect the exact original package to the existing launcher plan.
+  Preserve bounded verifier status/stderr and failed-attempt diagnostics; reject
+  ambiguous metadata, partial signature success and rehashed record substitution.
+  Two separate checker processes freshly verified all three original Debian
+  signature groups and reproduced the same canonical accepted report from the
+  full 68825-paragraph package index and preserved launcher inputs.
+  Retain the original launch-host plan/report and all authority boundaries.
+  Extend the existing containment regression module without changing the 189/40
+  CI manifests. Trust freshness, upstream/build origin, host qualification and
+  selected runtime execution remain open; B2 is incomplete.
+
+- Add [B2 launcher and passive host binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCH_HOST_v0.md)
+  with independent reconstruction from the original containment and entry-build
+  inputs. Require both entry-build outputs to equal the selected containment
+  entry, bind the outer launcher to an exact plain Debian package member, and
+  check every consumer's selected interpreter/native dependency edges.
+  Add a bounded offline package reader and a passive host snapshot with explicit
+  blocked/unknown prerequisites. Preserve observed package-to-launcher equality
+  separately from origin authentication and actual host qualification.
+  Extend existing containment regressions without changing CI manifests or the
+  189 Tools / 40 targeted entries. No launcher, preserved entry or selected
+  runtime executes; the original artifacts and claim boundaries retain their
+  bytes, B2 remains incomplete and `authority_effect=none`.
+
+- Preserve the [first hosted B2 entry-build/provenance observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
+  from run `43854478248/1` at `f290aee20cd610e4fdb358dbf34d054ec351d390`.
+  Retain both original GitHub artifact ZIPs byte-for-byte and add a descriptive
+  machine-readable inventory of their source, run, artifact and evidence bindings.
+  Record the two equal 9568-byte entries, accepted hosted record checks and the
+  actual successful hosted signature verification. Two later source-pinned
+  offline checker executions reproduce the hosted canonical reports byte-for-byte;
+  they do not claim a fresh local cryptographic verification. Keep the original
+  records and their boundary flags unchanged, update the documentation index,
+  and retain the remaining launcher/host/runtime obligations. No entry or selected
+  runtime is executed by this preservation change; B2 remains incomplete,
+  `metric_pass=null`, `actual_reference_claimed=false` and `authority_effect=none`.
+
+- Add [fixed B2 entry build acquisition and provenance](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
+  with two bounded builds of the unchanged static entry source, exact raw
+  source/log/binary preservation and an independent closed-record checker.
+  Retain compiler/subtool observations before and after building, require
+  identical entry bytes and preserve incomplete attempts. Add a manual-only
+  workflow that separates read-only compilation from attestation, checks the
+  exact downloaded artifact and verifies the original provenance bundle.
+  Bind the exact Python patch to its build and attest jobs in repository hygiene,
+  coordinate the guard fixtures and exercise the actual shared version guard.
+  Classify the exact workflow bytes as build-evidence preservation with
+  attestation participation and no required-gate or release-path participation.
+  Bind the toolchain-change regression to the observed assembler lookup and
+  verify stable and changed observations for bare, absolute and target-prefixed
+  query paths, retaining the exact failed-attempt diagnostics.
+  No produced entry or selected runtime is executed, no workflow is dispatched
+  by this change, and host/compiler qualification remains open. Add regressions
+  and coordinate Tools count guards from 188 to 189; targeted pytest remains 40,
+  B2 remains incomplete and `authority_effect=none`.
+
+- Add [B2 containment primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md)
+  with deterministic boundary requests, sealed input descriptors, a static entry,
+  a fixed syscall policy and a bounded example-only launcher. Verify raw attempt
+  records against reconstructed inputs and preserve failed or partial evidence.
+  After stopping a failed child, nonblockingly drain both output pipes through
+  the preservation sink up to their independent caps before closing them;
+  reject normal receipts after a drain or sink preservation failure.
+  Keep selected-runtime execution closed and all qualification and authority
+  flags unchanged. Add synthetic regressions and coordinate Tools count guards
+  from 187 to 188; targeted pytest remains 40 and `authority_effect=none`.
+
+- Add [B2 bootstrap preparation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md)
+  with an independently selected finite profile, deterministic launch-plan
+  reconstruction, exact module/resource bindings and private launch-view
+  materialization. Preserve a fixed worker/collector diagnostic probe, native
+  aliases and incomplete materialization prefixes. Discover selected JSON Schema
+  resources by format and schema identity, including extensionless vocabulary
+  files. Add synthetic regressions and coordinate Tools count guards from 186
+  to 187. Preparation performs no selected runtime execution; the probe grants
+  no qualification or authority, observed acquisition remains closed and
+  `authority_effect=none`.
+
+- Add [B2 selected runtime preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md)
+  with independent runtime/operator selections, a closed byte-bound capsule,
+  static ELF interpreter/dependency bindings and exact private-directory
+  restoration. Reject source, archive, native-provider and filesystem
+  substitutions; retain incomplete restoration prefixes. Add synthetic
+  regressions and coordinate Tools count guards from 185 to 186. No preserved
+  runtime is executed, the observed launch route stays closed, runtime closure
+  remains incomplete and `authority_effect=none`.
+
+- Add [bounded B2 idempotence acquisition primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md)
+  with selected-source preparation, sealed worker/input/interpreter descriptors,
+  Linux process and syscall restrictions, and synthetic finite-suite orchestration.
+  Preserve incomplete attempts without retry or cleanup and verify complete
+  example carriers with the unchanged observation adapter. Register the new
+  regressions once and coordinate Tools count guards. Observed launch remains
+  closed pending recoverable runtime closure, review and separate owner
+  authorization; no actual reference, metric verdict or release authority is
+  supplied, B2 remains incomplete and `authority_effect=none`.
+
+- Add the [offline B2 idempotence observation adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md)
+  with exact carrier/receipt verification, a truthful standalone runtime profile,
+  and per-application first-output-to-second-input binding. Reuse the existing
+  compute consumption and planned-observed relation mechanisms; retain B1 v0
+  and historical schemas. Add synthetic substitution, source, archive and CLI
+  regressions and synchronize the Tools manifest count guards. Recorded-relation
+  integrity does not authenticate physical execution or establish idempotence,
+  runtime closure, B2 completion or release eligibility; `authority_effect=none`.
+
+- Propose a [B2 snapshot-sanitizer idempotence protocol](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md)
+  for the existing EPF logging component. Bind its fixed configuration, twelve
+  exact public inputs, planned two-application paths, comparison, privacy and
+  preservation rules. Identify the required derived-input binding and supported
+  acquisition adapter without changing B1 v0 or executing the suite. The finite
+  component proposal does not establish production-gate applicability; all twelve
+  unsupported classifications and `authority_effect=none` remain unchanged.
+
+- Fix the B1 suite-contract checker to validate the selected input digest and
+  byte count for every occurrence, including repeated observations of one case.
+  A matching occurrence cannot mask another occurrence's mismatched input.
+  Add repeated-occurrence regressions and refresh the frozen checker selections;
+  retain the structural-only result and `authority_effect=none`.
+
+- Add the [B1 required-gate suite contract](docs/compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md)
+  and its offline structural checker. Bind declarations to a separately selected
+  manifest, exact source/protocol/input bytes and existing compute packet schemas;
+  check finite case coverage, per-gate obligations and execution/state references.
+  Distinguish valid unresolved drafts from complete declarations while keeping
+  execution readiness, semantic verification and release authority separate.
+  Add explicitly synthetic positive and rejection fixtures, register the test
+  once and synchronize all dependent tools-manifest count checks. No real
+  operator protocol, subject execution or required gate is activated;
+  `authority_effect=none` and #2879 remains open.
+
+- Configure the [Q3 immutable-release runtime adapter](docs/compute/PULSEMECH_Q3_RUNTIME_RELEASE_TRANSPORT_v0.md)
+  for the fixed published companion. Check repository/release/tag and all 25
+  asset identities, retrieve the pinned manifest and twenty fragments without
+  credentials, and verify original bytes before the existing archive/installation
+  boundary. Retain bounded streaming, metadata rechecks and source-bound receipts;
+  update independent checking and its pin chain while preserving exact historical
+  replay. Add offline transport and coherent-forgery regressions. Actual-runner
+  retrieval, preflight, capture and Q3 measurement remain separate pending work;
+  no execution or release authority is granted, and #2879 remains open.
+
+- Add optional [LRM-04 persistence and impact measurement](docs/PULSEMECH_LANGUAGE_RELATION_IMPACT_v0.md):
+  recompute independently admitted grounded support after base-evidence withdrawal,
+  retain conjunctive premises and alternative proof routes, and diagnose unsupported
+  cycles and exact claim/negation conflicts. Evaluate condition satisfaction and
+  complete joint possibility vectors in common finite configurations. Resolve
+  observed consequences through separately pinned before/after event records and
+  exact processing, source, subject, run and event bindings. Preserve structural
+  relation states and canonical status axes; publish a byte-bound impact artifact
+  alongside the existing verification and measurement artifacts. Keep the frozen
+  profile and LRM-03 default CLI behavior; register regressions and synchronize
+  manifest count guards. Automatic extraction, offline replay integration and
+  release authority remain outside this implementation.
+
+- Add the [LRM-03 relation comparator](docs/PULSEMECH_LANGUAGE_RELATION_COMPARATOR_v0.md):
+  evaluate four relation states on the preserved finite profile, retain complete
+  role tuples and joint interpretation choices, and produce bound difference
+  witnesses and separately assessed additions. Recompute the LRM-02 source checks;
+  resolve target-specific correspondence, coverage and addition reviews through
+  independently configured evidence. Preserve candidate/reference claim scopes,
+  incomplete families and target-local results in the existing measurement and
+  verification artifacts. Register regressions and synchronize manifest count
+  guards. Downstream impact, automatic extraction and offline replay remain later
+  work packages; no release authority is activated.
+
+- Add the [LRM-02 source and representation verifier](docs/PULSEMECH_LANGUAGE_RELATION_INPUT_VERIFIER_v0.md):
+  strict input loading, exact UTF-8 source/span bindings, typed reference closure,
+  a separate parser for the preserved 22 HU/EN controlled-language productions,
+  independently configured reference acceptance and exact processing-record bindings.
+  Preserve candidate scopes, incomplete interpretation families and unperformed
+  checks in the existing verification artifact. Register the runtime regressions
+  and synchronize the shared test-manifest count guards. The historical LRM-01
+  profile and fixtures remain unchanged; comparison, impact, extraction and
+  replay remain later work packages. No release authority is activated.
+
+- Add Anchor Integrity v0.1
+  [WP2A local byte/reference checks](docs/ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
+  [WP2B opt-in JSON Pointer projections](docs/ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)
+  and [WP2C materialized verifier-record bindings](docs/ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md).
+  Bind records to fresh base checks, exact packets and caller-pinned verifier
+  tuples; preserve existing profiles and historical fixtures. These diagnostic
+  checks do not establish verifier execution, provenance authentication or
+  semantic support, and do not complete the full adapter; `authority_effect = none`.
+
+- Add the [LRM-01 contract foundation](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_CONTRACT.md):
+  four closed schemas, a finite language profile, synthetic reference fixtures
+  and contract tests. Separate source-representation verification, relation
+  comparison and supported impact in the
+  [development plan](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_PLAN.md).
+  The runtime verifier, comparator, impact evaluator, extractor and replay
+  runner remain unimplemented. Contract-test success is not a language
+  measurement result; `authority_effect = none` and release activation remains false.
+
+- Add W1 [offline observation-record checking](docs/experiments/PD_SM_02_W1_RECORD_CHECKER_v0.md),
+  [candidate-free environment admission](docs/experiments/PD_SM_02_W1_ADMISSION_v0.md),
+  the [preserved native request](docs/experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  and [manual hosted native integration](docs/experiments/PD_SM_02_W1_HOSTED_NATIVE_v0.md).
+  Bind the guarded capture path to the exact source and request; retain separate
+  live controls, bounded execution, cleanup and offline replay. The original
+  hosted capture preservation in [PR #2984](https://github.com/HKati/pulse-release-gates-0.1/pull/2984)
+  remains pending and is not evidence preserved on `main`. Implementation and
+  internally consistent replay do not establish authenticated acquisition,
+  native/model correspondence or release authority; `authority_effect = none`.
+
+- Add the separate [QRH003 v0.1.3 Python source-binding correction](studies/openai_math_003_qrh_v0/SOURCE_BINDING.md).
+  Verify the caller-approved source manifest, capture and compile the declared
+  source inventory before study imports, and reject cache or unlisted-initializer
+  substitution. Pass sealed launcher/manifest descriptors to collector children,
+  which verify their own source snapshots. Record the previously documented
+  2026-10-10 local validation of 220 distinct cases, including 35 added regressions,
+  while retaining the earlier v0.1.2/185-case record.
+  Preserve historical anchors, the original pilot verifier and `BLOCK` / `MATCH`;
+  native proof capture remains `NOT_IMPLEMENTED`, with no new production gate
+  or mathematical acceptance claim.
+
+- Prepare an inactive, source-bound Q3 runtime transport for the exact twenty
+  preserved byte fragments. Verify each part and the original archive before
+  the existing independent archive check; bind retrieval evidence to prelaunch.
+  Retain exact historical checker replay while requiring the current checker
+  for capture handoff. Add offline transport and integration regressions.
+  The payload source remains unconfigured; no hosted retrieval, publication,
+  native execution, capture or release-authority change is asserted.
+
 - Fix Q3 native installation completion: consume and validate the exact installer
   acknowledgement before the unchanged empty-tail, EOF and exit checks.
   Add real-pipe regressions using the actual installer body with synthetic

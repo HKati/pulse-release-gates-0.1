@@ -1,0 +1,545 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:paradox:cyclic-case-contract:v0",
+  "title": "Bounded cyclic repair case contract v0",
+  "description": "Research input and hand-derived reference shapes only. Structural validation does not check bindings, guards, witnesses, recurrence, provenance or authority. Expected data are not evaluator premises.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/inputs"
+    },
+    {
+      "$ref": "#/$defs/expected"
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "mode",
+        "counter"
+      ],
+      "properties": {
+        "subject_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "mode": {
+          "$ref": "#/$defs/identifier"
+        },
+        "counter": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "guard": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "unconditional"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "limit"
+          ],
+          "properties": {
+            "kind": {
+              "const": "counter_below"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "predicate_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "predicate"
+            },
+            "predicate_id": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        }
+      ]
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "subject_id",
+        "from_mode",
+        "to_mode",
+        "guard",
+        "counter_increment"
+      ],
+      "properties": {
+        "rule_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "subject_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "from_mode": {
+          "$ref": "#/$defs/identifier"
+        },
+        "to_mode": {
+          "$ref": "#/$defs/identifier"
+        },
+        "guard": {
+          "$ref": "#/$defs/guard"
+        },
+        "counter_increment": {
+          "type": "integer",
+          "const": 1
+        }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "complete_rule_inventory",
+        "rules"
+      ],
+      "properties": {
+        "complete_rule_inventory": {
+          "const": true
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/$defs/rule"
+          }
+        }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "predicate_id",
+        "arguments",
+        "interpretation",
+        "facts"
+      ],
+      "properties": {
+        "predicate_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "arguments": {
+          "const": [
+            "subject_id",
+            "mode",
+            "counter"
+          ]
+        },
+        "interpretation": {
+          "const": "fixed_total_boolean_function"
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "value"
+            ],
+            "properties": {
+              "state": {
+                "$ref": "#/$defs/state"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "domain",
+        "failure_condition",
+        "predicate_declarations",
+        "before",
+        "after",
+        "query"
+      ],
+      "properties": {
+        "case_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "domain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "subject_ids",
+            "modes",
+            "counter_domain"
+          ],
+          "properties": {
+            "subject_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/identifier"
+              },
+              "uniqueItems": true
+            },
+            "modes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/identifier"
+              },
+              "uniqueItems": true
+            },
+            "counter_domain": {
+              "const": "nonnegative_integers"
+            }
+          }
+        },
+        "failure_condition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode_equals"
+          ],
+          "properties": {
+            "mode_equals": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        },
+        "predicate_declarations": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/$defs/predicate"
+          }
+        },
+        "before": {
+          "$ref": "#/$defs/phase"
+        },
+        "after": {
+          "$ref": "#/$defs/phase"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selected_subject_id",
+            "initial_state",
+            "displayed_new_failure_route_modes",
+            "return_projection",
+            "projection_scope"
+          ],
+          "properties": {
+            "selected_subject_id": {
+              "$ref": "#/$defs/identifier"
+            },
+            "initial_state": {
+              "$ref": "#/$defs/state"
+            },
+            "displayed_new_failure_route_modes": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "$ref": "#/$defs/identifier"
+              }
+            },
+            "return_projection": {
+              "const": [
+                "subject_id",
+                "mode"
+              ]
+            },
+            "projection_scope": {
+              "const": "all_declared_states_for_selected_subject"
+            }
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direct_route_removed",
+        "new_failure_route_feasible",
+        "failure_then_mode_return",
+        "complete_state_return",
+        "counter_projection_sound",
+        "repeatable_structural_return"
+      ],
+      "properties": {
+        "direct_route_removed": {
+          "enum": [
+            "ESTABLISHED_IN_MODEL",
+            "REFUTED_IN_MODEL",
+            "UNRESOLVED"
+          ]
+        },
+        "new_failure_route_feasible": {
+          "enum": [
+            "ESTABLISHED_IN_MODEL",
+            "REFUTED_IN_MODEL",
+            "UNRESOLVED"
+          ]
+        },
+        "failure_then_mode_return": {
+          "enum": [
+            "ESTABLISHED_IN_MODEL",
+            "REFUTED_IN_MODEL",
+            "UNRESOLVED"
+          ]
+        },
+        "complete_state_return": {
+          "enum": [
+            "ESTABLISHED_IN_MODEL",
+            "REFUTED_IN_MODEL",
+            "UNRESOLVED"
+          ]
+        },
+        "counter_projection_sound": {
+          "enum": [
+            "ESTABLISHED_IN_MODEL",
+            "REFUTED_IN_MODEL",
+            "UNRESOLVED"
+          ]
+        },
+        "repeatable_structural_return": {
+          "enum": [
+            "ESTABLISHED_IN_MODEL",
+            "REFUTED_IN_MODEL",
+            "UNRESOLVED"
+          ]
+        }
+      }
+    },
+    "reasoning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "direct_route_removed",
+        "new_failure_route_feasible",
+        "failure_then_mode_return",
+        "complete_state_return",
+        "counter_projection_sound",
+        "repeatable_structural_return"
+      ],
+      "properties": {
+        "direct_route_removed": {
+          "type": "string",
+          "minLength": 1
+        },
+        "new_failure_route_feasible": {
+          "type": "string",
+          "minLength": 1
+        },
+        "failure_then_mode_return": {
+          "type": "string",
+          "minLength": 1
+        },
+        "complete_state_return": {
+          "type": "string",
+          "minLength": 1
+        },
+        "counter_projection_sound": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repeatable_structural_return": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "prefix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "states",
+        "rule_ids"
+      ],
+      "properties": {
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/state"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/$defs/identifier"
+          }
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "status",
+        "source_baseline",
+        "authority_effect",
+        "production_gate_eligible",
+        "question_ids",
+        "cases"
+      ],
+      "properties": {
+        "format": {
+          "const": "PULSEMECH-PARADOX-CYCLIC-CASES-v0"
+        },
+        "status": {
+          "const": "research_case_inputs_not_execution"
+        },
+        "source_baseline": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "question_ids": {
+          "const": [
+            "direct_route_removed",
+            "new_failure_route_feasible",
+            "failure_then_mode_return",
+            "complete_state_return",
+            "counter_projection_sound",
+            "repeatable_structural_return"
+          ]
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/case"
+          }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "status",
+        "source_baseline",
+        "authority_effect",
+        "production_gate_eligible",
+        "input_file",
+        "input_file_sha256",
+        "results"
+      ],
+      "properties": {
+        "format": {
+          "const": "PULSEMECH-PARADOX-CYCLIC-EXPECTED-v0"
+        },
+        "status": {
+          "const": "hand_derived_reference_not_execution"
+        },
+        "source_baseline": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "input_file": {
+          "const": "examples/paradox_cyclic_case_v0/cases.json"
+        },
+        "input_file_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "results": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "source_case_ids",
+              "claims",
+              "admitted_prefix",
+              "reasoning"
+            ],
+            "properties": {
+              "case_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "source_case_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "enum": [
+                    "C02",
+                    "C03",
+                    "C04",
+                    "C05",
+                    "C06",
+                    "C07"
+                  ]
+                },
+                "uniqueItems": true
+              },
+              "claims": {
+                "$ref": "#/$defs/claims"
+              },
+              "admitted_prefix": {
+                "$ref": "#/$defs/prefix"
+              },
+              "reasoning": {
+                "$ref": "#/$defs/reasoning"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

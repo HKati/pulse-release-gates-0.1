@@ -1,0 +1,291 @@
+[
+    {
+        "Id": "5d0710ca73a9d3070113f90868fbb9a5ffa81f1f1be4e42df99e902879040d31",
+        "Created": "2026-11-22T22:42:52.141385343Z",
+        "Path": "/usr/local/bin/python3.11",
+        "Args": [
+            "-I",
+            "-B",
+            "/repo/tools/required_gate_idempotence_loader_two_slot_hosted_v0/run.py",
+            "acquire"
+        ],
+        "State": {
+            "Status": "created",
+            "Running": false,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 0,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "0001-01-01T00:00:00Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:b5dbebfe323d75b68767168594e45a9369c2f84cd303e119468a44129ea74d46",
+        "ResolvConfPath": "",
+        "HostnamePath": "",
+        "HostsPath": "",
+        "LogPath": "",
+        "Name": "/pulse-two-slot-45079210493-1-acquire",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "/home/runner/work/_temp/required-gate-loader-two-slot-45079210493-1/environment/container-id.txt",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "none",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": [
+                "ALL"
+            ],
+            "CgroupnsMode": "private",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": true,
+            "SecurityOpt": [
+                "no-new-privileges"
+            ],
+            "Tmpfs": {
+                "/tmp": "rw,nosuid,nodev,size=64m"
+            },
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 1073741824,
+            "NanoCpus": 1000000000,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 2147483648,
+            "MemorySwappiness": null,
+            "OomKillDisable": false,
+            "PidsLimit": 64,
+            "Ulimits": [],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "Mounts": [
+                {
+                    "Type": "bind",
+                    "Source": "/home/runner/work/_temp/required-gate-loader-two-slot-45079210493-1/control",
+                    "Target": "/control",
+                    "ReadOnly": true
+                },
+                {
+                    "Type": "bind",
+                    "Source": "/home/runner/work/_temp/required-gate-loader-two-slot-45079210493-1/observation",
+                    "Target": "/output"
+                },
+                {
+                    "Type": "bind",
+                    "Source": "/home/runner/work/_temp/required-gate-loader-two-slot-45079210493-1/source",
+                    "Target": "/repo",
+                    "ReadOnly": true
+                }
+            ],
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "5d0710ca73a9d3070113f90868fbb9a5ffa81f1f1be4e42df99e902879040d31",
+                "LowerDir": "/var/lib/docker/overlay2/2b8be7f7c85acd58badb5e24d478f5cafaef200fb66e94df537abb2be180640b-init/diff:/var/lib/docker/overlay2/1v3qy2ni04kly42wglzmht464/diff:/var/lib/docker/overlay2/xddbuyq00agmfq0xow1dp83pp/diff:/var/lib/docker/overlay2/1tba6qhtev8s6owy4vxz66tdp/diff:/var/lib/docker/overlay2/z3747ug3kzg464p5wbi81ypva/diff:/var/lib/docker/overlay2/8f747a7c57b7e6eb35ac08bc64c2ad20f1d040b1ee9701db5b06427bb718b072/diff:/var/lib/docker/overlay2/e07555a4367ae4c8bd2a9e4facb76c55a4a7f77f6efbefc4fa0c7ce84490580e/diff:/var/lib/docker/overlay2/3e59f87f1dc2bc9ae8429040285d5b22d9eb23eab004a385fb45bf009eecc075/diff:/var/lib/docker/overlay2/797f98d1f8a93de4bbbaf85b55a4cdae87add5bcd388b2c14ed8dea02ce1ef98/diff",
+                "MergedDir": "/var/lib/docker/overlay2/2b8be7f7c85acd58badb5e24d478f5cafaef200fb66e94df537abb2be180640b/merged",
+                "UpperDir": "/var/lib/docker/overlay2/2b8be7f7c85acd58badb5e24d478f5cafaef200fb66e94df537abb2be180640b/diff",
+                "WorkDir": "/var/lib/docker/overlay2/2b8be7f7c85acd58badb5e24d478f5cafaef200fb66e94df537abb2be180640b/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/home/runner/work/_temp/required-gate-loader-two-slot-45079210493-1/control",
+                "Destination": "/control",
+                "Mode": "",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/runner/work/_temp/required-gate-loader-two-slot-45079210493-1/observation",
+                "Destination": "/output",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/runner/work/_temp/required-gate-loader-two-slot-45079210493-1/source",
+                "Destination": "/repo",
+                "Mode": "",
+                "RW": false,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "5d0710ca73a9",
+            "Domainname": "",
+            "User": "1001:1001",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PYTHONDONTWRITEBYTECODE=1",
+                "TWO_SLOT_HOSTED_IMAGE_ID=sha256:b5dbebfe323d75b68767168594e45a9369c2f84cd303e119468a44129ea74d46",
+                "EXPECTED_SOURCE_COMMIT=a6babb55284ad914c9feb2e041fc2b8ec624aa68",
+                "GITHUB_REPOSITORY=HKati/pulse-release-gates-0.1",
+                "GITHUB_RUN_NUMBER=1",
+                "GITHUB_SHA=a6babb55284ad914c9feb2e041fc2b8ec624aa68",
+                "LC_ALL=C",
+                "GITHUB_EVENT_NAME=workflow_dispatch",
+                "GITHUB_RUN_ID=45079210493",
+                "GITHUB_TRIGGERING_ACTOR=HKati",
+                "GITHUB_WORKFLOW_SHA=a6babb55284ad914c9feb2e041fc2b8ec624aa68",
+                "PYTHONNOUSERSITE=1",
+                "TWO_SLOT_HOSTED_PHASE=acquire",
+                "TZ=UTC",
+                "GITHUB_ACTOR=HKati",
+                "GITHUB_REF=refs/heads/main",
+                "GITHUB_REPOSITORY_ID=1061766508",
+                "GITHUB_RUN_ATTEMPT=1",
+                "GITHUB_WORKFLOW_REF=HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml@refs/heads/main",
+                "TWO_SLOT_HOSTED_ACKNOWLEDGEMENT=QUALIFY_LOADER_TWO_SLOT_ONLY",
+                "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=C.UTF-8",
+                "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+                "PYTHON_VERSION=3.11.16",
+                "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+                "PIP_NO_INDEX=1",
+                "PIP_DISABLE_PIP_VERSION_CHECK=1"
+            ],
+            "Cmd": [
+                "-I",
+                "-B",
+                "/repo/tools/required_gate_idempotence_loader_two_slot_hosted_v0/run.py",
+                "acquire"
+            ],
+            "Image": "sha256:b5dbebfe323d75b68767168594e45a9369c2f84cd303e119468a44129ea74d46",
+            "Volumes": null,
+            "WorkingDir": "/repo",
+            "Entrypoint": [
+                "/usr/local/bin/python3.11"
+            ],
+            "OnBuild": null,
+            "Labels": {
+                "org.pulsemech.two-slot.phase": "acquire",
+                "org.pulsemech.two-slot.profile": "linux_x86_64_loader_two_slot_hosted_v0",
+                "org.pulsemech.two-slot.run": "45079210493/1",
+                "org.pulsemech.two-slot.source": "a6babb55284ad914c9feb2e041fc2b8ec624aa68"
+            }
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "",
+            "SandboxKey": "",
+            "Ports": {},
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "none": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "MacAddress": "",
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "",
+                    "EndpointID": "",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        }
+    }
+]

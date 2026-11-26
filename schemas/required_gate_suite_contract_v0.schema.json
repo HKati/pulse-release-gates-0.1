@@ -1,0 +1,739 @@
+{
+  "$defs": {
+    "case": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_case_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "case_id": {
+          "$ref": "#/$defs/id"
+        },
+        "input_id": {
+          "$ref": "#/$defs/id"
+        },
+        "variant_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "case_id",
+        "input_id",
+        "baseline_case_id",
+        "variant_id"
+      ],
+      "type": "object"
+    },
+    "expected_occurrence": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "$ref": "#/$defs/id"
+        },
+        "occurrence_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "occurrence_id",
+        "case_id"
+      ],
+      "type": "object"
+    },
+    "file_reference": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "maximum": 4194304,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "gate_id": {
+      "pattern": "^[a-z][a-z0-9_]{0,127}(?![\\s\\S])",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}(?![\\s\\S])",
+      "type": "string"
+    },
+    "input_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "input_id": {
+          "$ref": "#/$defs/id"
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "maximum": 4194304,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_id",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "obligation": {
+      "additionalProperties": false,
+      "properties": {
+        "case_ids": {
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "gate_id": {
+          "$ref": "#/$defs/gate_id"
+        },
+        "obligation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "occurrence_ids": {
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "obligation_id",
+        "gate_id",
+        "case_ids",
+        "occurrence_ids"
+      ],
+      "type": "object"
+    },
+    "occurrence": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "$ref": "#/$defs/id"
+        },
+        "execution_id": {
+          "maxLength": 256,
+          "pattern": "^execution:[A-Za-z0-9._:/@+-]+(?![\\s\\S])",
+          "type": "string"
+        },
+        "input_state_ids": {
+          "items": {
+            "maxLength": 256,
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+(?![\\s\\S])",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "occurrence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "output_state_ids": {
+          "items": {
+            "maxLength": 256,
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+(?![\\s\\S])",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "packet_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "occurrence_id",
+        "case_id",
+        "packet_id",
+        "execution_id",
+        "input_state_ids",
+        "output_state_ids"
+      ],
+      "type": "object"
+    },
+    "origin": {
+      "enum": [
+        "synthetic_fixture",
+        "reviewed_declaration"
+      ]
+    },
+    "path": {
+      "maxLength": 400,
+      "pattern": "^(?!(?:\\.|\\.\\.)(?:/|$))[A-Za-z0-9_.-]+(?:/(?!(?:\\.|\\.\\.)(?:/|$))[A-Za-z0-9_.-]+)*(?![\\s\\S])",
+      "type": "string"
+    },
+    "protocol": {
+      "additionalProperties": false,
+      "properties": {
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/case"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "decisions": {
+          "additionalProperties": false,
+          "properties": {
+            "comparison": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "observation_mapping": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "operator_semantics": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "privacy_retention": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "subject_selection": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "required": [
+            "subject_selection",
+            "operator_semantics",
+            "comparison",
+            "privacy_retention",
+            "observation_mapping"
+          ],
+          "type": "object"
+        },
+        "expected_occurrences": {
+          "items": {
+            "$ref": "#/$defs/expected_occurrence"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "obligations": {
+          "items": {
+            "$ref": "#/$defs/obligation"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "record_type": {
+          "const": "required_gate_suite_protocol_v0"
+        },
+        "selected_gate_ids": {
+          "items": {
+            "$ref": "#/$defs/gate_id"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "suite_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "record_type",
+        "origin",
+        "suite_id",
+        "source",
+        "selected_gate_ids",
+        "cases",
+        "expected_occurrences",
+        "obligations",
+        "decisions"
+      ],
+      "type": "object"
+    },
+    "selection": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "additionalProperties": false,
+          "properties": {
+            "checker_source": {
+              "$ref": "#/$defs/file_reference"
+            },
+            "comparison": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/file_reference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "contract_schema": {
+              "$ref": "#/$defs/file_reference"
+            },
+            "observation_mapping": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/file_reference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "operator": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/file_reference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "policy": {
+              "$ref": "#/$defs/file_reference"
+            },
+            "privacy": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/file_reference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "protocol": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/file_reference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "registry": {
+              "$ref": "#/$defs/file_reference"
+            },
+            "runtime_packet": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/file_reference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "runtime_schema": {
+              "$ref": "#/$defs/file_reference"
+            },
+            "source_anchor": {
+              "$ref": "#/$defs/file_reference"
+            },
+            "subject_packet": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/file_reference"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "subject_schema": {
+              "$ref": "#/$defs/file_reference"
+            }
+          },
+          "required": [
+            "contract_schema",
+            "checker_source",
+            "policy",
+            "registry",
+            "subject_schema",
+            "runtime_schema",
+            "source_anchor",
+            "protocol",
+            "operator",
+            "comparison",
+            "privacy",
+            "observation_mapping",
+            "subject_packet",
+            "runtime_packet"
+          ],
+          "type": "object"
+        },
+        "contract": {
+          "$ref": "#/$defs/file_reference"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/input_binding"
+          },
+          "maxItems": 256,
+          "minItems": 0,
+          "type": "array"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "record_type": {
+          "const": "required_gate_suite_selection_v0"
+        },
+        "selected_gate_ids": {
+          "items": {
+            "$ref": "#/$defs/gate_id"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      },
+      "required": [
+        "record_type",
+        "origin",
+        "source",
+        "selected_gate_ids",
+        "contract",
+        "bindings",
+        "inputs"
+      ],
+      "type": "object"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}(?![\\s\\S])",
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?![\\s\\S])",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "commit"
+      ],
+      "type": "object"
+    },
+    "unresolved": {
+      "enum": [
+        "protocol",
+        "subject",
+        "operator",
+        "cases",
+        "comparison",
+        "privacy_retention",
+        "observation_mapping",
+        "runtime_evidence"
+      ]
+    }
+  },
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/required_gate_suite_contract_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "unresolved_decisions": {
+            "minItems": 1
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "declaration_state": {
+            "const": "complete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "binding_sha256": {
+            "properties": {
+              "comparison": {
+                "$ref": "#/$defs/sha256"
+              },
+              "observation_mapping": {
+                "$ref": "#/$defs/sha256"
+              },
+              "operator": {
+                "$ref": "#/$defs/sha256"
+              },
+              "privacy": {
+                "$ref": "#/$defs/sha256"
+              },
+              "protocol": {
+                "$ref": "#/$defs/sha256"
+              },
+              "runtime_packet": {
+                "$ref": "#/$defs/sha256"
+              },
+              "subject_packet": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          },
+          "cases": {
+            "minItems": 1
+          },
+          "obligations": {
+            "minItems": 1
+          },
+          "occurrences": {
+            "minItems": 1
+          },
+          "unresolved_decisions": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ],
+  "description": "Closed draft/complete declaration contract with externally selected byte bindings. Complete means declaration completeness only. No execution, semantic verification, metric result, or authority is established.",
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "binding_sha256": {
+      "additionalProperties": false,
+      "properties": {
+        "comparison": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observation_mapping": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "privacy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "protocol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runtime_packet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject_packet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "operator",
+        "comparison",
+        "privacy",
+        "observation_mapping",
+        "subject_packet",
+        "runtime_packet"
+      ],
+      "type": "object"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/case"
+      },
+      "maxItems": 256,
+      "minItems": 0,
+      "type": "array"
+    },
+    "declaration_state": {
+      "enum": [
+        "draft",
+        "complete"
+      ]
+    },
+    "obligations": {
+      "items": {
+        "$ref": "#/$defs/obligation"
+      },
+      "maxItems": 256,
+      "minItems": 0,
+      "type": "array"
+    },
+    "occurrences": {
+      "items": {
+        "$ref": "#/$defs/occurrence"
+      },
+      "maxItems": 256,
+      "minItems": 0,
+      "type": "array"
+    },
+    "origin": {
+      "$ref": "#/$defs/origin"
+    },
+    "record_type": {
+      "const": "required_gate_suite_contract_v0"
+    },
+    "selected_gate_ids": {
+      "items": {
+        "$ref": "#/$defs/gate_id"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "suite_id": {
+      "$ref": "#/$defs/id"
+    },
+    "unresolved_decisions": {
+      "items": {
+        "$ref": "#/$defs/unresolved"
+      },
+      "maxItems": 8,
+      "minItems": 0,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "record_type",
+    "origin",
+    "declaration_state",
+    "suite_id",
+    "source",
+    "selected_gate_ids",
+    "binding_sha256",
+    "cases",
+    "occurrences",
+    "obligations",
+    "unresolved_decisions",
+    "authority_effect"
+  ],
+  "title": "Required gate suite declaration contract v0",
+  "type": "object"
+}

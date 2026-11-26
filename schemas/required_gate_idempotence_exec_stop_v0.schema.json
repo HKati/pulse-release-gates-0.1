@@ -1,0 +1,1640 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-exec-stop:v0",
+  "title": "Original launcher kernel exec-stop observation v0",
+  "description": "Closed structural shapes. Semantic checking and fresh original-chain admission remain necessary.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/capture"
+    },
+    {
+      "$ref": "#/$defs/verification"
+    },
+    {
+      "$ref": "#/$defs/preparation_verification"
+    }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_exec_stop_request_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_original_launcher_exec_stop_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "observer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/[^\\u0000]+$",
+              "maxLength": 4096
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 33554432
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        "originals": {
+          "const": {
+            "launch_host_plan": {
+              "size_bytes": 10792,
+              "sha256": "314acd23ea1ba43dc3ccf337d0171473c43422c7c026d9548d104d88c968bcf5"
+            },
+            "launch_host_report": {
+              "size_bytes": 4284,
+              "sha256": "720a2cf4ade0e2b575440e4b3e02bee8df9ef754d2f120ac4632fa9fc1ce9806"
+            },
+            "distribution_record": {
+              "size_bytes": 6142,
+              "sha256": "1f0259701194b485fdb15a442ce1a3e72c9d60d136d6b308468b40a4d1b85060"
+            },
+            "distribution_report": {
+              "size_bytes": 3780,
+              "sha256": "a0d7cf825dce1c8a3b09a2306f155f24bdcabc4a16cb90215f6d4e04925f4f36"
+            }
+          }
+        },
+        "native_files": {
+          "const": [
+            {
+              "path": "native/bwrap",
+              "size_bytes": 80248,
+              "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+              "checkpoint_status": "required_at_cp0"
+            },
+            {
+              "path": "native/ld-linux-x86-64.so.2",
+              "size_bytes": 225672,
+              "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+              "checkpoint_status": "required_at_cp0"
+            },
+            {
+              "path": "native/libc.so.6",
+              "size_bytes": 1995216,
+              "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "path": "native/libcap.so.2",
+              "size_bytes": 47288,
+              "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "path": "native/libpcre2-8.so.0",
+              "size_bytes": 711216,
+              "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "path": "native/libselinux.so.1",
+              "size_bytes": 202984,
+              "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+              "checkpoint_status": "not_observed_at_cp0"
+            }
+          ]
+        },
+        "elf": {
+          "const": {
+            "launcher": {
+              "entry": 21904,
+              "phoff": 64,
+              "phentsize": 56,
+              "phnum": 14,
+              "interpreter": "/lib64/ld-linux-x86-64.so.2",
+              "segments": [
+                {
+                  "index": 2,
+                  "offset": 0,
+                  "vaddr": 0,
+                  "filesz": 9616,
+                  "memsz": 9616,
+                  "flags": 4,
+                  "align": 4096
+                },
+                {
+                  "index": 3,
+                  "offset": 12288,
+                  "vaddr": 12288,
+                  "filesz": 39761,
+                  "memsz": 39761,
+                  "flags": 5,
+                  "align": 4096
+                },
+                {
+                  "index": 4,
+                  "offset": 53248,
+                  "vaddr": 53248,
+                  "filesz": 21400,
+                  "memsz": 21400,
+                  "flags": 4,
+                  "align": 4096
+                },
+                {
+                  "index": 5,
+                  "offset": 76016,
+                  "vaddr": 80112,
+                  "filesz": 2045,
+                  "memsz": 2312,
+                  "flags": 6,
+                  "align": 4096
+                }
+              ]
+            },
+            "loader": {
+              "entry": 119488,
+              "phoff": 64,
+              "phentsize": 56,
+              "phnum": 9,
+              "interpreter": null,
+              "segments": [
+                {
+                  "index": 0,
+                  "offset": 0,
+                  "vaddr": 0,
+                  "filesz": 3280,
+                  "memsz": 3280,
+                  "flags": 4,
+                  "align": 4096
+                },
+                {
+                  "index": 1,
+                  "offset": 4096,
+                  "vaddr": 4096,
+                  "filesz": 160721,
+                  "memsz": 160721,
+                  "flags": 5,
+                  "align": 4096
+                },
+                {
+                  "index": 2,
+                  "offset": 167936,
+                  "vaddr": 167936,
+                  "filesz": 44336,
+                  "memsz": 44336,
+                  "flags": 4,
+                  "align": 4096
+                },
+                {
+                  "index": 3,
+                  "offset": 213568,
+                  "vaddr": 213568,
+                  "filesz": 10508,
+                  "memsz": 13224,
+                  "flags": 6,
+                  "align": 4096
+                }
+              ]
+            }
+          }
+        },
+        "native_relationships": {
+          "const": [
+            {
+              "consumer": "native/bwrap",
+              "kind": "interpreter",
+              "name": "/lib64/ld-linux-x86-64.so.2",
+              "provider": "native/ld-linux-x86-64.so.2",
+              "checkpoint_status": "required_at_cp0"
+            },
+            {
+              "consumer": "native/bwrap",
+              "kind": "needed",
+              "name": "libc.so.6",
+              "provider": "native/libc.so.6",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/bwrap",
+              "kind": "needed",
+              "name": "libcap.so.2",
+              "provider": "native/libcap.so.2",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/bwrap",
+              "kind": "needed",
+              "name": "libselinux.so.1",
+              "provider": "native/libselinux.so.1",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libc.so.6",
+              "kind": "interpreter",
+              "name": "/lib64/ld-linux-x86-64.so.2",
+              "provider": "native/ld-linux-x86-64.so.2",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libc.so.6",
+              "kind": "needed",
+              "name": "ld-linux-x86-64.so.2",
+              "provider": "native/ld-linux-x86-64.so.2",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libcap.so.2",
+              "kind": "interpreter",
+              "name": "/lib64/ld-linux-x86-64.so.2",
+              "provider": "native/ld-linux-x86-64.so.2",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libcap.so.2",
+              "kind": "needed",
+              "name": "libc.so.6",
+              "provider": "native/libc.so.6",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libpcre2-8.so.0",
+              "kind": "needed",
+              "name": "libc.so.6",
+              "provider": "native/libc.so.6",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libselinux.so.1",
+              "kind": "needed",
+              "name": "ld-linux-x86-64.so.2",
+              "provider": "native/ld-linux-x86-64.so.2",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libselinux.so.1",
+              "kind": "needed",
+              "name": "libc.so.6",
+              "provider": "native/libc.so.6",
+              "checkpoint_status": "not_observed_at_cp0"
+            },
+            {
+              "consumer": "native/libselinux.so.1",
+              "kind": "needed",
+              "name": "libpcre2-8.so.0",
+              "provider": "native/libpcre2-8.so.0",
+              "checkpoint_status": "not_observed_at_cp0"
+            }
+          ]
+        },
+        "memory_obligations": {
+          "const": [
+            {
+              "id": "cp0.launcher.rx.0",
+              "object": "launcher",
+              "segment_index": 3,
+              "sample_index": 0,
+              "file": "launcher.rx.sample0.bin",
+              "file_offset": 12288,
+              "vaddr": 12288,
+              "size_bytes": 39761,
+              "sha256": "023deed07f1021011871b69ab9836728306e2c00413623eec1ddce4ae1cee036"
+            },
+            {
+              "id": "cp0.launcher.rx.1",
+              "object": "launcher",
+              "segment_index": 3,
+              "sample_index": 1,
+              "file": "launcher.rx.sample1.bin",
+              "file_offset": 12288,
+              "vaddr": 12288,
+              "size_bytes": 39761,
+              "sha256": "023deed07f1021011871b69ab9836728306e2c00413623eec1ddce4ae1cee036"
+            },
+            {
+              "id": "cp0.loader.rx.0",
+              "object": "loader",
+              "segment_index": 1,
+              "sample_index": 0,
+              "file": "loader.rx.sample0.bin",
+              "file_offset": 4096,
+              "vaddr": 4096,
+              "size_bytes": 160721,
+              "sha256": "d37e7ccdc896ff037553cc924c788f81b8dcb0fa6a69a5717a03c87ad67dee21"
+            },
+            {
+              "id": "cp0.loader.rx.1",
+              "object": "loader",
+              "segment_index": 1,
+              "sample_index": 1,
+              "file": "loader.rx.sample1.bin",
+              "file_offset": 4096,
+              "vaddr": 4096,
+              "size_bytes": 160721,
+              "sha256": "d37e7ccdc896ff037553cc924c788f81b8dcb0fa6a69a5717a03c87ad67dee21"
+            }
+          ]
+        },
+        "event": {
+          "const": {
+            "kind": "PTRACE_EVENT_EXEC",
+            "post_exec_resumes": 0
+          }
+        },
+        "execution": {
+          "const": {
+            "argv": [
+              "bubblewrap"
+            ],
+            "environment": {
+              "LC_ALL": "C",
+              "TZ": "UTC"
+            },
+            "cwd": "/"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "enum": [
+                  "schemas/required_gate_idempotence_exec_stop_v0.schema.json",
+                  "schemas/required_gate_idempotence_mapping_observation_v0.schema.json",
+                  "tools/check_required_gate_idempotence_exec_stop_v0.py",
+                  "tools/check_required_gate_idempotence_mapping_observation_v0.py",
+                  "tools/prepare_required_gate_idempotence_exec_stop_v0.py",
+                  "tools/required_gate_idempotence_exec_stop_v0.py",
+                  "tools/required_gate_idempotence_launch_host_v0.py",
+                  "tools/required_gate_idempotence_launcher_distribution_v0.py",
+                  "tools/required_gate_idempotence_mapping_observation_v0.py",
+                  "tools/required_gate_idempotence_mapping_probe_v0.py"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "size_bytes"
+            ]
+          },
+          "minItems": 10,
+          "maxItems": 10,
+          "uniqueItems": true
+        },
+        "limits": {
+          "const": {
+            "wall_seconds": 15,
+            "cleanup_seconds": 2,
+            "proc_file_bytes": 65536,
+            "observer_executable_bytes": 33554432,
+            "stdout_bytes": 4096,
+            "stderr_bytes": 4096,
+            "total_capture_bytes": 41943040
+          }
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect",
+        "observer",
+        "originals",
+        "native_files",
+        "elf",
+        "native_relationships",
+        "memory_obligations",
+        "event",
+        "execution",
+        "sources",
+        "limits"
+      ]
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_exec_stop_capture_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_original_launcher_exec_stop_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "request_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "incomplete"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,119}$"
+            }
+          ]
+        },
+        "observer_pid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "child_pid": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          ]
+        },
+        "timing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "started_ns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "stopped_ns": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9223372036854775807
+                }
+              ]
+            },
+            "finished_ns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            }
+          },
+          "required": [
+            "started_ns",
+            "stopped_ns",
+            "finished_ns"
+          ]
+        },
+        "wait": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "setup": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              ]
+            },
+            "exec": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              ]
+            },
+            "terminal": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              ]
+            },
+            "event_msg": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              ]
+            }
+          },
+          "required": [
+            "setup",
+            "exec",
+            "terminal",
+            "event_msg"
+          ]
+        },
+        "ownership": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pidfd_opened": {
+              "type": "boolean"
+            },
+            "proc_dir_pinned": {
+              "type": "boolean"
+            },
+            "child_reaped": {
+              "type": "boolean"
+            },
+            "post_exec_resumes": {
+              "const": 0
+            },
+            "detached": {
+              "const": false
+            },
+            "pre_exec_resumes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "ptrace_options": {
+              "enum": [
+                0,
+                1048592
+              ]
+            },
+            "kill_sent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "pidfd_opened",
+            "proc_dir_pinned",
+            "child_reaped",
+            "post_exec_resumes",
+            "detached",
+            "pre_exec_resumes",
+            "ptrace_options",
+            "kill_sent"
+          ]
+        },
+        "objects": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "retained": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "stat": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "dev": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "ino": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 18446744073709551615
+                        },
+                        "mode": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "nlink": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 16777216
+                        }
+                      },
+                      "required": [
+                        "dev",
+                        "ino",
+                        "mode",
+                        "nlink",
+                        "size"
+                      ]
+                    },
+                    "seals": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stat",
+                    "seals"
+                  ]
+                }
+              ]
+            },
+            "executable": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "stat": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "dev": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "ino": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 18446744073709551615
+                        },
+                        "mode": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "nlink": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 16777216
+                        }
+                      },
+                      "required": [
+                        "dev",
+                        "ino",
+                        "mode",
+                        "nlink",
+                        "size"
+                      ]
+                    },
+                    "seals": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stat",
+                    "seals"
+                  ]
+                }
+              ]
+            },
+            "loader_before": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "stat": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "dev": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "ino": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 18446744073709551615
+                        },
+                        "mode": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "nlink": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 16777216
+                        }
+                      },
+                      "required": [
+                        "dev",
+                        "ino",
+                        "mode",
+                        "nlink",
+                        "size"
+                      ]
+                    },
+                    "seals": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stat",
+                    "seals"
+                  ]
+                }
+              ]
+            },
+            "loader_after": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "stat": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "dev": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "ino": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 18446744073709551615
+                        },
+                        "mode": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "nlink": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 16777216
+                        }
+                      },
+                      "required": [
+                        "dev",
+                        "ino",
+                        "mode",
+                        "nlink",
+                        "size"
+                      ]
+                    },
+                    "seals": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stat",
+                    "seals"
+                  ]
+                }
+              ]
+            },
+            "memory": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "stat": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "dev": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "ino": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 18446744073709551615
+                        },
+                        "mode": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "nlink": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 18446744073709551615
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 16777216
+                        }
+                      },
+                      "required": [
+                        "dev",
+                        "ino",
+                        "mode",
+                        "nlink",
+                        "size"
+                      ]
+                    },
+                    "seals": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stat",
+                    "seals"
+                  ]
+                }
+              ]
+            }
+          },
+          "required": [
+            "retained",
+            "executable",
+            "loader_before",
+            "loader_after",
+            "memory"
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "enum": [
+                  "attempt_start.json",
+                  "auxv.after.bin",
+                  "auxv.before.bin",
+                  "child.exe.link.bin",
+                  "child.maps.after.bin",
+                  "child.maps.before.bin",
+                  "child.pidfd.info.bin",
+                  "child.stat.after.bin",
+                  "child.stat.before.bin",
+                  "child.stat.setup.bin",
+                  "child.status.after.bin",
+                  "child.status.before.bin",
+                  "child.status.setup.bin",
+                  "executable.elf",
+                  "host.json",
+                  "kernel.boot_id.bin",
+                  "launcher.elf",
+                  "launcher.rx.sample0.bin",
+                  "launcher.rx.sample1.bin",
+                  "loader.after.elf",
+                  "loader.before.elf",
+                  "loader.rx.sample0.bin",
+                  "loader.rx.sample1.bin",
+                  "observer.exe.bin",
+                  "observer.stat.bin",
+                  "observer.status.bin",
+                  "regs.after.bin",
+                  "regs.before.bin",
+                  "request.json",
+                  "retained.elf",
+                  "stderr.bin",
+                  "stdout.bin"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 41943040
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "size_bytes"
+            ]
+          },
+          "minItems": 2,
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect",
+        "request_sha256",
+        "status",
+        "failure",
+        "observer_pid",
+        "child_pid",
+        "timing",
+        "wait",
+        "ownership",
+        "objects",
+        "files"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "failure": {
+                "const": null
+              },
+              "child_pid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "files": {
+                "minItems": 32
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "failure": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_exec_stop_verification_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_original_launcher_exec_stop_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "request_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "observation_record_verified": {
+          "const": true
+        },
+        "observation_complete": {
+          "type": "boolean"
+        },
+        "kernel_exec_checkpoint_observed": {
+          "type": "boolean"
+        },
+        "launcher_image_binding_verified": {
+          "type": "boolean"
+        },
+        "interpreter_image_binding_verified": {
+          "type": "boolean"
+        },
+        "selected_exec_memory_ranges_observed": {
+          "type": "boolean"
+        },
+        "selected_exec_rx_ranges_match_original": {
+          "type": "boolean"
+        },
+        "owned_exec_stop_cleanup_verified": {
+          "type": "boolean"
+        },
+        "memory_relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "enum": [
+                  "cp0.launcher.rx.0",
+                  "cp0.launcher.rx.1",
+                  "cp0.loader.rx.0",
+                  "cp0.loader.rx.1"
+                ]
+              },
+              "object": {
+                "enum": [
+                  "launcher",
+                  "loader"
+                ]
+              },
+              "segment_index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 63
+              },
+              "sample_index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "address": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9223372036854775807
+              },
+              "file_offset": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16777216
+              },
+              "matches_original": {
+                "const": true
+              }
+            },
+            "required": [
+              "id",
+              "object",
+              "segment_index",
+              "sample_index",
+              "address",
+              "file_offset",
+              "sha256",
+              "size_bytes",
+              "matches_original"
+            ]
+          },
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,119}$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect",
+        "status",
+        "request_sha256",
+        "capture_sha256",
+        "observation_record_verified",
+        "observation_complete",
+        "kernel_exec_checkpoint_observed",
+        "launcher_image_binding_verified",
+        "interpreter_image_binding_verified",
+        "selected_exec_memory_ranges_observed",
+        "selected_exec_rx_ranges_match_original",
+        "owned_exec_stop_cleanup_verified",
+        "memory_relations",
+        "failure"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "observation_complete": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "kernel_exec_checkpoint_observed": {
+                "const": false
+              },
+              "launcher_image_binding_verified": {
+                "const": false
+              },
+              "interpreter_image_binding_verified": {
+                "const": false
+              },
+              "selected_exec_memory_ranges_observed": {
+                "const": false
+              },
+              "selected_exec_rx_ranges_match_original": {
+                "const": false
+              },
+              "owned_exec_stop_cleanup_verified": {
+                "const": false
+              },
+              "memory_relations": {
+                "const": []
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "kernel_exec_checkpoint_observed": {
+                "const": true
+              },
+              "launcher_image_binding_verified": {
+                "const": true
+              },
+              "interpreter_image_binding_verified": {
+                "const": true
+              },
+              "selected_exec_memory_ranges_observed": {
+                "const": true
+              },
+              "selected_exec_rx_ranges_match_original": {
+                "const": true
+              },
+              "owned_exec_stop_cleanup_verified": {
+                "const": true
+              },
+              "memory_relations": {
+                "minItems": 4
+              },
+              "failure": {
+                "const": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "preparation_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_exec_stop_preparation_verification_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_original_launcher_exec_stop_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            }
+          },
+          "required": [
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        "original_manifest_sha256": {
+          "const": "16c541b8fd733dcef1b495b104b5377d11624b6106fbfa740e5ec6eb856cdfaa"
+        },
+        "original_input_count": {
+          "const": 111
+        },
+        "original_source_count": {
+          "const": 43
+        },
+        "original_relationships_reconstructed": {
+          "const": true
+        },
+        "distribution_signature_freshly_verified": {
+          "const": true
+        },
+        "signature_evaluation_epoch": {
+          "const": 1794787200
+        },
+        "original_reports_reproduced": {
+          "const": true
+        },
+        "kernel_exec_checkpoint_observed": {
+          "const": false
+        },
+        "original_exec_reached": {
+          "const": false
+        },
+        "native_acquisition_performed": {
+          "const": false
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect",
+        "status",
+        "request",
+        "original_manifest_sha256",
+        "original_input_count",
+        "original_source_count",
+        "original_relationships_reconstructed",
+        "distribution_signature_freshly_verified",
+        "signature_evaluation_epoch",
+        "original_reports_reproduced",
+        "kernel_exec_checkpoint_observed",
+        "original_exec_reached",
+        "native_acquisition_performed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_signer_policy_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "keys": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "key_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "not_after_epoch": {
+            "maximum": 253402300799,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "not_before_epoch": {
+            "maximum": 253402300799,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "public_key_hex": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "public_key_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "purpose": {
+            "const": "verifier_record_statement"
+          },
+          "relation_types": {
+            "items": {
+              "enum": [
+                "supports",
+                "derived_from",
+                "references",
+                "contextualizes",
+                "contradicts"
+              ]
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "results": {
+            "items": {
+              "enum": [
+                "supported",
+                "contradicted",
+                "insufficient",
+                "unresolved"
+              ]
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "state": {
+            "enum": [
+              "active",
+              "revoked"
+            ]
+          },
+          "verifier": {
+            "additionalProperties": false,
+            "properties": {
+              "implementation_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "method_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "method_version": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "verifier_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "verifier_id",
+              "method_id",
+              "method_version",
+              "implementation_sha256"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "key_id",
+          "public_key_hex",
+          "public_key_sha256",
+          "state",
+          "purpose",
+          "not_before_epoch",
+          "not_after_epoch",
+          "verifier",
+          "relation_types",
+          "results"
+        ],
+        "type": "object"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "policy_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "profile": {
+      "const": "pinned-ed25519-record-signers-v1"
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_signer_policy_v0_1"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "type": "object"
+    },
+    "trust_domain": {
+      "enum": [
+        "TEST",
+        "OPERATOR"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "profile",
+    "policy_id",
+    "trust_domain",
+    "subject",
+    "keys"
+  ],
+  "title": "anchor_integrity_signer_policy_v0_1",
+  "type": "object"
+}

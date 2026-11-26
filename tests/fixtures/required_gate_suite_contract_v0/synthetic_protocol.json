@@ -1,0 +1,70 @@
+{
+  "cases": [
+    {
+      "baseline_case_id": null,
+      "case_id": "baseline",
+      "input_id": "baseline-input",
+      "variant_id": null
+    },
+    {
+      "baseline_case_id": "baseline",
+      "case_id": "variant",
+      "input_id": "variant-input",
+      "variant_id": "perturbation-1"
+    }
+  ],
+  "decisions": {
+    "comparison": "Declared baseline/variant pairing only; no substantive relation is evaluated.",
+    "observation_mapping": "Synthetic references into example packets using existing schemas, with no runtime execution claim.",
+    "operator_semantics": "Synthetic declared operator text only; no implementation or metric is executed.",
+    "privacy_retention": "Public synthetic inputs only, separate from metadata; no raw private content.",
+    "subject_selection": "Explicitly synthetic structural fixture; no real subject selected."
+  },
+  "expected_occurrences": [
+    {
+      "case_id": "baseline",
+      "occurrence_id": "baseline-observation"
+    },
+    {
+      "case_id": "variant",
+      "occurrence_id": "variant-observation"
+    }
+  ],
+  "obligations": [
+    {
+      "case_ids": [
+        "baseline",
+        "variant"
+      ],
+      "gate_id": "effect_present",
+      "obligation_id": "effect-declaration",
+      "occurrence_ids": [
+        "baseline-observation",
+        "variant-observation"
+      ]
+    },
+    {
+      "case_ids": [
+        "baseline",
+        "variant"
+      ],
+      "gate_id": "psf_idempotence_ok",
+      "obligation_id": "psf-declaration",
+      "occurrence_ids": [
+        "baseline-observation",
+        "variant-observation"
+      ]
+    }
+  ],
+  "origin": "synthetic_fixture",
+  "record_type": "required_gate_suite_protocol_v0",
+  "selected_gate_ids": [
+    "effect_present",
+    "psf_idempotence_ok"
+  ],
+  "source": {
+    "commit": "1111111111111111111111111111111111111111",
+    "repository": "synthetic/required-gate-suite"
+  },
+  "suite_id": "synthetic-b1"
+}

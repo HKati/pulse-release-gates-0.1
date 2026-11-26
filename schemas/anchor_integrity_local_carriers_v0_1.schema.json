@@ -1,0 +1,93 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_local_carriers_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "input_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "anchor_integrity_local_carriers_v0_1"
+    },
+    "source_response": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+              "type": "string"
+            },
+            "source_response_id": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_response_id",
+            "path"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sources": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_identifier": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 512,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+            "type": "string"
+          },
+          "revision": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "canonical_identifier",
+          "revision",
+          "path"
+        ],
+        "type": "object"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "input_sha256",
+    "source_response",
+    "sources"
+  ],
+  "type": "object"
+}

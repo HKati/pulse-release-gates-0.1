@@ -174,7 +174,7 @@ def test_completeness_report_is_uploaded_after_preflight_with_always() -> None:
     )
     upload_block = upload_block[:deep_verify_index]
 
-    assert "uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in upload_block
+    assert "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in upload_block
     assert "if: ${{ always() }}" in upload_block
     assert COMPLETENESS_ARTIFACT in upload_block
     assert f"path: {COMPLETENESS_REPORT_PATH}" in upload_block

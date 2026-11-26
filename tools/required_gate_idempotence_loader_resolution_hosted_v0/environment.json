@@ -1,0 +1,610 @@
+{
+  "authority_effect": "none",
+  "base_image": {
+    "config_sha256": "274d131132dbdc6058ed77088525d77adaf0749a6d99f2cf7d42feb9a10737c8",
+    "config_size_bytes": 5485,
+    "layers": [
+      {
+        "sha256": "6b37362b3da78869050b894b799ad4df04f1f3b52774087db0d81151570244c8",
+        "size_bytes": 29830418
+      },
+      {
+        "sha256": "41e7217c2e506d048f89ca0c5cfef848c05ef990900627c19f99938c4aae57f8",
+        "size_bytes": 1294119
+      },
+      {
+        "sha256": "58abdd9670ca8c69d03432ce188995dee67f0979357caf83866fe1ef2ec37138",
+        "size_bytes": 14450867
+      },
+      {
+        "sha256": "0526d5e29bf341cb1941d46a6d4ab64fcde4fca3dc3adccfb4dbf5728b88b61e",
+        "size_bytes": 249
+      }
+    ],
+    "manifest_sha256": "174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761",
+    "manifest_size_bytes": 1746,
+    "reference": "docker.io/library/python@sha256:174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761",
+    "source_metadata_url": "https://github.com/docker-library/repo-info/blob/6f3a6a22ff9af6b10d9c3a8aeaaf1a2fb4c5873c/repos/python/remote/3.11.16-slim-trixie.md"
+  },
+  "crypto_backend": {
+    "base_image_installed": true,
+    "base_packages": {
+      "libc6": "2.41-12+deb13u4",
+      "libssl3t64": "3.5.7-1~deb13u2",
+      "libzstd1": "1.5.7+dfsg-1",
+      "openssl": "3.5.7-1~deb13u2",
+      "openssl-provider-legacy": "3.5.7-1~deb13u2",
+      "zlib1g": "1:1.3.dfsg+really1.3.1-1+b1"
+    },
+    "known_answer_vector": "RFC8032-section7.1-test2",
+    "openssl_configuration": "/dev/null",
+    "path": "/usr/bin/openssl",
+    "positive_and_negative_known_answer_self_tests_required": true,
+    "required_version_prefix": "OpenSSL 3.",
+    "runtime_files": [
+      {
+        "path": "/lib64/ld-linux-x86-64.so.2",
+        "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+        "size_bytes": 225672
+      },
+      {
+        "path": "/usr/bin/openssl",
+        "sha256": "f4aa15f2822f670af7b5c1043d7aa6ebbbc64229fd2fae382edfc6a4524749c1",
+        "size_bytes": 1103304
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+        "sha256": "8bb5f3fdffe280d4453eb79a4663c2c47af70b7c247fe2e94e2da703cee1fd3d",
+        "size_bytes": 6517312
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libssl.so.3",
+        "sha256": "4b34859318555bf96d518131bed5fc4d5e35fefa4e1729f49eaa26bd05263850",
+        "size_bytes": 1101760
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libz.so.1",
+        "sha256": "85590dd58edf5445e18bc7193e5ebc01ac5841f1ae187e97705a662e90c6421e",
+        "size_bytes": 125376
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libzstd.so.1",
+        "sha256": "27f07c9a49c2c956bcfb64cd4712976586a66facbf15fc7f09bc37413b5f2b21",
+        "size_bytes": 825336
+      }
+    ],
+    "suite": "ed25519"
+  },
+  "debian": {
+    "closure": [
+      {
+        "architecture": "amd64",
+        "base_version": "14.2.0-19",
+        "filename": "gcc-14-base_14.2.0-19_amd64.deb",
+        "index_filename": "pool/main/g/gcc-14/gcc-14-base_14.2.0-19_amd64.deb",
+        "installation_required": false,
+        "name": "gcc-14-base",
+        "sha256": "5b6825de4263824b78c4c51f6476414f3b4e89c2ab63e81dc8b9b5501e867cf6",
+        "size_bytes": 49432,
+        "url": "https://deb.debian.org/debian/pool/main/g/gcc-14/gcc-14-base_14.2.0-19_amd64.deb",
+        "version": "14.2.0-19"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": null,
+        "filename": "gpg_2.4.7-21+deb13u1+b5_amd64.deb",
+        "index_filename": "pool/main/g/gnupg2/gpg_2.4.7-21+deb13u1+b5_amd64.deb",
+        "installation_required": true,
+        "name": "gpg",
+        "sha256": "3aeedf3d223e5e6aff08f03227af6ce308f4317472609f383350fd2ec20d33ae",
+        "size_bytes": 636212,
+        "url": "https://deb.debian.org/debian/pool/main/g/gnupg2/gpg_2.4.7-21+deb13u1+b5_amd64.deb",
+        "version": "2.4.7-21+deb13u1+b5"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": null,
+        "filename": "gpgconf_2.4.7-21+deb13u1+b5_amd64.deb",
+        "index_filename": "pool/main/g/gnupg2/gpgconf_2.4.7-21+deb13u1+b5_amd64.deb",
+        "installation_required": true,
+        "name": "gpgconf",
+        "sha256": "14668f3f4847d2544bdff03c2ca8dbdd2fe0ad1bc7ded00941db291954c60f1b",
+        "size_bytes": 128880,
+        "url": "https://deb.debian.org/debian/pool/main/g/gnupg2/gpgconf_2.4.7-21+deb13u1+b5_amd64.deb",
+        "version": "2.4.7-21+deb13u1+b5"
+      },
+      {
+        "architecture": "all",
+        "base_version": "1.69~deb13u1",
+        "filename": "init-system-helpers_1.69~deb13u1_all.deb",
+        "index_filename": "pool/main/i/init-system-helpers/init-system-helpers_1.69~deb13u1_all.deb",
+        "installation_required": false,
+        "name": "init-system-helpers",
+        "sha256": "addf78073e1cbc5a5508937e11d2571055e29835e00ee8fab52a66775649378f",
+        "size_bytes": 39360,
+        "url": "https://deb.debian.org/debian/pool/main/i/init-system-helpers/init-system-helpers_1.69~deb13u1_all.deb",
+        "version": "1.69~deb13u1"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": null,
+        "filename": "libassuan9_3.0.2-2_amd64.deb",
+        "index_filename": "pool/main/liba/libassuan/libassuan9_3.0.2-2_amd64.deb",
+        "installation_required": true,
+        "name": "libassuan9",
+        "sha256": "9d78ef8f016e7f24b5e20d1ce91939fe0f1f897e5f9059793201e930ded7eb8e",
+        "size_bytes": 61520,
+        "url": "https://deb.debian.org/debian/pool/main/liba/libassuan/libassuan9_3.0.2-2_amd64.deb",
+        "version": "3.0.2-2"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "1.0.8-6",
+        "filename": "libbz2-1.0_1.0.8-6_amd64.deb",
+        "index_filename": "pool/main/b/bzip2/libbz2-1.0_1.0.8-6_amd64.deb",
+        "installation_required": false,
+        "name": "libbz2-1.0",
+        "sha256": "cba4cda04244b5e481bb15524bc3c983a7d1b6f330013b9b381706a2fcb65310",
+        "size_bytes": 37912,
+        "url": "https://deb.debian.org/debian/pool/main/b/bzip2/libbz2-1.0_1.0.8-6_amd64.deb",
+        "version": "1.0.8-6"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "2.41-12+deb13u4",
+        "filename": "libc-bin_2.41-12+deb13u4_amd64.deb",
+        "index_filename": "pool/main/g/glibc/libc-bin_2.41-12+deb13u4_amd64.deb",
+        "installation_required": false,
+        "name": "libc-bin",
+        "sha256": "dc8c79647fe3a5f37f72a400414f70263d0212f010ff2c09f990e30d91e38d1c",
+        "size_bytes": 638452,
+        "url": "https://deb.debian.org/debian/pool/main/g/glibc/libc-bin_2.41-12+deb13u4_amd64.deb",
+        "version": "2.41-12+deb13u4"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "2.41-12+deb13u4",
+        "filename": "libc6_2.41-12+deb13u4_amd64.deb",
+        "index_filename": "pool/main/g/glibc/libc6_2.41-12+deb13u4_amd64.deb",
+        "installation_required": false,
+        "name": "libc6",
+        "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+        "size_bytes": 2846580,
+        "url": "https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.41-12+deb13u4_amd64.deb",
+        "version": "2.41-12+deb13u4"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "14.2.0-19",
+        "filename": "libgcc-s1_14.2.0-19_amd64.deb",
+        "index_filename": "pool/main/g/gcc-14/libgcc-s1_14.2.0-19_amd64.deb",
+        "installation_required": false,
+        "name": "libgcc-s1",
+        "sha256": "3c71917b490d1a17aed43196a2787a256ecf060526cdb20216a74bedc061b150",
+        "size_bytes": 72772,
+        "url": "https://deb.debian.org/debian/pool/main/g/gcc-14/libgcc-s1_14.2.0-19_amd64.deb",
+        "version": "14.2.0-19"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": null,
+        "filename": "libgcrypt20_1.11.0-7+deb13u1_amd64.deb",
+        "index_filename": "pool/main/libg/libgcrypt20/libgcrypt20_1.11.0-7+deb13u1_amd64.deb",
+        "installation_required": true,
+        "name": "libgcrypt20",
+        "sha256": "f0eb41f8cb40896e0822e9ab65611e8383c12b721c76c54764f744abb4a8c247",
+        "size_bytes": 843104,
+        "url": "https://deb.debian.org/debian/pool/main/libg/libgcrypt20/libgcrypt20_1.11.0-7+deb13u1_amd64.deb",
+        "version": "1.11.0-7+deb13u1"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": null,
+        "filename": "libgpg-error0_1.51-4_amd64.deb",
+        "index_filename": "pool/main/libg/libgpg-error/libgpg-error0_1.51-4_amd64.deb",
+        "installation_required": true,
+        "name": "libgpg-error0",
+        "sha256": "22b95570fd41c113ef6f5651563b4d748292844baab1278a46eb940c1dec2322",
+        "size_bytes": 82108,
+        "url": "https://deb.debian.org/debian/pool/main/libg/libgpg-error/libgpg-error0_1.51-4_amd64.deb",
+        "version": "1.51-4"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": null,
+        "filename": "libksba8_1.6.7-2+b1_amd64.deb",
+        "index_filename": "pool/main/libk/libksba/libksba8_1.6.7-2+b1_amd64.deb",
+        "installation_required": true,
+        "name": "libksba8",
+        "sha256": "45bc1bfaf41a5e1136b1c1f58c495a950888da33a617de24202f3568e45b9572",
+        "size_bytes": 136048,
+        "url": "https://deb.debian.org/debian/pool/main/libk/libksba/libksba8_1.6.7-2+b1_amd64.deb",
+        "version": "1.6.7-2+b1"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": null,
+        "filename": "libnpth0t64_1.8-3_amd64.deb",
+        "index_filename": "pool/main/n/npth/libnpth0t64_1.8-3_amd64.deb",
+        "installation_required": true,
+        "name": "libnpth0t64",
+        "sha256": "37d489976ef91ca0165a7789a7a7ac5923ee3cfadf316ac3e87582e15d0523d7",
+        "size_bytes": 23248,
+        "url": "https://deb.debian.org/debian/pool/main/n/npth/libnpth0t64_1.8-3_amd64.deb",
+        "version": "1.8-3"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "8.2-6",
+        "filename": "libreadline8t64_8.2-6_amd64.deb",
+        "index_filename": "pool/main/r/readline/libreadline8t64_8.2-6_amd64.deb",
+        "installation_required": false,
+        "name": "libreadline8t64",
+        "sha256": "eeadf2b5e755c9f183883feea2d9b5b28560284275d5f54d3e55d0923b1d0967",
+        "size_bytes": 168832,
+        "url": "https://deb.debian.org/debian/pool/main/r/readline/libreadline8t64_8.2-6_amd64.deb",
+        "version": "8.2-6"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "3.46.1-7+deb13u2",
+        "filename": "libsqlite3-0_3.46.1-7+deb13u2_amd64.deb",
+        "index_filename": "pool/main/s/sqlite3/libsqlite3-0_3.46.1-7+deb13u2_amd64.deb",
+        "installation_required": false,
+        "name": "libsqlite3-0",
+        "sha256": "0a459adaffd901109f7811ab65f58e7a957b4907d05539cf3d1184efdcde0468",
+        "size_bytes": 914584,
+        "url": "https://deb.debian.org/debian/pool/main/s/sqlite3/libsqlite3-0_3.46.1-7+deb13u2_amd64.deb",
+        "version": "3.46.1-7+deb13u2"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "6.5+20250216-2",
+        "filename": "libtinfo6_6.5+20250216-2_amd64.deb",
+        "index_filename": "pool/main/n/ncurses/libtinfo6_6.5+20250216-2_amd64.deb",
+        "installation_required": false,
+        "name": "libtinfo6",
+        "sha256": "8b9f6a7983e9418564e48a627518de4c03917b56efe68d7f3e93bd8fffa1cc10",
+        "size_bytes": 348380,
+        "url": "https://deb.debian.org/debian/pool/main/n/ncurses/libtinfo6_6.5+20250216-2_amd64.deb",
+        "version": "6.5+20250216-2"
+      },
+      {
+        "architecture": "all",
+        "base_version": "8.2-6",
+        "filename": "readline-common_8.2-6_all.deb",
+        "index_filename": "pool/main/r/readline/readline-common_8.2-6_all.deb",
+        "installation_required": false,
+        "name": "readline-common",
+        "sha256": "f77e8aa0bf0de618f11cb0b21658a4ed60f177d63b3cf26d7fc3706b6d0eaaa9",
+        "size_bytes": 69360,
+        "url": "https://deb.debian.org/debian/pool/main/r/readline/readline-common_8.2-6_all.deb",
+        "version": "8.2-6"
+      },
+      {
+        "architecture": "amd64",
+        "base_version": "1:1.3.dfsg+really1.3.1-1+b1",
+        "filename": "zlib1g_1.3.dfsg+really1.3.1-1+b1_amd64.deb",
+        "index_filename": "pool/main/z/zlib/zlib1g_1.3.dfsg+really1.3.1-1+b1_amd64.deb",
+        "installation_required": false,
+        "name": "zlib1g",
+        "sha256": "015be740d6236ad114582dea500c1d907f29e16d6db00566ca32fb68d71ac90d",
+        "size_bytes": 88892,
+        "url": "https://deb.debian.org/debian/pool/main/z/zlib/zlib1g_1.3.dfsg+really1.3.1-1+b1_amd64.deb",
+        "version": "1:1.3.dfsg+really1.3.1-1+b1"
+      }
+    ],
+    "index_binding": {
+      "path": "distribution-origin/Packages",
+      "sha256": "4f2c68d67001d595fbd343f6dbad44468953a51c4d9dec3a4803249f6e295940",
+      "size_bytes": 56620099
+    },
+    "libc_installation_performed": false,
+    "loader_already_present_in_base": true,
+    "packages": [
+      {
+        "architecture": "amd64",
+        "filename": "gpg_2.4.7-21+deb13u1+b5_amd64.deb",
+        "index_filename": "pool/main/g/gnupg2/gpg_2.4.7-21+deb13u1+b5_amd64.deb",
+        "name": "gpg",
+        "sha256": "3aeedf3d223e5e6aff08f03227af6ce308f4317472609f383350fd2ec20d33ae",
+        "size_bytes": 636212,
+        "url": "https://deb.debian.org/debian/pool/main/g/gnupg2/gpg_2.4.7-21+deb13u1+b5_amd64.deb",
+        "version": "2.4.7-21+deb13u1+b5"
+      },
+      {
+        "architecture": "amd64",
+        "filename": "gpgconf_2.4.7-21+deb13u1+b5_amd64.deb",
+        "index_filename": "pool/main/g/gnupg2/gpgconf_2.4.7-21+deb13u1+b5_amd64.deb",
+        "name": "gpgconf",
+        "sha256": "14668f3f4847d2544bdff03c2ca8dbdd2fe0ad1bc7ded00941db291954c60f1b",
+        "size_bytes": 128880,
+        "url": "https://deb.debian.org/debian/pool/main/g/gnupg2/gpgconf_2.4.7-21+deb13u1+b5_amd64.deb",
+        "version": "2.4.7-21+deb13u1+b5"
+      },
+      {
+        "architecture": "amd64",
+        "filename": "libassuan9_3.0.2-2_amd64.deb",
+        "index_filename": "pool/main/liba/libassuan/libassuan9_3.0.2-2_amd64.deb",
+        "name": "libassuan9",
+        "sha256": "9d78ef8f016e7f24b5e20d1ce91939fe0f1f897e5f9059793201e930ded7eb8e",
+        "size_bytes": 61520,
+        "url": "https://deb.debian.org/debian/pool/main/liba/libassuan/libassuan9_3.0.2-2_amd64.deb",
+        "version": "3.0.2-2"
+      },
+      {
+        "architecture": "amd64",
+        "filename": "libgcrypt20_1.11.0-7+deb13u1_amd64.deb",
+        "index_filename": "pool/main/libg/libgcrypt20/libgcrypt20_1.11.0-7+deb13u1_amd64.deb",
+        "name": "libgcrypt20",
+        "sha256": "f0eb41f8cb40896e0822e9ab65611e8383c12b721c76c54764f744abb4a8c247",
+        "size_bytes": 843104,
+        "url": "https://deb.debian.org/debian/pool/main/libg/libgcrypt20/libgcrypt20_1.11.0-7+deb13u1_amd64.deb",
+        "version": "1.11.0-7+deb13u1"
+      },
+      {
+        "architecture": "amd64",
+        "filename": "libgpg-error0_1.51-4_amd64.deb",
+        "index_filename": "pool/main/libg/libgpg-error/libgpg-error0_1.51-4_amd64.deb",
+        "name": "libgpg-error0",
+        "sha256": "22b95570fd41c113ef6f5651563b4d748292844baab1278a46eb940c1dec2322",
+        "size_bytes": 82108,
+        "url": "https://deb.debian.org/debian/pool/main/libg/libgpg-error/libgpg-error0_1.51-4_amd64.deb",
+        "version": "1.51-4"
+      },
+      {
+        "architecture": "amd64",
+        "filename": "libksba8_1.6.7-2+b1_amd64.deb",
+        "index_filename": "pool/main/libk/libksba/libksba8_1.6.7-2+b1_amd64.deb",
+        "name": "libksba8",
+        "sha256": "45bc1bfaf41a5e1136b1c1f58c495a950888da33a617de24202f3568e45b9572",
+        "size_bytes": 136048,
+        "url": "https://deb.debian.org/debian/pool/main/libk/libksba/libksba8_1.6.7-2+b1_amd64.deb",
+        "version": "1.6.7-2+b1"
+      },
+      {
+        "architecture": "amd64",
+        "filename": "libnpth0t64_1.8-3_amd64.deb",
+        "index_filename": "pool/main/n/npth/libnpth0t64_1.8-3_amd64.deb",
+        "name": "libnpth0t64",
+        "sha256": "37d489976ef91ca0165a7789a7a7ac5923ee3cfadf316ac3e87582e15d0523d7",
+        "size_bytes": 23248,
+        "url": "https://deb.debian.org/debian/pool/main/n/npth/libnpth0t64_1.8-3_amd64.deb",
+        "version": "1.8-3"
+      }
+    ]
+  },
+  "expected_files": [
+    {
+      "path": "/lib64/ld-linux-x86-64.so.2",
+      "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "size_bytes": 225672
+    },
+    {
+      "path": "/usr/bin/gpg",
+      "sha256": "7c9d2f9416aabcd10199e2984439f49612644a948279ac56bdf70d69c8958ddf",
+      "size_bytes": 1230080
+    },
+    {
+      "path": "/usr/bin/openssl",
+      "sha256": "f4aa15f2822f670af7b5c1043d7aa6ebbbc64229fd2fae382edfc6a4524749c1",
+      "size_bytes": 1103304
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+      "size_bytes": 1995216
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libcap.so.2",
+      "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+      "size_bytes": 47288
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+      "sha256": "8bb5f3fdffe280d4453eb79a4663c2c47af70b7c247fe2e94e2da703cee1fd3d",
+      "size_bytes": 6517312
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+      "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+      "size_bytes": 711216
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+      "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+      "size_bytes": 202984
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libssl.so.3",
+      "sha256": "4b34859318555bf96d518131bed5fc4d5e35fefa4e1729f49eaa26bd05263850",
+      "size_bytes": 1101760
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libz.so.1",
+      "sha256": "85590dd58edf5445e18bc7193e5ebc01ac5841f1ae187e97705a662e90c6421e",
+      "size_bytes": 125376
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libzstd.so.1",
+      "sha256": "27f07c9a49c2c956bcfb64cd4712976586a66facbf15fc7f09bc37413b5f2b21",
+      "size_bytes": 825336
+    },
+    {
+      "path": "/usr/local/bin/python3.11",
+      "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79",
+      "size_bytes": 14472
+    }
+  ],
+  "host_environment_qualified": false,
+  "native_acquisition_performed": false,
+  "native_object_restorations": [
+    {
+      "after": {
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216
+      },
+      "before": {
+        "sha256": "8dde125b341abfdf4a596d2974cd3048e350cbc8d2d77acd54ea044f7815ca77",
+        "size_bytes": 711216
+      },
+      "host_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+      "input": "native/libpcre2-8.so.0",
+      "mode": 420,
+      "resolved_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0",
+      "symlink_target": "libpcre2-8.so.0.14.0"
+    }
+  ],
+  "original_native_objects": [
+    {
+      "host_path": null,
+      "input": "native/bwrap",
+      "installation": "retained_data_only",
+      "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+      "size_bytes": 80248
+    },
+    {
+      "host_path": "/lib64/ld-linux-x86-64.so.2",
+      "input": "native/ld-linux-x86-64.so.2",
+      "installation": "require_existing_exact",
+      "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "size_bytes": 225672
+    },
+    {
+      "host_path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "input": "native/libc.so.6",
+      "installation": "require_existing_exact",
+      "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+      "size_bytes": 1995216
+    },
+    {
+      "host_path": "/usr/lib/x86_64-linux-gnu/libcap.so.2",
+      "input": "native/libcap.so.2",
+      "installation": "install_if_absent_or_require_existing_exact",
+      "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+      "size_bytes": 47288
+    },
+    {
+      "host_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+      "input": "native/libpcre2-8.so.0",
+      "installation": "install_if_absent_or_require_existing_exact",
+      "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+      "size_bytes": 711216
+    },
+    {
+      "host_path": "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+      "input": "native/libselinux.so.1",
+      "installation": "install_if_absent_or_require_existing_exact",
+      "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+      "size_bytes": 202984
+    }
+  ],
+  "platform": "linux/amd64",
+  "profile": "linux_x86_64_loader_resolution_hosted_v0",
+  "python": {
+    "executable": "/usr/local/bin/python3.11",
+    "observer_binding": {
+      "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79",
+      "size_bytes": 14472
+    },
+    "packages": [
+      {
+        "filename": "pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "name": "PyYAML",
+        "scope": "original_selected_python_dependency",
+        "sha256": "b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d",
+        "size_bytes": 806638,
+        "url": "https://files.pythonhosted.org/packages/71/60/917329f640924b18ff085ab889a11c763e0b573da888e8404ff486657602/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+        "version": "6.0.3"
+      },
+      {
+        "filename": "attrs-26.1.0-py3-none-any.whl",
+        "name": "attrs",
+        "scope": "original_selected_python_dependency",
+        "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+        "size_bytes": 67548,
+        "url": "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl",
+        "version": "26.1.0"
+      },
+      {
+        "filename": "jsonschema-4.26.0-py3-none-any.whl",
+        "name": "jsonschema",
+        "scope": "original_selected_python_dependency",
+        "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce",
+        "size_bytes": 90630,
+        "url": "https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl",
+        "version": "4.26.0"
+      },
+      {
+        "filename": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "name": "jsonschema-specifications",
+        "scope": "original_selected_python_dependency",
+        "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe",
+        "size_bytes": 18437,
+        "url": "https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl",
+        "version": "2025.9.1"
+      },
+      {
+        "filename": "referencing-0.37.0-py3-none-any.whl",
+        "name": "referencing",
+        "scope": "original_selected_python_dependency",
+        "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231",
+        "size_bytes": 26766,
+        "url": "https://files.pythonhosted.org/packages/2c/58/ca301544e1fa93ed4f80d724bf5b194f6e4b945841c5bfd555878eea9fcb/referencing-0.37.0-py3-none-any.whl",
+        "version": "0.37.0"
+      },
+      {
+        "filename": "rpds_py-2026.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "name": "rpds-py",
+        "scope": "original_selected_python_dependency",
+        "sha256": "136a1c3fe4402b7008bc81cb62ee538481795b61a7e83df88dff3b3f02b726ff",
+        "size_bytes": 375426,
+        "url": "https://files.pythonhosted.org/packages/2d/5c/aac3b960fd55d37b49f77c0eebbe043eaf36762ebd48e7b46951e59c1c05/rpds_py-2026.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "version": "2026.9.1"
+      },
+      {
+        "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+        "name": "typing_extensions",
+        "scope": "additional_python_311_dependency",
+        "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+        "size_bytes": 45571,
+        "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+        "version": "4.16.0"
+      }
+    ],
+    "version": "3.11.16"
+  },
+  "record_type": "required_gate_idempotence_loader_resolution_hosted_environment_v0",
+  "requirements": {
+    "sha256": "c9afe387d6e9a13dbf8dda4960863cf2bf60c1d92367520adcc1a1ba1dc0b562",
+    "size_bytes": 700
+  },
+  "runtime": {
+    "cap_drop": [
+      "ALL"
+    ],
+    "cpus": "1",
+    "default_apparmor": true,
+    "default_seccomp": true,
+    "memory": "1g",
+    "network": "none",
+    "no_new_privileges": true,
+    "pids_limit": 64,
+    "read_only": true,
+    "tmpfs_tmp": "rw,nosuid,nodev,size=64m",
+    "user": "invoking_runner_uid_gid"
+  },
+  "runtime_environment": [
+    "PYTHONDONTWRITEBYTECODE=1",
+    "PYTHONNOUSERSITE=1",
+    "PIP_NO_INDEX=1",
+    "PIP_DISABLE_PIP_VERSION_CHECK=1",
+    "LC_ALL=C",
+    "TZ=UTC"
+  ]
+}

@@ -52,7 +52,7 @@ def test_exact_pinned_actions_and_one_setup_step():
     assert [s['uses'] for s in steps if 'uses' in s] == [
         'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
         'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0',
-        'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a']
+        'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9']
     assert steps[1]['with'] == {'ref':'${{ github.sha }}','persist-credentials':'false'}
     assert steps[2]['with'] == {'python-version':'3.11.16'}
     assert steps[-1]['if'] == 'always()' and steps[-1]['with']['overwrite'] == 'false'
@@ -104,7 +104,7 @@ def test_no_model_loader_generation_or_legacy_relocated_capture_entry():
 def test_two_tools_tests_exactly_once_and_all_count_consumers():
     entries = [line.strip() for line in (ROOT / 'ci/tools-tests.list').read_text().splitlines()
                if line.strip() and not line.startswith('#')]
-    assert len(entries) == len(set(entries)) == 167
+    assert len(entries) == len(set(entries)) == 190
     for name in ('tests/test_q2_release_host_tokenizer_v0.py','tests/test_q2_release_host_tokenizer_workflow_v0.py'):
         assert entries.count(name) == 1
         assert name not in (ROOT / 'ci/pytest-tests.list').read_text()
@@ -112,7 +112,7 @@ def test_two_tools_tests_exactly_once_and_all_count_consumers():
     for name in ('test_q2_reference_acquisition_v0.py','test_q2_hosted_intake_workflow_v0.py',
                  'test_pulsemech_compute_bounded_execution_v0.py','test_pulsemech_compute_current_run_export_candidate_workflow_v0.py',
                  'test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py'):
-        assert len(re.findall(r'==\s*167\b',(ROOT / 'tests' / name).read_text())) == 1
+        assert len(re.findall(r'==\s*190\b',(ROOT / 'tests' / name).read_text())) == 1
 
 
 @pytest.fixture(scope='module')

@@ -1,0 +1,95 @@
+{
+  "authority_effect": "none",
+  "authority_surfaces_not_modified": [
+    "pulse_gate_policy_v0.yml",
+    "PULSE_safe_pack_v0/tools/check_gates.py",
+    "PULSE_safe_pack_v0/artifacts/status.json",
+    ".github/workflows/pulse_ci.yml",
+    ".github/workflows/pulse_core_ci.yml"
+  ],
+  "candidate_status": "diagnostic_only",
+  "inventory_status": "recorded_source_baseline",
+  "observed_semantic_gaps": [
+    {
+      "gap_id": "legacy_proxy_not_claim_coverage",
+      "observation": "anchor_coverage is computed as the fraction of true values among heterogeneous gate signals; it is not a materialized claim-level evidence coverage measurement.",
+      "source_path": "scripts/anchor_integrity_adapter_v0.py"
+    },
+    {
+      "gap_id": "cycle_check_not_implemented",
+      "observation": "Paradox source presence is mapped to loop_risk=low while the source states that loop computation is not implemented.",
+      "source_path": "scripts/anchor_integrity_adapter_v0.py"
+    },
+    {
+      "gap_id": "claim_evidence_relation_not_materialized",
+      "observation": "The v0 schema has no claim packet, evidence binding, source identity, locator verification, subject binding, or relation-verification result.",
+      "source_path": "schemas/anchor_integrity_v0.schema.json"
+    }
+  ],
+  "prechange_test_manifests": [
+    {
+      "git_blob_sha1": "7e055bc8b172a74b665a3614b8574cf0f786c3e0",
+      "path": "ci/pytest-tests.list"
+    },
+    {
+      "git_blob_sha1": "363243d111c78e01eb9d71d29c5a46b34242af4f",
+      "path": "ci/tools-tests.list"
+    }
+  ],
+  "recorded_date": "2026-10-27",
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_v0_1_baseline_inventory",
+  "source_branch": "main",
+  "source_commit": "34431ec8ebe305a83273ffd39b78f083219f03e6",
+  "source_repository": "HKati/pulse-release-gates-0.1",
+  "source_tree": "937ec96441a5f9c3209b43c70c04d389e1a5b679",
+  "v0_source_files": [
+    {
+      "git_blob_sha1": "31188dfe1a33012d8869f035612d4d3e98515e0a",
+      "path": "docs/ANCHOR_INTEGRITY_v0.md",
+      "role": "v0 diagnostic contract"
+    },
+    {
+      "git_blob_sha1": "a67472be9fa0415d33374204125ea4785d5bb4c6",
+      "path": "schemas/anchor_integrity_v0.schema.json",
+      "role": "v0 output schema"
+    },
+    {
+      "git_blob_sha1": "3f4afe26be361fddda153f72dd20803183a85a8e",
+      "path": "scripts/anchor_integrity_adapter_v0.py",
+      "role": "v0 diagnostic adapter"
+    },
+    {
+      "git_blob_sha1": "023e3a6e817cc1c1967cf7926763fe9837b6f26e",
+      "path": "scripts/check_anchor_integrity_v0_contract.py",
+      "role": "v0 contract checker"
+    },
+    {
+      "git_blob_sha1": "73ec5aeabeb05d6018be62fa79954e1c73dfe0a9",
+      "path": "scripts/render_anchor_integrity_overlay_v0_md.py",
+      "role": "v0 reader-surface renderer"
+    }
+  ],
+  "work_package_1_scope": {
+    "excluded": [
+      "runtime adapter implementation",
+      "cycle detector implementation",
+      "response enforcement",
+      "workflow changes",
+      "status.json changes",
+      "gate-policy changes",
+      "release-authority integration",
+      "hallucination-reduction percentage claim"
+    ],
+    "included": [
+      "baseline inventory",
+      "v0.1 diagnostic contract",
+      "five JSON schemas",
+      "five positive examples",
+      "negative schema contract tests",
+      "registration in ci/pytest-tests.list",
+      "registration in ci/tools-tests.list",
+      "documentation index link"
+    ]
+  }
+}

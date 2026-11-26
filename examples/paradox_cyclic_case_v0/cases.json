@@ -1,0 +1,505 @@
+{
+  "format": "PULSEMECH-PARADOX-CYCLIC-CASES-v0",
+  "status": "research_case_inputs_not_execution",
+  "source_baseline": "1fbc52660cb1085b6cd419ff733000e7afe163f7",
+  "authority_effect": "none",
+  "production_gate_eligible": false,
+  "question_ids": [
+    "direct_route_removed",
+    "new_failure_route_feasible",
+    "failure_then_mode_return",
+    "complete_state_return",
+    "counter_projection_sound",
+    "repeatable_structural_return"
+  ],
+  "cases": [
+    {
+      "case_id": "K00",
+      "domain": {
+        "subject_ids": [
+          "subject-X"
+        ],
+        "modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "counter_domain": "nonnegative_integers"
+      },
+      "failure_condition": {
+        "mode_equals": "F"
+      },
+      "predicate_declarations": [],
+      "before": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r0",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "F",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "after": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r2",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "B",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r3",
+            "subject_id": "subject-X",
+            "from_mode": "B",
+            "to_mode": "F",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "query": {
+        "selected_subject_id": "subject-X",
+        "initial_state": {
+          "subject_id": "subject-X",
+          "mode": "A",
+          "counter": 0
+        },
+        "displayed_new_failure_route_modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "return_projection": [
+          "subject_id",
+          "mode"
+        ],
+        "projection_scope": "all_declared_states_for_selected_subject"
+      }
+    },
+    {
+      "case_id": "K01",
+      "domain": {
+        "subject_ids": [
+          "subject-X"
+        ],
+        "modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "counter_domain": "nonnegative_integers"
+      },
+      "failure_condition": {
+        "mode_equals": "F"
+      },
+      "predicate_declarations": [],
+      "before": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r0",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "F",
+            "guard": {
+              "kind": "counter_below",
+              "limit": 3
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "counter_below",
+              "limit": 3
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "after": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "counter_below",
+              "limit": 3
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r2",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "B",
+            "guard": {
+              "kind": "counter_below",
+              "limit": 3
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r3",
+            "subject_id": "subject-X",
+            "from_mode": "B",
+            "to_mode": "F",
+            "guard": {
+              "kind": "counter_below",
+              "limit": 3
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "query": {
+        "selected_subject_id": "subject-X",
+        "initial_state": {
+          "subject_id": "subject-X",
+          "mode": "A",
+          "counter": 0
+        },
+        "displayed_new_failure_route_modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "return_projection": [
+          "subject_id",
+          "mode"
+        ],
+        "projection_scope": "all_declared_states_for_selected_subject"
+      }
+    },
+    {
+      "case_id": "K02",
+      "domain": {
+        "subject_ids": [
+          "subject-X"
+        ],
+        "modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "counter_domain": "nonnegative_integers"
+      },
+      "failure_condition": {
+        "mode_equals": "F"
+      },
+      "predicate_declarations": [],
+      "before": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r0",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "F",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "after": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r2",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "B",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r3",
+            "subject_id": "subject-X",
+            "from_mode": "B",
+            "to_mode": "F",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "query": {
+        "selected_subject_id": "subject-X",
+        "initial_state": {
+          "subject_id": "subject-X",
+          "mode": "A",
+          "counter": 0
+        },
+        "displayed_new_failure_route_modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "return_projection": [
+          "subject_id",
+          "mode"
+        ],
+        "projection_scope": "all_declared_states_for_selected_subject"
+      }
+    },
+    {
+      "case_id": "K03",
+      "domain": {
+        "subject_ids": [
+          "subject-X",
+          "subject-Y"
+        ],
+        "modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "counter_domain": "nonnegative_integers"
+      },
+      "failure_condition": {
+        "mode_equals": "F"
+      },
+      "predicate_declarations": [],
+      "before": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r0",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "F",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "after": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r2",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "B",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r3",
+            "subject_id": "subject-Y",
+            "from_mode": "B",
+            "to_mode": "F",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "query": {
+        "selected_subject_id": "subject-X",
+        "initial_state": {
+          "subject_id": "subject-X",
+          "mode": "A",
+          "counter": 0
+        },
+        "displayed_new_failure_route_modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "return_projection": [
+          "subject_id",
+          "mode"
+        ],
+        "projection_scope": "all_declared_states_for_selected_subject"
+      }
+    },
+    {
+      "case_id": "K04",
+      "domain": {
+        "subject_ids": [
+          "subject-X"
+        ],
+        "modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "counter_domain": "nonnegative_integers"
+      },
+      "failure_condition": {
+        "mode_equals": "F"
+      },
+      "predicate_declarations": [
+        {
+          "predicate_id": "permit",
+          "arguments": [
+            "subject_id",
+            "mode",
+            "counter"
+          ],
+          "interpretation": "fixed_total_boolean_function",
+          "facts": []
+        }
+      ],
+      "before": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r0",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "F",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "after": {
+        "complete_rule_inventory": true,
+        "rules": [
+          {
+            "rule_id": "r1",
+            "subject_id": "subject-X",
+            "from_mode": "F",
+            "to_mode": "A",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r2",
+            "subject_id": "subject-X",
+            "from_mode": "A",
+            "to_mode": "B",
+            "guard": {
+              "kind": "unconditional"
+            },
+            "counter_increment": 1
+          },
+          {
+            "rule_id": "r3",
+            "subject_id": "subject-X",
+            "from_mode": "B",
+            "to_mode": "F",
+            "guard": {
+              "kind": "predicate",
+              "predicate_id": "permit"
+            },
+            "counter_increment": 1
+          }
+        ]
+      },
+      "query": {
+        "selected_subject_id": "subject-X",
+        "initial_state": {
+          "subject_id": "subject-X",
+          "mode": "A",
+          "counter": 0
+        },
+        "displayed_new_failure_route_modes": [
+          "A",
+          "B",
+          "F"
+        ],
+        "return_projection": [
+          "subject_id",
+          "mode"
+        ],
+        "projection_scope": "all_declared_states_for_selected_subject"
+      }
+    }
+  ]
+}

@@ -1,0 +1,331 @@
+name: PULSEmech loader two-slot qualification v0
+
+# Manual, synthetic qualification only; no original launcher is selected.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_commit:
+        description: Exact reviewed main commit containing this workflow (40 lowercase hex digits).
+        required: true
+        type: string
+      acknowledgement:
+        description: Enter QUALIFY_LOADER_TWO_SLOT_ONLY for one bounded synthetic probe.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulsemech-required-gate-idempotence-loader-two-slot-qualification-v0
+  cancel-in-progress: false
+
+jobs:
+  acquire:
+    name: Preserve one synthetic two-slot qualification attempt
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.preserve.outputs.artifact-id }}
+      artifact_digest: ${{ steps.preserve.outputs.artifact-digest }}
+      receipt_sha256: ${{ steps.finalize.outputs.receipt_sha256 }}
+    env:
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+      TWO_SLOT_HOSTED_ACKNOWLEDGEMENT: ${{ inputs.acknowledgement }}
+      TWO_SLOT_HOSTED_PHASE: acquire
+    steps:
+      - name: Require the exact owner and manual qualification context
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = HKati/pulse-release-gates-0.1
+          test "$GITHUB_REPOSITORY_ID" = 1061766508
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "$TWO_SLOT_HOSTED_ACKNOWLEDGEMENT" = QUALIFY_LOADER_TWO_SLOT_ONLY
+          [[ "$EXPECTED_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_SHA"
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml@refs/heads/main
+
+      - name: Preserve a workflow prefix before checkout
+        id: prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          os.umask(0o077)
+          env = os.environ
+          root = Path(env["RUNNER_TEMP"]) / (
+              "required-gate-loader-two-slot-" + env["GITHUB_RUN_ID"] + "-" + env["GITHUB_RUN_ATTEMPT"])
+          root.mkdir(mode=0o700)
+          with open(env["GITHUB_OUTPUT"], "a", encoding="ascii") as stream:
+              stream.write("root_created=true\n")
+          context = {
+              "repository": env["GITHUB_REPOSITORY"], "repository_id": env["GITHUB_REPOSITORY_ID"],
+              "source_commit": env["GITHUB_SHA"], "workflow_sha": env["GITHUB_WORKFLOW_SHA"],
+              "workflow_ref": env["GITHUB_WORKFLOW_REF"], "run_id": int(env["GITHUB_RUN_ID"]),
+              "run_number": int(env["GITHUB_RUN_NUMBER"]), "run_attempt": 1,
+              "event_name": env["GITHUB_EVENT_NAME"], "ref": env["GITHUB_REF"],
+              "actor": env["GITHUB_ACTOR"], "triggering_actor": env["GITHUB_TRIGGERING_ACTOR"],
+              "acknowledgement": env["TWO_SLOT_HOSTED_ACKNOWLEDGEMENT"],
+          }
+          boundary = {
+              "original_native_acquisition_performed": False, "original_acquisition_ready": False,
+              "source_build_gate_satisfied": False, "b2_complete": False,
+              "consumer_resolution_observed": False, "physical_execution_authenticated": False,
+              "current_host_admission_satisfied": False, "selected_runtime_executed": False,
+              "metric_pass": None, "authority_effect": "none",
+          }
+          record = {"record_type": "required_gate_idempotence_loader_two_slot_workflow_start_v0",
+                    "phase": "acquire", "context": context, "boundary": boundary}
+          raw = (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
+          fd = os.open(root / "workflow-start.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                       | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+          try:
+              view = memoryview(raw)
+              while view:
+                  count = os.write(fd, view)
+                  if count <= 0:
+                      raise OSError("workflow_prefix_write")
+                  view = view[count:]
+              os.fsync(fd)
+          finally:
+              os.close(fd)
+          parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+          try:
+              os.fsync(parent)
+          finally:
+              os.close(parent)
+          PY
+
+      - name: Checkout the exact reviewed qualification implementation
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Execute one fixed probe in the selected restricted container
+        id: acquire
+        shell: bash
+        run: |
+          set -euo pipefail
+          qualification_root="$RUNNER_TEMP/required-gate-loader-two-slot-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 -I -B tools/required_gate_idempotence_loader_two_slot_hosted_v0.py acquire \
+            --output-directory "$qualification_root"
+
+      - name: Bind the complete or incomplete acquisition prefix
+        id: finalize
+        if: always() && steps.prefix.outputs.root_created == 'true' && steps.checkout.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          qualification_root="$RUNNER_TEMP/required-gate-loader-two-slot-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 -I -B tools/required_gate_idempotence_loader_two_slot_hosted_v0.py finalize \
+            --output-directory "$qualification_root"
+
+      - name: Preserve all available acquisition evidence including failures
+        id: preserve
+        if: always() && steps.prefix.outputs.root_created == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: required-gate-idempotence-loader-two-slot-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/required-gate-loader-two-slot-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          overwrite: false
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 90
+
+  verify:
+    name: Replay preserved qualification and attest only completed verification
+    needs: acquire
+    if: always() && github.repository == 'HKati/pulse-release-gates-0.1' && needs.acquire.outputs.artifact_id != '' && needs.acquire.outputs.artifact_digest != '' && needs.acquire.outputs.receipt_sha256 != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    env:
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+      TWO_SLOT_HOSTED_ACKNOWLEDGEMENT: ${{ inputs.acknowledgement }}
+      TWO_SLOT_HOSTED_PHASE: verify
+      TWO_SLOT_HOSTED_ARTIFACT_ID: ${{ needs.acquire.outputs.artifact_id }}
+      TWO_SLOT_HOSTED_ARTIFACT_DIGEST: sha256:${{ needs.acquire.outputs.artifact_digest }}
+      EXPECTED_RECEIPT_SHA256: ${{ needs.acquire.outputs.receipt_sha256 }}
+    steps:
+      - name: Require the owner and the exact current-run artifact handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = HKati/pulse-release-gates-0.1
+          test "$GITHUB_REPOSITORY_ID" = 1061766508
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "$TWO_SLOT_HOSTED_ACKNOWLEDGEMENT" = QUALIFY_LOADER_TWO_SLOT_ONLY
+          [[ "$EXPECTED_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$TWO_SLOT_HOSTED_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$TWO_SLOT_HOSTED_ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_RECEIPT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_SHA"
+          test "$EXPECTED_SOURCE_COMMIT" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml@refs/heads/main
+
+      - name: Preserve a verification prefix before checkout and download
+        id: prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          os.umask(0o077)
+          env = os.environ
+          root = Path(env["RUNNER_TEMP"]) / (
+              "required-gate-loader-two-slot-verification-" + env["GITHUB_RUN_ID"] + "-" + env["GITHUB_RUN_ATTEMPT"])
+          root.mkdir(mode=0o700)
+          with open(env["GITHUB_OUTPUT"], "a", encoding="ascii") as stream:
+              stream.write("root_created=true\n")
+          context = {
+              "repository": env["GITHUB_REPOSITORY"], "repository_id": env["GITHUB_REPOSITORY_ID"],
+              "source_commit": env["GITHUB_SHA"], "workflow_sha": env["GITHUB_WORKFLOW_SHA"],
+              "workflow_ref": env["GITHUB_WORKFLOW_REF"], "run_id": int(env["GITHUB_RUN_ID"]),
+              "run_number": int(env["GITHUB_RUN_NUMBER"]), "run_attempt": 1,
+              "event_name": env["GITHUB_EVENT_NAME"], "ref": env["GITHUB_REF"],
+              "actor": env["GITHUB_ACTOR"], "triggering_actor": env["GITHUB_TRIGGERING_ACTOR"],
+              "acknowledgement": env["TWO_SLOT_HOSTED_ACKNOWLEDGEMENT"],
+          }
+          boundary = {
+              "original_native_acquisition_performed": False, "original_acquisition_ready": False,
+              "source_build_gate_satisfied": False, "b2_complete": False,
+              "consumer_resolution_observed": False, "physical_execution_authenticated": False,
+              "current_host_admission_satisfied": False, "selected_runtime_executed": False,
+              "metric_pass": None, "authority_effect": "none",
+          }
+          record = {"record_type": "required_gate_idempotence_loader_two_slot_workflow_start_v0",
+                    "phase": "verify", "context": context, "boundary": boundary}
+          raw = (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
+          fd = os.open(root / "workflow-start.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                       | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+          try:
+              view = memoryview(raw)
+              while view:
+                  count = os.write(fd, view)
+                  if count <= 0:
+                      raise OSError("workflow_prefix_write")
+                  view = view[count:]
+              os.fsync(fd)
+          finally:
+              os.close(fd)
+          parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+          try:
+              os.fsync(parent)
+          finally:
+              os.close(parent)
+          PY
+
+      - name: Checkout the exact verification implementation
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download the exact acquisition artifact from this workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.acquire.outputs.artifact_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.run_id }}
+          path: ${{ runner.temp }}/required-gate-loader-two-slot-verification-${{ github.run_id }}-${{ github.run_attempt }}-input
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Verify the artifact binding and reconstruct the original attempt twice
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PROMPT_DISABLED: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          verification_root="$RUNNER_TEMP/required-gate-loader-two-slot-verification-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 -I -B tools/required_gate_idempotence_loader_two_slot_hosted_v0.py verify \
+            --input-directory "$verification_root-input" \
+            --receipt-sha256 "$EXPECTED_RECEIPT_SHA256" \
+            --output-directory "$verification_root"
+
+      - name: Attest the completed independently verified qualification binding
+        id: attest
+        if: success() && steps.verify.outcome == 'success'
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6
+        with:
+          subject-path: ${{ runner.temp }}/required-gate-loader-two-slot-verification-${{ github.run_id }}-${{ github.run_attempt }}/verified-binding.json
+          create-storage-record: false
+          show-summary: true
+
+      - name: Preserve and verify the original GitHub attestation bundle
+        id: attest_verify
+        if: success() && steps.attest.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PROMPT_DISABLED: '1'
+          TWO_SLOT_HOSTED_ATTESTATION_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          TWO_SLOT_HOSTED_ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          TWO_SLOT_HOSTED_ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          verification_root="$RUNNER_TEMP/required-gate-loader-two-slot-verification-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          python3 -I -B tools/required_gate_idempotence_loader_two_slot_hosted_v0.py attest-verify \
+            --output-directory "$verification_root" --bundle "$TWO_SLOT_HOSTED_ATTESTATION_BUNDLE_PATH"
+
+      - name: Preserve verification and signature evidence including failures
+        if: always() && steps.prefix.outputs.root_created == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: required-gate-idempotence-loader-two-slot-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/required-gate-loader-two-slot-verification-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          overwrite: false
+          include-hidden-files: true
+          compression-level: 0
+          retention-days: 90
+
+      - name: State the precise qualification boundary
+        if: always() && steps.prefix.outputs.root_created == 'true'
+        shell: bash
+        run: |
+          printf '%s\n' \
+            'One fixed synthetic two-slot probe may run only in the acquisition job.' \
+            'The verifier rebuilds its environment offline from preserved base and wheel bytes, then runs two data-only checker processes.' \
+            'Both jobs preserve command records and verify owned container removal; failed prefixes remain incomplete.' \
+            'A hosted attestation authenticates the verified statement, not physical execution or future-host admission.' \
+            'No original launcher or Q2/Q3 measurement is executed by this workflow.' \
+            'Original source/build admission, full-runtime collection, B2 completion and release policy remain separate.' \
+            'Keep #2879 open with its complete whole-runtime scope; metric_pass=null; authority_effect=none.' >> "$GITHUB_STEP_SUMMARY"

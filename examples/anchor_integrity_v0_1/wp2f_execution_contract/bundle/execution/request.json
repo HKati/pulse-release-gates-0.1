@@ -1,0 +1,76 @@
+{
+  "authority_effect": "none",
+  "binding": {
+    "binding_id": "binding-1",
+    "claim_digest": "4d228a0f6cdd189785ca1f773e2a8a52d2684a2b89797064f7dbe1aa2c160184",
+    "claim_id": "claim-1",
+    "evidence_id": "evidence-1",
+    "evidence_sha256": "8e55e3f190cfa261f8a0d1f6aab231eabf4fa8adf2c1147706961fa3e568e36c",
+    "relation_type": "references",
+    "source_id": "source-1",
+    "source_sha256": "e2e9ac2e7e1ccd842e00075e39f5efec84d09a3fa810591a646a285b758ea6f8"
+  },
+  "candidate_status": "diagnostic_only",
+  "challenge": "1515151515151515151515151515151515151515151515151515151515151515",
+  "entrypoint": {
+    "path": "execution/verifier.source.txt",
+    "sha256": "009c850afc88c2a460b3a738cf77af227190723de99c5183bbdc36329ab87c28",
+    "size_bytes": 70
+  },
+  "execution_id": "synthetic-execution-001",
+  "implementation_scope": "entrypoint_bytes_only",
+  "inputs": {
+    "claim_text": {
+      "path": "execution/claim.txt",
+      "sha256": "4d228a0f6cdd189785ca1f773e2a8a52d2684a2b89797064f7dbe1aa2c160184",
+      "size_bytes": 31
+    },
+    "evidence_content": {
+      "path": "execution/evidence.bin",
+      "sha256": "8e55e3f190cfa261f8a0d1f6aab231eabf4fa8adf2c1147706961fa3e568e36c",
+      "size_bytes": 7
+    },
+    "source_content": {
+      "path": "execution/source.bin",
+      "sha256": "e2e9ac2e7e1ccd842e00075e39f5efec84d09a3fa810591a646a285b758ea6f8",
+      "size_bytes": 79
+    }
+  },
+  "invocation": {
+    "argv": [
+      "synthetic-verifier-NOT-EXECUTED",
+      "--request",
+      "synthetic"
+    ],
+    "cwd_label": "synthetic-working-directory",
+    "environment": [
+      {
+        "name": "LANG",
+        "value": "C"
+      }
+    ]
+  },
+  "limits": {
+    "max_stderr_bytes": 1024,
+    "max_stdout_bytes": 16384,
+    "timeout_ms": 1000
+  },
+  "profile": "single-record-execution-contract-v1",
+  "release_authority_activation": false,
+  "runtime_manifest": {
+    "path": "execution/runtime.json",
+    "sha256": "7655d81a36587c568d05d0ec9c9bc2c41e4015dcc101ed7b50ccdca2d6da2d60",
+    "size_bytes": 65
+  },
+  "schema_version": "anchor_integrity_execution_request_v0_1",
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2b-synthetic-001"
+  },
+  "verifier": {
+    "implementation_sha256": "009c850afc88c2a460b3a738cf77af227190723de99c5183bbdc36329ab87c28",
+    "method_id": "synthetic-record-only",
+    "method_version": "1",
+    "verifier_id": "synthetic-verifier"
+  }
+}
