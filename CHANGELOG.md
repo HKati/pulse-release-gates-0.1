@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Refresh the reviewed history-workflow preservation digest for the exact
+  setup-python v7.1.0 action pin. Keep the complete canonical workflow guard
+  and read-only token boundary; add rejection coverage for old, missing,
+  moving, unreviewed and wrong-source setup-python references.
+
 - Reconcile the setup-python v7.1.0 dependency update with the current
   workflows and exact source-binding contracts. Retain the later action-pin
   updates, include newly added Python workflows, and refresh the corresponding

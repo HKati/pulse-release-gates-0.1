@@ -305,9 +305,11 @@ import yaml
 HISTORY_WORKFLOW = REPO_ROOT / ".github/workflows/pulse_history_drift.yml"
 _HISTORY_CACHE_REVISION = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
 # Canonical parsed workflow, excluding only the top-level permissions mapping.
-# Derived from 77f58886bd79bc0b8012c10a8aaea3f25c512d00. An intentional future
-# workflow/pin change needs explicit review of this preservation guard too.
-_HISTORY_BEHAVIOR_SHA256 = "744b822ccf1266ca9dfdbc8f3c689055c0611c54922167343baf855878b23543"
+# Derived from 77f58886bd79bc0b8012c10a8aaea3f25c512d00; reviewed for the exact
+# setup-python v7.1.0 pin at e70c7c9eb1a720d9adcf60d1ee118cc5725b77f4.
+# Restoring only its previous setup-python pin reproduces the original digest.
+# Any further workflow/pin change needs explicit review of this guard too.
+_HISTORY_BEHAVIOR_SHA256 = "9c4d8d67218ae487615cd2ebefc3591b3d1139d8e98a94f9aa467b7a3aadb835"
 
 
 class _HistoryYamlLoader(yaml.BaseLoader):
@@ -660,6 +662,11 @@ _HISTORY_MUTATIONS = {
     "additional_job": (("jobs", "other"), {"permissions": "write-all"}),
     "automatic_trigger": (("on", "push"), {}),
     "untrusted_trigger": (("on", "pull_request_target"), {}),
+    "setup_python_previous_pin": (("jobs", "history-drift", "steps", 4, "uses"), "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"),
+    "setup_python_missing_pin": (("jobs", "history-drift", "steps", 4, "uses"), "actions/setup-python"),
+    "setup_python_moving_pin": (("jobs", "history-drift", "steps", 4, "uses"), "actions/setup-python@v7"),
+    "setup_python_unreviewed_pin": (("jobs", "history-drift", "steps", 4, "uses"), "actions/setup-python@" + "0" * 40),
+    "setup_python_wrong_source": (("jobs", "history-drift", "steps", 4, "uses"), "other/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"),
     "missing_cache_pin": (("jobs", "history-drift", "steps", 2, "uses"), "actions/cache/restore"),
     "moving_restore_pin": (("jobs", "history-drift", "steps", 2, "uses"), "actions/cache/restore@main"),
     "wrong_save_source": (("jobs", "history-drift", "steps", 11, "uses"), "other/cache/save@" + _HISTORY_CACHE_REVISION),
