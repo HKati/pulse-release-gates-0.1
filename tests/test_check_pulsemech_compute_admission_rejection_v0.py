@@ -29,9 +29,15 @@ END = "2026-11-12T10:10:00Z"
 RUN_ID = 1234567
 
 
+def _reviewed_workflow():
+    raw = (ROOT / "tests/fixtures/admission_rejection_reviewed_source_v0/pulse_ci.yml.bin").read_bytes()
+    assert c.digest(raw) == "7489fca657c4b2541da4946237b3f864aae7f9247198e5a3c6cbc3429a32db6a"
+    return raw
+
+
 @pytest.fixture(scope="module")
 def workflow():
-    return (ROOT / c.WORKFLOW).read_bytes()
+    return _reviewed_workflow()
 
 
 @pytest.fixture(scope="module")
@@ -102,8 +108,10 @@ def test_condition_unknown_construct_fails_closed(expression):
 
 
 def test_changed_workflow_never_inherits_profile(workflow):
-    with pytest.raises(c.VerificationError, match="workflow_not_reviewed"):
-        c.interpret_graph(workflow + b"\n# changed\n")
+    for changed in (workflow + b"\n# changed\n", (ROOT / c.WORKFLOW).read_bytes()):
+        assert changed != workflow
+        with pytest.raises(c.VerificationError, match="workflow_not_reviewed"):
+            c.interpret_graph(changed)
 
 
 def test_source_and_platform_ordinals_remain_distinct(graph, run):
@@ -520,7 +528,7 @@ def _write_controlled_carrier(directory, run):
     for relative in paths:
         target = repo / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes((ROOT / relative).read_bytes())
+        target.write_bytes(_reviewed_workflow() if relative == c.WORKFLOW else (ROOT / relative).read_bytes())
     c.git(repo, ["init", "--quiet"])
     c.git(repo, ["add", "."])
     c.git(repo, ["-c", "user.name=Controlled test", "-c", "user.email=test@example.invalid",

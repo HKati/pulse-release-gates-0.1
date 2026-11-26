@@ -1050,7 +1050,7 @@ def test_workflow_is_owner_manual_only_and_separates_compiler_from_signer_permis
 
 def test_workflow_actions_are_immutable_and_checkout_has_no_write_credentials():
     pins = {"actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
-            "actions/setup-python": "5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "actions/setup-python": "6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
             "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
             "actions/download-artifact": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
             "actions/attest": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"}
@@ -1183,7 +1183,7 @@ def test_actual_hygiene_guard_accepts_both_exact_entry_build_pins(tmp_path, opti
     if optional_core_job:
         value = workflow()
         value["jobs"]["optional_core"] = {"steps": [{
-            "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "uses": "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
             "with": {"python-version": "3.11"}}]}
         target.write_text(yaml.safe_dump(value, sort_keys=False))
     result = run_entry_build_hygiene(tmp_path)
@@ -1242,7 +1242,7 @@ def test_actual_hygiene_guard_does_not_extend_entry_build_patch_to_another_job(t
     target = entry_build_hygiene_fixture(tmp_path)
     value = workflow()
     value["jobs"]["unrelated"] = {"steps": [{
-        "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+        "uses": "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
         "with": {"python-version": "3.11.16"}}]}
     target.write_text(yaml.safe_dump(value, sort_keys=False))
     result = run_entry_build_hygiene(tmp_path)

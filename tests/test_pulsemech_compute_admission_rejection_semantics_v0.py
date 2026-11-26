@@ -260,14 +260,36 @@ def _load_module(path, name):
 
 @pytest.fixture
 def llama_fixture(tmp_path):
-    identity = _identity()
-    sources, _ = semantic._source_snapshot(REPO, identity["source_commit"],
-                                           semantic.LLAMAGUARD_SOURCES + (semantic.LEGACY_CHECKER,))
+    # The reviewed rejection profile uses its original workflow/checker bytes.
+    # Keep the controlled source in its own real Git subject; current dependency
+    # updates cannot change this profile or borrow the working checkout's HEAD.
     root = tmp_path / "fixture-source"
-    for name, raw in sources.items():
+    reviewed = {
+        semantic.WORKFLOW: ("pulse_ci.yml.bin", "7489fca657c4b2541da4946237b3f864aae7f9247198e5a3c6cbc3429a32db6a"),
+        semantic.LEGACY_CHECKER: ("check_pulsemech_compute_whole_runtime_observation_v0.py.bin",
+                                 "123f5ad80bcb3efa3f057680c083f9102d5b6450f21d5fe8ebf89d97dc995921"),
+    }
+    paths = set(semantic.LLAMAGUARD_SOURCES) | {semantic.LEGACY_CHECKER, semantic.POLICY}
+    for name in sorted(paths):
+        if name in reviewed:
+            filename, expected = reviewed[name]
+            raw = (REPO / "tests/fixtures/admission_rejection_reviewed_source_v0" / filename).read_bytes()
+            assert semantic._digest(raw) == expected
+        else:
+            raw = (REPO / name).read_bytes()
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
+        path.chmod((REPO / name).stat().st_mode & 0o777)
+    for argv in (["git", "init", "-q"], ["git", "add", "."],
+                 ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                  "-c", "commit.gpgsign=false", "commit", "-qm",
+                  "Controlled historical admission source; not observed evidence"]):
+        subprocess.run(argv, cwd=root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    identity = _identity(commit)
+    sources, _ = semantic._source_snapshot(root, commit,
+                                           semantic.LLAMAGUARD_SOURCES + (semantic.LEGACY_CHECKER,))
     runner = _load_module(root / (semantic.PACK + "tools/run_llamaguard_current_evidence_v0.py"),
                           "admission_test_llamaguard_runner")
     ingest = _load_module(root / (semantic.PACK + "tools/adapters/llamaguard_ingest.py"),
@@ -332,7 +354,7 @@ def llama_fixture(tmp_path):
                 "llamaguard_attestation_verifier_v1.json": semantic._canonical(report)}
     work = tmp_path / "work"
     work.mkdir()
-    return [REPO, hosted, attested, identity, work], report
+    return [root, hosted, attested, identity, work], report
 
 
 def _mock_signature_only(monkeypatch, saved_report):

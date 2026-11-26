@@ -24,6 +24,12 @@ RUN = 12345
 PREFIX = acquire.PREFIX
 
 
+def _reviewed_workflow():
+    raw = (ROOT / "tests/fixtures/admission_rejection_reviewed_source_v0/pulse_ci.yml.bin").read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == "7489fca657c4b2541da4946237b3f864aae7f9247198e5a3c6cbc3429a32db6a"
+    return raw
+
+
 def _json(value):
     return build.canonical_bytes(value)
 
@@ -371,7 +377,8 @@ def test_write_and_latest_endpoints_have_no_transport_path(endpoint):
 
 
 def test_reviewed_graph_represents_all_147_steps():
-    graph = build.expected_graph((ROOT / build.WORKFLOW_PATH).read_bytes())
+    reviewed = _reviewed_workflow()
+    graph = build.expected_graph(reviewed)
     assert len(graph) == 8
     counts = {key: sum(s["expected_result"] == key for job in graph for s in job["steps"])
               for key in ("success", "failure", "skipped", "not_instantiated")}
@@ -381,7 +388,7 @@ def test_reviewed_graph_represents_all_147_steps():
     assert all(s["expected_result"] == "skipped" for s in graph[3]["steps"][4:])
     assert all(s["name"] == s["name"].strip() for job in graph for s in job["steps"])
     with pytest.raises(build.PlanError, match="workflow_not_reviewed"):
-        build.expected_graph((ROOT / build.WORKFLOW_PATH).read_bytes() + b"\n")
+        build.expected_graph(reviewed + b"\n")
 
 
 def test_q2_request_requires_exact_reviewed_source_and_valid_schema():

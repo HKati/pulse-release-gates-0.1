@@ -91,7 +91,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
 
     if rel == ".github/workflows/q3_reference_acquisition_v0.yml":
         if (name != "Q3 native token preflight and capture v0"
-                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "cbf8c3fe9f9fdb70a4d42a7035665189a90cb71dece7c25008b34422299667e7"):
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "460a49a8e90a30aa51ae6d322993e76f2b40ad8c07efde3634dba5a0c5f018f4"):
             return entry(name=name, path=rel, surface_type="workflow",
                          primary_role="unclassified workflow", carrier_class="advisory",
                          authority_impacting="conditional",
@@ -106,7 +106,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                      notes="No labeling, metric execution, required gate, attestation or release activation.")
 
     if rel == ".github/workflows/q3_reference_acquisition_v1.yml":
-        expected_sha256 = "980eee6093687fb7f660777a6796abb1fd2e18789f333bb779aa999c6865821b"
+        expected_sha256 = "dc6dd7cbb660d6494e6fcc71bffe498623afaa0920098f5f64591f5ba2dcc24c"
         if (name != "Q3 bounded continuation preflight and capture v1"
                 or path.is_symlink() or not path.is_file()
                 or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
@@ -131,7 +131,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
         )
 
     if rel == ".github/workflows/pulsemech_admission_rejection_verification_v0.yml":
-        expected_sha256 = "ca5e32f6057b501804401980ff57c00e2d0bdcacd6e68623f57810005323082e"
+        expected_sha256 = "571a0a8046e212adeb10107bcd7b9654e6eb244f3a14a948a14f265171686e03"
         if (name != "PULSEmech independent admission-rejection verification v0"
                 or path.is_symlink() or not path.is_file()
                 or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
@@ -158,7 +158,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
         )
 
     if rel == ".github/workflows/required_gate_idempotence_entry_build_v0.yml":
-        expected_sha256 = "53a2c0ce99355899cf9296ce7c8a3cd932ae436e825665789fca7e13f1a47be6"
+        expected_sha256 = "cff2855863498f015564318ce0adda218e62d6d204a96ced343a473452252e88"
         if (name != "PULSEmech idempotence entry build provenance v0"
                 or path.is_symlink() or not path.is_file()
                 or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
@@ -414,7 +414,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     if rel == ".github/workflows/q2_release_host_worker_verification_v0.yml":
         # This exact reviewed carrier is non-authorizing, not every workflow
         # containing a Q2 name. Any byte change needs renewed carrier review.
-        expected_sha256 = "d94dd605802c50914e8d405662e884d53cc86cc5e3df402c2ac6b319fe6fe552"
+        expected_sha256 = "e4babb03d3f2ef57ce17462a0719c47f43c67df0c8319e7e58a8fc4183d6c2eb"
         if (name != "Q2 native release-host worker verification v0"
                 or hashlib.sha256(text.encode("utf-8")).hexdigest() != expected_sha256):
             return entry(

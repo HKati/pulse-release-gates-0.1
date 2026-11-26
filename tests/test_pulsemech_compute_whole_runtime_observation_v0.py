@@ -185,7 +185,7 @@ def test_workflow_closed_dispatch_and_permissions():
 def test_action_pins_and_handoff_selector():
     expected = {
         'actions/checkout': '3d3c42e5aac5ba805825da76410c181273ba90b1',
-        'actions/setup-python': '5fda3b95a4ea91299a34e894583c3862153e4b97',
+        'actions/setup-python': '6d4fd22b20465ccc0f7354476588e8df7c9ca0e0',
         'actions/upload-artifact': 'cf430e030ddbb5b0abf93d22962f4752f3646cd9',
         'actions/download-artifact':  '9000827ccba6bdab643e8b6fd33ac0654aef8333',
     }
@@ -5297,6 +5297,25 @@ _HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
  )
 
 
+def _workflow_before_setup_python_v710(raw):
+    """Remove only the reviewed setup-python delta from current test inputs.
+
+    Keep the independently reviewed upload-artifact update intact for its
+    existing inverse; both intermediate and historical byte identities bind.
+    """
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        'd80f7b77ef710d4797a6127c7b28727eba1e961d'
+    ), 'unreviewed hosted-order workflow bytes'
+    current = b'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
+    previous = b'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
+    assert raw.count(current) == 6
+    restored = raw.replace(current, previous)
+    assert hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest() == (
+        '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
+    ), 'pre-setup-python-v7.1.0 workflow checkpoint mismatch'
+    return restored
+
+
 def _workflow_before_upload_artifact_v702(raw):
     """Test-only inverse of the exact reviewed upload-artifact pin refresh.
 
@@ -5323,6 +5342,7 @@ def _workflow_before_q2_smoke_runtime(raw=None):
     """Reverse only the reviewed CI runtime correction, preserving old source IDs."""
     if raw is None:
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    raw = _workflow_before_setup_python_v710(raw)
     raw = _workflow_before_upload_artifact_v702(raw)
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
         '51636b49744e82879cd20cd968ef3e299afb1d11'
@@ -5375,7 +5395,7 @@ def _workflow_before_hosted_evidence_ordering(raw=None):
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     # Inversion must not erase an unreviewed edit inside a replaced region.
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
+        'd80f7b77ef710d4797a6127c7b28727eba1e961d'
     ), 'unreviewed hosted-order workflow bytes'
     raw = _workflow_before_q2_intake(raw)
     for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
@@ -5489,7 +5509,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
+    assert current == 'd80f7b77ef710d4797a6127c7b28727eba1e961d'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5502,7 +5522,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
+    assert current == 'd80f7b77ef710d4797a6127c7b28727eba1e961d'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -12638,7 +12658,7 @@ def test_downstream_closed_inventory_and_container_failures(downstream_real_outp
         VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
 
 # Provider identity renewal follows the separately approved exact workflow bytes.
-_IDENTITY_PROVIDER_BLOB = "408a114f5e2a177cc1b4748b7cc39b67170d02ea"
+_IDENTITY_PROVIDER_BLOB = "bf0baf78f2e0230b5e027be7f61ec6a97556ff6f"
 _IDENTITY_PROVIDER_OLD_BLOB = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
 
 

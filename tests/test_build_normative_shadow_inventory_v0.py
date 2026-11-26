@@ -983,7 +983,7 @@ def test_admission_verification_changed_carrier_requires_review(tmp_path, fault)
 
 
 ENTRY_BUILD_WORKFLOW = '.github/workflows/required_gate_idempotence_entry_build_v0.yml'
-ENTRY_BUILD_WORKFLOW_SHA256 = '53a2c0ce99355899cf9296ce7c8a3cd932ae436e825665789fca7e13f1a47be6'
+ENTRY_BUILD_WORKFLOW_SHA256 = 'cff2855863498f015564318ce0adda218e62d6d204a96ced343a473452252e88'
 
 
 def test_entry_build_exact_carrier_records_attestation_without_release_authority(tmp_path):
