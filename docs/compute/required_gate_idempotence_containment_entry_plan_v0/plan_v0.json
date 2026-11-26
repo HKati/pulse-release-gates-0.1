@@ -1,0 +1,495 @@
+{
+  "acceptance_cases": [
+    {
+      "id": "original_admission",
+      "positive": "Fresh original-input, static-entry, source and explicit trust-policy reconstruction succeeds before any native probe or original launch.",
+      "reject_or_incomplete": "Cached verdict, altered signed bytes, rehashed substitution, missing source member, or example-runtime relabelling."
+    },
+    {
+      "id": "minimal_request",
+      "positive": "Only the declared argv, exact minimal view, two filters and fixed worker phase are selected.",
+      "reject_or_incomplete": "Unreviewed flags, --try variants, --as-pid-1, external namespace FDs, Python/runtime files or caller-selected executable."
+    },
+    {
+      "id": "host_qualification",
+      "positive": "Fresh same-host qualification establishes exact required namespaces, openat2, cross-namespace tracing/proc reads and owned cleanup, including explicitly selected negative checks.",
+      "reject_or_incomplete": "Unexpected denial or unsupported return on an operation required to succeed; incomplete qualifier, different observer/kernel/environment, or automatic privileged/unconfined fallback. Expected extra-userns denial is not such a failure."
+    },
+    {
+      "id": "task_graph",
+      "positive": "L creates R once and R creates T once with the two source-bound clone contracts and complete role identities.",
+      "reject_or_incomplete": "Extra or missing task, wrong parent, clone flags, syscall ABI, role/order, reused PID or ignored task-creation event."
+    },
+    {
+      "id": "exec_boundary",
+      "positive": "The two declared exec transitions occur; T is stopped at the exact static ELF entry after successful exec and before user instructions.",
+      "reject_or_incomplete": "Wrong executable, signal mistaken for exec event, failed exec, additional exec, altered RIP, or any terminal T restart."
+    },
+    {
+      "id": "namespaces",
+      "positive": "Final R/T namespace handles, maps and per-role observations match the declared new containment relations.",
+      "reject_or_incomplete": "Early namespace report only, inode inequality alone, missing final maps, alias/reuse, or host namespace substituted."
+    },
+    {
+      "id": "readonly_view",
+      "positive": "Pinned T root, complete path/mount roster, modes and copied entry bytes match the private read-only minimal view.",
+      "reject_or_incomplete": "Writable effective mount, unexpected path/mount, missing root walk, symlink escape, host directory, proc/dev, or assuming memfd inode equals installed executable."
+    },
+    {
+      "id": "policy_submission",
+      "positive": "Each of R and T has its own exact selected-program syscall-entry bytes, successful return and task-bound installation evidence.",
+      "reject_or_incomplete": "Seccomp=2 alone, wrong BPF bytes, one role missing, nonzero return, or treating R installation as inherited by already-forked T."
+    },
+    {
+      "id": "terminal_state",
+      "positive": "T has exact stdio descriptors, selected environment including PWD, zero selected capability fields and NNP=1.",
+      "reject_or_incomplete": "Extra/unknown FD, missing observation, unexpected capability/environment, or claiming the unexecuted shim performed checks/close_range/limits."
+    },
+    {
+      "id": "observer_integrity",
+      "positive": "The owned observer records complete ordered raw events without code, memory, syscall or register substitution.",
+      "reject_or_incomplete": "Instruction patch, forged register state, syscall substitution, unexplained detach/resume or trusted producer verdict replacing raw data."
+    },
+    {
+      "id": "cleanup",
+      "positive": "Bounded SIGKILL and tracing/adoption/reap drain account for every owned identity and prove no live subject remains.",
+      "reject_or_incomplete": "Only L reaped, fixed-three-wait shortcut, leaked R/T, stale PGID signal, missing terminal identity, or cleanup overwrites the primary failure."
+    },
+    {
+      "id": "independent_replay",
+      "positive": "A separate data-only checker reconstructs sources, request, raw events, all relations, counts and cleanup without executing subject bytes.",
+      "reject_or_incomplete": "Missing/duplicate/reordered events, truncated streams, wrong occurrence joins, mutable input, or producer/hosted-summary-only acceptance."
+    },
+    {
+      "id": "incomplete_prefix",
+      "positive": "Every timeout, interruption, budget breach or unsupported event is preserved as incomplete with its exact primary failure.",
+      "reject_or_incomplete": "Skipped or warning-only qualification treated as success, retry appended to same attempt, or omitted failure prefix."
+    },
+    {
+      "id": "claim_scope",
+      "positive": "A completed future record reports only observed containment-entry relations within declared observer/kernel trust.",
+      "reject_or_incomplete": "Physical authenticity, kernel filter readback, shim/Python/operator execution, B2 completion, metric pass or release authority inferred from an intermediate success."
+    }
+  ],
+  "authority_effect": "none",
+  "b2_complete": false,
+  "baseline_commit": "aa7ca551a06cf553c5dc13f052693706f1227bbf",
+  "bootstrap_execution_observed": false,
+  "ci_boundary": {
+    "current_manifest_changes": false,
+    "current_targeted_pytest_entries": 41,
+    "current_tools_entries": 190,
+    "new_tests_append_to_existing_containment_module": true,
+    "new_workflow_requires_explicit_path_and_hash_carrier_classification": true,
+    "preserve_historical_test_prefixes": true
+  },
+  "containment_observed": false,
+  "entry_source_binary_equivalence_verified": false,
+  "execution_authorized": false,
+  "execution_ready": false,
+  "future_implementation_paths_all_proposed": {
+    "existing_files_with_narrow_future_updates": [
+      "tests/test_required_gate_idempotence_containment_v0.py",
+      "tests/test_build_normative_shadow_inventory_v0.py",
+      "scripts/build_normative_shadow_inventory_v0.py",
+      "docs/INDEX.md",
+      "CHANGELOG.md"
+    ],
+    "finite_original_observation": [
+      "tools/required_gate_idempotence_containment_entry_v0.py",
+      "tools/prepare_required_gate_idempotence_containment_entry_v0.py",
+      "tools/collect_required_gate_idempotence_containment_entry_v0.py",
+      "tools/check_required_gate_idempotence_containment_entry_v0.py",
+      "schemas/required_gate_idempotence_containment_entry_v0.schema.json"
+    ],
+    "future_observation_documentation": [
+      "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_v0.md",
+      "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_HOSTED_v0.md"
+    ],
+    "plan_checking": [
+      "schemas/required_gate_idempotence_containment_entry_plan_v0.schema.json",
+      "tools/check_required_gate_idempotence_containment_entry_plan_v0.py"
+    ],
+    "separate_hosted_route_after_local_review": [
+      ".github/workflows/required_gate_idempotence_containment_entry_v0.yml",
+      "tools/required_gate_idempotence_containment_entry_hosted_v0.py",
+      "tools/check_required_gate_idempotence_containment_entry_hosted_v0.py",
+      "schemas/required_gate_idempotence_containment_entry_hosted_v0.schema.json",
+      "tools/required_gate_idempotence_containment_entry_hosted_v0/environment.json",
+      "tools/required_gate_idempotence_containment_entry_hosted_v0/Dockerfile",
+      "tools/required_gate_idempotence_containment_entry_hosted_v0/requirements.lock",
+      "tools/required_gate_idempotence_containment_entry_hosted_v0/build_environment.py",
+      "tools/required_gate_idempotence_containment_entry_hosted_v0/run.py"
+    ],
+    "startup_and_host_qualification": [
+      "tools/required_gate_idempotence_containment_startup_v0.c",
+      "tools/required_gate_idempotence_containment_task_probe_v0.c",
+      "tools/required_gate_idempotence_containment_task_guard_v0.py",
+      "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+      "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+      "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json"
+    ]
+  },
+  "host_environment_qualified": false,
+  "implemented": false,
+  "independent_plan_checker_implemented": false,
+  "launch": {
+    "argument_change_requires_new_reviewed_selection": true,
+    "arguments": [
+      "--unshare-user",
+      "--unshare-ipc",
+      "--unshare-pid",
+      "--unshare-net",
+      "--unshare-uts",
+      "--unshare-cgroup",
+      "--disable-userns",
+      "--cap-drop",
+      "ALL",
+      "--die-with-parent",
+      "--clearenv",
+      "--setenv",
+      "LC_ALL",
+      "C",
+      "--setenv",
+      "TZ",
+      "UTC",
+      "--perms",
+      "0700",
+      "--tmpfs",
+      "/",
+      "--perms",
+      "0700",
+      "--dir",
+      "/empty",
+      "--perms",
+      "0700",
+      "--dir",
+      "/runtime",
+      "--perms",
+      "0700",
+      "--dir",
+      "/runtime/bootstrap",
+      "--perms",
+      "0500",
+      "--ro-bind-data",
+      "4",
+      "/runtime/bootstrap/containment-entry",
+      "--remount-ro",
+      "/",
+      "--seccomp",
+      "5",
+      "--chdir",
+      "/empty",
+      "--",
+      "/runtime/bootstrap/containment-entry",
+      "worker"
+    ],
+    "arguments_bytes": {
+      "sha256": "52757caea06d247ac1cf3433c06974bdecba7ecb069e8759f07a91465c882847",
+      "size_bytes": 454
+    },
+    "arguments_encoding": "ASCII tokens, each terminated by exactly one NUL",
+    "argv": [
+      "bubblewrap",
+      "--args",
+      "3"
+    ],
+    "cwd": "/",
+    "environment": {
+      "LC_ALL": "C",
+      "TZ": "UTC"
+    },
+    "expected_T_environment": {
+      "LC_ALL": "C",
+      "PWD": "/empty",
+      "TZ": "UTC"
+    },
+    "fd_integer_reuse_is_not_identity_continuity": true,
+    "initial_helper_FD_roles": {
+      "0": "independent empty sealed stdin",
+      "1": "bounded stdout write end",
+      "2": "bounded stderr write end",
+      "3": "sealed NUL-separated arguments; survives initial launcher exec",
+      "4": "sealed static entry bytes; survives initial launcher exec",
+      "5": "sealed selected containment BPF; survives initial launcher exec",
+      "6": "sealed original launcher ELF; CLOEXEC; initial execveat AT_EMPTY_PATH target",
+      "7": "owned helper barrier; CLOEXEC; no input-controlled commands"
+    },
+    "minimal_view": [
+      {
+        "kind": "directory",
+        "mode_octal": "0700",
+        "path": "/"
+      },
+      {
+        "kind": "directory",
+        "mode_octal": "0700",
+        "path": "/empty"
+      },
+      {
+        "kind": "directory",
+        "mode_octal": "0700",
+        "path": "/runtime"
+      },
+      {
+        "kind": "directory",
+        "mode_octal": "0700",
+        "path": "/runtime/bootstrap"
+      },
+      {
+        "kind": "regular_file",
+        "mode_octal": "0500",
+        "path": "/runtime/bootstrap/containment-entry",
+        "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+        "size_bytes": 9568
+      }
+    ],
+    "mount_requirement": "Private read-only root tmpfs and read-only bind of copied entry; exact per-mount VFS flags and pinned root walk.",
+    "terminal_T_fd_numbers": [
+      0,
+      1,
+      2
+    ]
+  },
+  "metric_pass": null,
+  "model_call_count": 0,
+  "native_acquisition_performed": false,
+  "next_terminal_boundary": {
+    "allowed_post_terminal_T_restarts": 0,
+    "event": "PTRACE_EVENT_EXEC",
+    "image_sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+    "image_size_bytes": 9568,
+    "python_executed": false,
+    "rip_requirement": "Exact admitted static ELF e_entry after successful exec; no interpreter and no user instruction executed.",
+    "role": "T",
+    "selected_bootstrap_loader_executed": false,
+    "shim_checks_executed": false,
+    "shim_close_range_executed": false,
+    "shim_environment_replacement_executed": false,
+    "shim_rlimits_installed": false
+  },
+  "observation_contract": {
+    "R_park": {
+      "options": 0,
+      "pid_semantics": -1,
+      "rusage": 0,
+      "status_pointer": "dynamic writable task memory bound at syscall entry",
+      "syscall_number": 61
+    },
+    "all_subject_identities_required": true,
+    "cleanup": "At successful terminal collection all three roles are owned/stopped: pidfd_send_signal(SIGKILL,NULL,0) in T/R/L order, then globally drain nonblocking owned trace/adoption/reap notifications until no live owned identity remains; never block on R ahead of T or assume exactly three wait results.",
+    "explicit_stop_state_ledger": "Never INTERRUPT an already stopped role; record every stop and restart.",
+    "final_removal": "Consumed terminal statuses plus qualified final pidfd POLLHUP and drained owned wait state; POLLIN/zombie, WNOHANG=0 or ESRCH alone is insufficient.",
+    "fresh_L_checkpoints": [
+      "initial launcher exec-stop binds launcher/interpreter identity",
+      "separate stopped syscall-entry checkpoint before first namespace clone binds complete selected-native mapping/backing roster"
+    ],
+    "helper_is_L_preexec_not_fourth_task": true,
+    "historical_capture_can_supply_live_prefix": false,
+    "incomplete_prefix_cleanup": "Signal and drain only identities actually created and owned, in reverse role order; do not wait for absent roles or require every survivor to reach its intended stop before SIGKILL. Missing final removal proof keeps the attempt incomplete.",
+    "initial_barrier": "EOF, invalid token or observer loss fails closed. SEIZE alone is not a stop; consume INTERRUPT stop before release. No intermediate helper task or shell.",
+    "new_argv_nine_return_observation_claimed": false,
+    "new_startup_helper_required": true,
+    "newborn_stop_join": "Join parent event-message outer PID and newborn PTRACE_EVENT_STOP/SIGTRAP regardless of notification order; inherited options, no reattach.",
+    "observed_seccomp_submission_roles": [
+      "R",
+      "T"
+    ],
+    "observer_subreaper": "Set and read back PR_SET_CHILD_SUBREAPER before L; normal SIGCHLD disposition, no SA_NOCLDWAIT or competing wait consumer; restore prior state only after verified cleanup.",
+    "observer_writes_prohibited": [
+      "subject code patch",
+      "subject memory mutation",
+      "register substitution",
+      "syscall substitution"
+    ],
+    "old_guard_or_two_slot_qualification_admits_new_profile": false,
+    "post_terminal_T_restart_allowed": false,
+    "ptrace_options": [
+      "PTRACE_O_TRACEFORK",
+      "PTRACE_O_TRACEVFORK",
+      "PTRACE_O_TRACECLONE",
+      "PTRACE_O_TRACEEXEC",
+      "PTRACE_O_TRACESYSGOOD",
+      "PTRACE_O_EXITKILL"
+    ],
+    "ptrace_options_hex": "0x0010001f",
+    "ptrace_strategy": "PTRACE_SEIZE at owned barrier, PTRACE_INTERRUPT, then bounded PTRACE_SYSCALL; never detach",
+    "ptrace_traceexit_enabled": false,
+    "required_raw_evidence": [
+      "ordered wait/syscall/event records",
+      "per-role executable and identity",
+      "paired stop samples",
+      "final namespace handles and uid/gid maps",
+      "task-bound mountinfo and pinned root walk",
+      "exact file bytes/modes and descriptor roster",
+      "per-role credentials/capabilities/NNP/seccomp state",
+      "R and T sock_fprog and BPF submission bytes/returns",
+      "complete bounded stdout/stderr",
+      "all continuation and signal operations",
+      "complete cleanup/adoption/reaping records"
+    ],
+    "seccomp_claim": "Exact selected-program submission and successful return, not privileged kernel filter readback or exhaustive future behavior.",
+    "unexpected_native_mapping": "Reject before further subject execution; never extend the selected roster from observations."
+  },
+  "operator_application_count": 0,
+  "plan_schema_implemented": false,
+  "previous_merged_pr": 3059,
+  "profile": "linux_x86_64_original_bwrap_minimal_entry_exec_stop_v0",
+  "proposed_budgets_not_observed_measurements": {
+    "aggregate_control_memory_bytes_per_checkpoint": 1048576,
+    "argument_bytes": 4096,
+    "attempts": 1,
+    "capture_members": 2048,
+    "capture_payload_bytes": 33554432,
+    "cleanup_wall_seconds": 5,
+    "event_stream_storage": "Bounded sequential streams, not one filesystem member per event.",
+    "max_bwrap_birth_events": 2,
+    "max_live_subject_tasks": 3,
+    "max_ordered_trace_events": 8192,
+    "on_exceeded": "Preserve incomplete attempt and primary failure, perform bounded owned cleanup; no automatic budget increase.",
+    "retries": 0,
+    "setup_wall_seconds": 30,
+    "single_control_memory_read_bytes": 65536,
+    "stderr_bytes": 4096,
+    "stdout_bytes": 65536
+  },
+  "readiness_gates": [
+    {
+      "id": "new_plan_schema_and_independent_checker",
+      "satisfied": false
+    },
+    {
+      "id": "fresh_original_and_explicit_policy_admission",
+      "satisfied": false
+    },
+    {
+      "id": "reviewed_startup_helper_and_multitask_guard",
+      "satisfied": false
+    },
+    {
+      "id": "source_to_executed_helper_binding",
+      "satisfied": false
+    },
+    {
+      "id": "new_capture_schema_collector_and_independent_checker",
+      "satisfied": false
+    },
+    {
+      "id": "same_host_namespace_ptrace_proc_openat2_qualification",
+      "satisfied": false
+    },
+    {
+      "id": "tested_owned_graph_cleanup",
+      "satisfied": false
+    },
+    {
+      "id": "reviewed_exact_host_environment",
+      "satisfied": false
+    },
+    {
+      "id": "separate_owner_execution_authorization",
+      "satisfied": false
+    }
+  ],
+  "record_status": "authored_design_proposal",
+  "record_type": "required_gate_idempotence_containment_entry_plan_v0",
+  "selected_bootstrap_follow_on": {
+    "capsule_preparation_required_for_minimal_entry_checkpoint": false,
+    "current_example_capsule_accepted_as_real": false,
+    "current_v0_python_version": "3.11.16",
+    "current_v0_unicode_version": "14.0.0",
+    "diagnostic_is_property_application": false,
+    "existing_selected_execution_guards_unchanged": true,
+    "new_real_capsule_required": true,
+    "stages": [
+      "new real runtime/operator selections and recoverable capsule",
+      "separately reviewed selected-loader exec-stop after shim execution",
+      "separate finite worker bootstrap diagnostic",
+      "separate finite collector bootstrap diagnostic",
+      "separate real worker FD/task/exec/input-consumption integration"
+    ],
+    "v0_constraints_change_requires_new_version_or_distinct_profile": true,
+    "v0_limits_must_be_measured_on_real_inventory": true
+  },
+  "selected_runtime_admitted": false,
+  "source_inventory": {
+    "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+    "sha256": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+    "size_bytes": 21350
+  },
+  "task_graph": {
+    "bwrap_birth_count": 2,
+    "creation_contracts": [
+      {
+        "child": "R",
+        "child_stack": 0,
+        "flags_hex": "0x7e020011",
+        "parent": "L",
+        "source": "bubblewrap raw_clone; NEWNS|NEWUSER|NEWPID|NEWNET|NEWIPC|NEWUTS|NEWCGROUP|SIGCHLD",
+        "syscall_number": 56,
+        "trailing_ignored_arguments_must_not_be_required_zero": true
+      },
+      {
+        "child": "T",
+        "child_stack": 0,
+        "child_tid_pointer": "dynamic selected glibc TLS address; bind before syscall; do not prefill",
+        "flags_hex": "0x01200011",
+        "parent": "R",
+        "source": "glibc fork -> _Fork -> arch_fork; CHILD_SETTID|CHILD_CLEARTID|SIGCHLD",
+        "syscall_number": 56
+      }
+    ],
+    "deny_creation": [
+      "fork",
+      "vfork",
+      "clone3",
+      "other clone masks",
+      "x32 ABI",
+      "io_uring task bypasses"
+    ],
+    "dynamic_identity_fields": [
+      "pid",
+      "tid",
+      "starttime",
+      "pidfd",
+      "namespace handles/inodes",
+      "child-TID address"
+    ],
+    "expected_ptrace_birth_event": "PTRACE_EVENT_FORK for SIGCHLD clone calls; selected-host qualification required",
+    "guard_and_preexecution_role_validation_required": true,
+    "observer_excluded": true,
+    "subject_roles": [
+      {
+        "meaning": "Trusted preexec helper becomes original launcher monitor in the same task.",
+        "parent": "observer",
+        "role": "L"
+      },
+      {
+        "meaning": "Namespace setup task becomes namespace PID 1 and reaper.",
+        "parent": "L",
+        "role": "R"
+      },
+      {
+        "meaning": "Payload task execs exact static entry and remains stopped.",
+        "parent": "R",
+        "role": "T"
+      }
+    ],
+    "subject_task_count": 3
+  },
+  "this_unit_files": [
+    "CHANGELOG.md",
+    "docs/INDEX.md",
+    "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md",
+    "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md",
+    "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+    "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+    "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0-1~deb13u1.debian.tar.xz",
+    "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0-1~deb13u1.dsc",
+    "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0.orig.tar.xz"
+  ],
+  "whole_runtime_issue": {
+    "keep_open": true,
+    "number": 2879
+  }
+}
