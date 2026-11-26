@@ -9,6 +9,7 @@ The independently dispatched acquisition must establish the observed boundary.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import importlib.metadata
 import json
@@ -23,9 +24,11 @@ import tempfile
 import time
 
 
-ENVIRONMENT_SHA256 = "5333e5db7fef71514c30a7a4a64412accf520a6d06bd2e9ffa20eaf718495389"
+ENVIRONMENT_SHA256 = "677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b"
 PROFILE = "linux_x86_64_loader_resolution_hosted_v0"
 MAX_CONTROL_BYTES = 65536
+LOADER_CACHE_DIRECTORY = Path("/etc")
+LOADER_CACHE_POLICY = {"path": "/etc/ld.so.cache", "policy": "absent_after_package_install"}
 
 RECORD_TYPE = "required_gate_idempotence_loader_resolution_hosted_environment_v0"
 PYTHON = "/usr/local/bin/python3.11"
@@ -213,6 +216,106 @@ def check_runtime_files(selection: dict[str, object], *, include_gpg: bool) -> l
         need(actual == {key: item[key] for key in ("sha256", "size_bytes")}, "build_runtime_file_binding")
         checked.append({"path": item["path"], "resolved_path": str(path), **actual})
     return checked
+
+
+def _loader_cache_selection(selection: dict[str, object]) -> None:
+    need(type(selection.get("loader_cache")) is dict
+         and selection["loader_cache"] == LOADER_CACHE_POLICY,
+         "build_loader_cache_selection")
+
+
+def _loader_cache_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (value.st_dev, value.st_ino, value.st_mode, value.st_nlink,
+            value.st_size, value.st_mtime_ns, value.st_ctime_ns,
+            value.st_uid, value.st_gid)
+
+
+def _loader_cache_parent(directory: int, before: os.stat_result, *, unchanged: bool) -> os.stat_result:
+    held = os.fstat(directory)
+    linked = os.stat(LOADER_CACHE_DIRECTORY, follow_symlinks=False)
+    need(stat.S_ISDIR(held.st_mode) and stat.S_ISDIR(linked.st_mode)
+         and _loader_cache_identity(held) == _loader_cache_identity(linked),
+         "build_loader_cache_parent")
+    # Removing the one selected entry changes directory size and timestamps.
+    # Identity, owner, permissions and link count must remain the same.
+    stable = lambda value: (value.st_dev, value.st_ino, value.st_mode,
+                            value.st_nlink, value.st_uid, value.st_gid)
+    need(stable(held) == stable(before)
+         and (not unchanged or _loader_cache_identity(held) == _loader_cache_identity(before)),
+         "build_loader_cache_changed")
+    return held
+
+
+def _loader_cache_absent_at(directory: int, before: os.stat_result) -> None:
+    try:
+        os.stat("ld.so.cache", dir_fd=directory, follow_symlinks=False)
+    except FileNotFoundError as error:
+        need(error.errno == errno.ENOENT, "build_loader_cache_changed")
+    else:
+        raise ValueError("build_loader_cache_present")
+    _loader_cache_parent(directory, before, unchanged=True)
+
+
+def check_loader_cache_absent(selection: dict[str, object]) -> dict[str, object]:
+    """Require an absent entry; dangling links and access errors are not absence."""
+    _loader_cache_selection(selection)
+    directory = os.open(LOADER_CACHE_DIRECTORY,
+                        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        before = os.fstat(directory)
+        _loader_cache_parent(directory, before, unchanged=True)
+        _loader_cache_absent_at(directory, before)
+    finally:
+        os.close(directory)
+    return {**LOADER_CACHE_POLICY, "absence_verified": True}
+
+
+def remove_loader_cache(selection: dict[str, object]) -> dict[str, object]:
+    """Remove only the fixed regular cache in the isolated offline image build.
+
+    No installer or other subprocess runs while this directory is held. The
+    pinned entry is checked immediately before removal and must lose its only
+    link. Any replacement or reappearance rejects the build; runtime observers
+    only check absence and never perform this mutation.
+    """
+    _loader_cache_selection(selection)
+    directory = os.open(LOADER_CACHE_DIRECTORY,
+                        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    descriptor = None
+    try:
+        parent = os.fstat(directory)
+        _loader_cache_parent(directory, parent, unchanged=True)
+        try:
+            before = os.stat("ld.so.cache", dir_fd=directory, follow_symlinks=False)
+        except FileNotFoundError as error:
+            need(error.errno == errno.ENOENT, "build_loader_cache_changed")
+            _loader_cache_absent_at(directory, parent)
+        else:
+            need(stat.S_ISREG(before.st_mode) and before.st_nlink == 1,
+                 "build_loader_cache_entry")
+            descriptor = os.open("ld.so.cache",
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                dir_fd=directory)
+            need(_loader_cache_identity(before) == _loader_cache_identity(os.fstat(descriptor))
+                 == _loader_cache_identity(os.stat("ld.so.cache", dir_fd=directory,
+                                                    follow_symlinks=False)),
+                 "build_loader_cache_changed")
+            _loader_cache_parent(directory, parent, unchanged=True)
+            os.unlink("ld.so.cache", dir_fd=directory)
+            after = os.fstat(descriptor)
+            retained = lambda value: (value.st_dev, value.st_ino, value.st_mode,
+                                      value.st_size, value.st_mtime_ns, value.st_uid, value.st_gid)
+            need(after.st_nlink == 0 and retained(after) == retained(before),
+                 "build_loader_cache_changed")
+            current = _loader_cache_parent(directory, parent, unchanged=False)
+            _loader_cache_absent_at(directory, current)
+            os.fsync(directory)
+            _loader_cache_absent_at(directory, current)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory)
+    return {**LOADER_CACHE_POLICY, "absence_verified": True}
 
 
 def _restoration_selection(selection: dict[str, object]) -> list[dict[str, object]]:
@@ -534,6 +637,7 @@ def install(inputs: Path) -> dict[str, object]:
     need(selection["host_environment_qualified"] is False
          and selection["native_acquisition_performed"] is False, "build_scope")
     need(selection["authority_effect"] == "none", "build_authority_effect")
+    _loader_cache_selection(selection)
     helper_raw = read_regular(inputs / "build_environment.py", MAX_CONTROL_BYTES)
     lock_raw = read_regular(inputs / "requirements.lock", MAX_CONTROL_BYTES)
     need(binding(lock_raw) == selection["requirements"], "build_requirements_binding")
@@ -583,6 +687,9 @@ def install(inputs: Path) -> dict[str, object]:
         env=environment, stdin=subprocess.DEVNULL, shell=False, check=True, timeout=300)
     subprocess.run([PYTHON, "-I", "-B", "-m", "pip", "check"],
         env=environment, stdin=subprocess.DEVNULL, shell=False, check=True, timeout=60)
+    # Package triggers may regenerate the cache. Normalize only after every
+    # installer has finished, before final crypto checks use this filesystem.
+    loader_cache = remove_loader_cache(selection)
     after = installed_debian()
     expected_after = dict(before)
     expected_after.update({item["name"]: item["version"] for item in packages})
@@ -594,6 +701,7 @@ def install(inputs: Path) -> dict[str, object]:
              "build_installed_python_version")
     checked = check_runtime_files(selection, include_gpg=True)
     verify_native_restorations(selection)
+    need(check_loader_cache_absent(selection) == loader_cache, "build_loader_cache_changed")
     backend = check_openssl_backend(selection)
     need(check_runtime_files(selection, include_gpg=True) == checked, "build_runtime_changed")
     # Recheck the complete selected input tree after the trusted installers.
@@ -607,6 +715,7 @@ def install(inputs: Path) -> dict[str, object]:
     check_downloads(inputs / "debs", packages)
     check_downloads(inputs / "wheels", python_packages)
     check_native_inputs(inputs)
+    need(check_loader_cache_absent(selection) == loader_cache, "build_loader_cache_changed")
     record = {
         "record_type": "required_gate_idempotence_loader_resolution_hosted_environment_build_v0",
         "profile": PROFILE,
@@ -622,6 +731,7 @@ def install(inputs: Path) -> dict[str, object]:
         "checked_files": checked,
         "original_native_objects": native_objects,
         "native_object_restorations": native_restorations,
+        "loader_cache": loader_cache,
         "openssl_backend": backend,
         "offline_install": True,
         "reproducible_image_claimed": False,
