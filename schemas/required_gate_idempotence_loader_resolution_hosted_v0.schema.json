@@ -949,6 +949,10 @@
           }
         ],
         "host_environment_qualified": false,
+        "loader_cache": {
+          "path": "/etc/ld.so.cache",
+          "policy": "absent_after_package_install"
+        },
         "native_acquisition_performed": false,
         "native_object_restorations": [
           {
@@ -9044,6 +9048,25 @@
             },
             "size_bytes": {
               "maximum": 4194304,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "observation/loader-cache-state.json": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 4096,
               "minimum": 0,
               "type": "integer"
             }
@@ -17623,6 +17646,25 @@
           ],
           "type": "object"
         },
+        "verification/loader-cache-state.json": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 4096,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
         "verification/request.json": {
           "additionalProperties": false,
           "properties": {
@@ -17778,8 +17820,8 @@
         },
         "environment_selection": {
           "const": {
-            "sha256": "5333e5db7fef71514c30a7a4a64412accf520a6d06bd2e9ffa20eaf718495389",
-            "size_bytes": 25603
+            "sha256": "677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b",
+            "size_bytes": 25705
           }
         },
         "image_reproducibility_claimed": {
@@ -17804,6 +17846,44 @@
         "build_inputs_fixed",
         "image_reproducibility_claimed",
         "boundary"
+      ],
+      "type": "object"
+    },
+    "loaderCacheState": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_selection": {
+          "const": {
+            "sha256": "677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b",
+            "size_bytes": 25705
+          }
+        },
+        "loader_cache": {
+          "const": {
+            "absence_verified": true,
+            "path": "/etc/ld.so.cache",
+            "policy": "absent_after_package_install"
+          }
+        },
+        "phase": {
+          "enum": [
+            "acquire",
+            "verify"
+          ]
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_resolution_hosted_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_resolution_hosted_loader_cache_state_v0"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "phase",
+        "environment_selection",
+        "loader_cache"
       ],
       "type": "object"
     },
@@ -18135,8 +18215,8 @@
               },
               "environment": {
                 "const": {
-                  "sha256": "5333e5db7fef71514c30a7a4a64412accf520a6d06bd2e9ffa20eaf718495389",
-                  "size_bytes": 25603
+                  "sha256": "677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b",
+                  "size_bytes": 25705
                 }
               },
               "error_code": {
@@ -18346,8 +18426,8 @@
         },
         "environment": {
           "const": {
-            "sha256": "5333e5db7fef71514c30a7a4a64412accf520a6d06bd2e9ffa20eaf718495389",
-            "size_bytes": 25603
+            "sha256": "677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b",
+            "size_bytes": 25705
           }
         },
         "handoff": {
@@ -21644,8 +21724,8 @@
         },
         "environment": {
           "const": {
-            "sha256": "5333e5db7fef71514c30a7a4a64412accf520a6d06bd2e9ffa20eaf718495389",
-            "size_bytes": 25603
+            "sha256": "677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b",
+            "size_bytes": 25705
           }
         },
         "handoff": {
@@ -21799,6 +21879,9 @@
     },
     {
       "$ref": "#/$defs/environment"
+    },
+    {
+      "$ref": "#/$defs/loaderCacheState"
     }
   ],
   "title": "Finite hosted original-loader resolution custody v0"

@@ -278,7 +278,8 @@ CAPTURE_LIMIT = 64 * 1024 * 1024
 CAPTURE_FILE_COUNT_LIMIT = 512
 ACCEPTED_POLICY_SHA256 = "1b1e4f414ffa7e56a8494f8a6d6051594c800cae978fa90585c4a02041bed953"
 CAPTURE_PROFILE = "linux_x86_64_original_launcher_loader_resolution_v0"
-ENVIRONMENT_BINDING = {'size_bytes': 25603, 'sha256': '5333e5db7fef71514c30a7a4a64412accf520a6d06bd2e9ffa20eaf718495389'}
+ENVIRONMENT_BINDING = {'size_bytes': 25705, 'sha256': '677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b'}
+LOADER_CACHE_POLICY = {"path": "/etc/ld.so.cache", "policy": "absent_after_package_install"}
 OBSERVER_BINDING = {"size_bytes": 14472,
     "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79"}
 SELECTION_TYPE = "required_gate_idempotence_loader_resolution_hosted_selection_v0"
@@ -840,7 +841,22 @@ def environment():
     selected = parse(raw)
     _need(selected["profile"] == PROFILE and selected["python"]["observer_binding"] == OBSERVER_BINDING,
           "loader_resolution_hosted_environment_profile")
+    _same(selected.get("loader_cache"), LOADER_CACHE_POLICY,
+          "loader_resolution_hosted_loader_cache_policy")
     return selected
+
+
+def validate_loader_cache_state(record, phase):
+    """Require the separately preserved fresh passive filesystem observation."""
+    _need(phase in ("acquire", "verify"), "loader_resolution_hosted_loader_cache_phase")
+    expected = {
+        "record_type": "required_gate_idempotence_loader_resolution_hosted_loader_cache_state_v0",
+        "profile": PROFILE, "phase": phase, "environment_selection": ENVIRONMENT_BINDING,
+        "loader_cache": {**LOADER_CACHE_POLICY, "absence_verified": True},
+    }
+    _keys(record, expected, "loader_resolution_hosted_loader_cache_state_fields")
+    _same(record, expected, "loader_resolution_hosted_loader_cache_state")
+    return record
 
 
 def validate_build_record(record, selected, environment_binding=None, requirements_binding=None):
@@ -849,6 +865,8 @@ def validate_build_record(record, selected, environment_binding=None, requiremen
     requirements_binding = selected["requirements"] if requirements_binding is None else requirements_binding
     _same(environment_binding, ENVIRONMENT_BINDING, "loader_resolution_hosted_build_environment")
     _same(requirements_binding, selected["requirements"], "loader_resolution_hosted_build_requirements")
+    _same(selected.get("loader_cache"), LOADER_CACHE_POLICY,
+          "loader_resolution_hosted_loader_cache_policy")
     fixed = {
         "record_type": "required_gate_idempotence_loader_resolution_hosted_environment_build_v0",
         "profile": PROFILE, "environment_selection": environment_binding,
@@ -861,6 +879,7 @@ def validate_build_record(record, selected, environment_binding=None, requiremen
         "native_object_restorations": [{**item, "action": "restored_selected_base_original",
             "observed_before": item["before"], "observed_after": item["after"]}
             for item in selected["native_object_restorations"]],
+        "loader_cache": {**LOADER_CACHE_POLICY, "absence_verified": True},
         "offline_install": True, "reproducible_image_claimed": False,
         "host_environment_qualified": False, "native_acquisition_performed": False,
         "authority_effect": "none",
@@ -1400,7 +1419,7 @@ def allowed_files():
             for suffix in ("argv.json", "result.json", "stdout.bin", "stderr.bin"))
     for prefix in ("observation", "verification"):
         names.update(prefix + "/" + leaf for leaf in ("request.json", "capture-check-1.json", "capture-check-2.json",
-            "build-environment-record.json",
+            "build-environment-record.json", "loader-cache-state.json",
             "acquisition-summary.json" if prefix == "observation" else "verification-summary.json"))
         # Failure publication has a fixed finite vocabulary and does not trust
         # a possibly incomplete capture manifest to authorize additional paths.
@@ -1413,6 +1432,8 @@ def allowed_files():
 
 
 def _file_limit(name):
+    if name in ("observation/loader-cache-state.json", "verification/loader-cache-state.json"):
+        return 4096
     if name == "host-commands/base-save.stdout.bin":
         return FILE_LIMIT
     if name.startswith("source/"):
@@ -1704,8 +1725,10 @@ def _verify_environment(root, selection, plan, previous=None):
     for name, item in selected_materials.items():
         _same(binding(read_regular(root / "materials" / name, item["size_bytes"])), item,
               "loader_resolution_hosted_material_binding")
-    build_record = _json(root / ("observation" if phase == "acquire" else "verification") / "build-environment-record.json")
+    phase_root = root / ("observation" if phase == "acquire" else "verification")
+    build_record = _json(phase_root / "build-environment-record.json")
     validate_build_record(build_record, selected)
+    validate_loader_cache_state(_json(phase_root / "loader-cache-state.json", 4096), phase)
     if phase == "acquire":
         command_record(root, "base-pull", ["docker", "pull", "--platform", "linux/amd64", base["reference"]])
         inspect_name = base["reference"]

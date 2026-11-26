@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Select loader-cache absence in the hosted original-loader environment after
+  the [second observation attempt](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#second-hosted-attempt-458361762661)
+  stopped at an unselected `/etc/ld.so.cache` mapping. Remove only the selected
+  regular cache inside the isolated image after package installation; check
+  absence before acquisition and replay, preserve fresh phase-specific state,
+  and require its exact environment binding during hosted verification. Keep
+  native mapping rejection, original bytes and rebuild policy unchanged. Add
+  original-map regressions and hostile filesystem/state coverage. The failed
+  attempt remains incomplete; a fresh owner dispatch is required, with B2 and
+  #2879 open and `authority_effect=none`.
+
 - Refresh the reviewed history-workflow preservation digest for the exact
   setup-python v7.1.0 action pin. Keep the complete canonical workflow guard
   and read-only token boundary; add rejection coverage for old, missing,

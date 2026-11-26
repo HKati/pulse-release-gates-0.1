@@ -1,0 +1,61 @@
+{
+  "artifact": {
+    "id": 15126560334,
+    "name": "required-gate-idempotence-loader-resolution-45836176266-1",
+    "sha256": "a8d7930cfc17e0adaad619569a91cd7c67f1cb7c93b4be13b30540c088988f0c",
+    "size_bytes": 220047130
+  },
+  "boundary": {
+    "authority_effect": "none",
+    "b2_complete": false,
+    "complete_capture_preserved_here": false,
+    "metric_pass": null,
+    "original_loader_capture_completed": false,
+    "physical_execution_authenticated": false
+  },
+  "files": {
+    "backings.prelaunch.json": {
+      "artifact_member": "observation/capture/backings.prelaunch.json",
+      "sha256": "6c9f957b2af1606441ace8b4aba13c9b47298ed76ec27f258aa1116ca48c65b6",
+      "size_bytes": 2966
+    },
+    "cp0.maps.before.bin": {
+      "artifact_member": "observation/capture/cp0.maps.before.bin",
+      "sha256": "ee3e4844fdcddba72c7099fe3c3cf33275f6e48c2898e327c8b49d98ab862fbb",
+      "size_bytes": 1417
+    },
+    "return.01.maps.before.bin": {
+      "artifact_member": "observation/capture/return.01.maps.before.bin",
+      "sha256": "31c489c104cdb60ab8aa352e38362befd7262b8f9b94ee622bb92e04e82bd140",
+      "size_bytes": 2065
+    }
+  },
+  "original_capture": {
+    "accepted_return_events": 0,
+    "artifact_member": "observation/capture/capture.json",
+    "failure": "loader_resolution_unselected_file_mapping",
+    "partial_return_checkpoints": 1,
+    "ptrace_cont_count": 2,
+    "sha256": "a57216f68aaf5a258615452c93b80eb655f0ee0ccedba7bd36b6ab7e76c0b987",
+    "size_bytes": 23775,
+    "status": "incomplete"
+  },
+  "purpose": "Three unchanged map/backing samples from an incomplete hosted attempt; data-only regression inputs, not a completed capture or cache-content admission.",
+  "record_type": "loader_resolution_cache_mapping_regression_origin_v0",
+  "rejected_mapping": {
+    "device_major": 0,
+    "device_minor": 46,
+    "end": "7f434f0d4000",
+    "inode": 5505580,
+    "offset": 0,
+    "path": "/etc/ld.so.cache",
+    "permissions": "r--p",
+    "size_bytes": 8192,
+    "start": "7f434f0d2000"
+  },
+  "repository": "HKati/pulse-release-gates-0.1",
+  "run_attempt": 1,
+  "run_id": 45836176266,
+  "run_url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45836176266",
+  "source_commit": "b88f3a4df2aabd1e9c39c98eeae9b09147c06f07"
+}

@@ -22332,6 +22332,7 @@ def _loader_resolution_hosted_build_record():
         'native_object_restorations': [{**item, 'action': 'restored_selected_base_original',
             'observed_before': item['before'], 'observed_after': item['after']}
             for item in selected['native_object_restorations']],
+        'loader_cache': {**selected['loader_cache'], 'absence_verified': True},
         'checked_files': [{**item, 'resolved_path': resolved(item['path'])} for item in selected['expected_files']],
         'original_native_objects': [{**item,
             'resolved_path': None if item['host_path'] is None else resolved(item['host_path']),
@@ -22712,3 +22713,483 @@ def test_loader_resolution_proc_residency_scripted_collector_preserves_samples_a
     replay = loader_resolution_checker().verify_scripted_capture(**_loader_resolution_replay_arguments(fixture))
     assert encoded(replay) == encoded(result['report'])
     assert replay['ptrace_cont_count'] == 11 and replay['post_entry_resumes'] == 0
+
+
+# Actual unselected file mapping from failed hosted run 45836176266/1.
+# These retained bytes remain a failed prefix, even after hosted cache removal.
+LOADER_RESOLUTION_CACHE_MAPPING_FIXTURE = (
+    ROOT / 'tests/fixtures/loader_resolution_cache_mapping_45836176266_v0')
+LOADER_RESOLUTION_CACHE_MAPPING_BINDINGS = {
+    'cp0.maps.before.bin': {'size_bytes': 1417,
+        'sha256': 'ee3e4844fdcddba72c7099fe3c3cf33275f6e48c2898e327c8b49d98ab862fbb'},
+    'return.01.maps.before.bin': {'size_bytes': 2065,
+        'sha256': '31c489c104cdb60ab8aa352e38362befd7262b8f9b94ee622bb92e04e82bd140'},
+    'backings.prelaunch.json': {'size_bytes': 2966,
+        'sha256': '6c9f957b2af1606441ace8b4aba13c9b47298ed76ec27f258aa1116ca48c65b6'},
+}
+
+
+def _loader_resolution_cache_mapping_observed_case(originals):
+    reader = loader_resolution_reader()
+    raw = {name: (LOADER_RESOLUTION_CACHE_MAPPING_FIXTURE / name).read_bytes()
+           for name in LOADER_RESOLUTION_CACHE_MAPPING_BINDINGS}
+    assert {name: bound(value) for name, value in raw.items()} == LOADER_RESOLUTION_CACHE_MAPPING_BINDINGS
+    # Reuse the independently pinned original ELF bytes, not new fixture copies.
+    native = originals.native
+    files = {'native.' + digest(value) + '.elf': value for value in native.values()}
+    backings = reader._backings(json.loads(raw['backings.prelaunch.json']), files, native)
+    return SimpleNamespace(reader=reader, raw=raw, native=native, files=files, backings=backings)
+
+
+def test_loader_resolution_cache_mapping_retains_failed_run_provenance_and_exact_raw_bindings():
+    provenance = json.loads((LOADER_RESOLUTION_CACHE_MAPPING_FIXTURE / 'provenance.json').read_bytes())
+    assert provenance['repository'] == 'HKati/pulse-release-gates-0.1'
+    assert provenance['run_id'] == 45836176266 and provenance['run_attempt'] == 1
+    assert provenance['source_commit'] == 'b88f3a4df2aabd1e9c39c98eeae9b09147c06f07'
+    assert provenance['artifact'] == {
+        'id': 15126560334, 'name': 'required-gate-idempotence-loader-resolution-45836176266-1',
+        'sha256': 'a8d7930cfc17e0adaad619569a91cd7c67f1cb7c93b4be13b30540c088988f0c',
+        'size_bytes': 220047130}
+    for name, expected in LOADER_RESOLUTION_CACHE_MAPPING_BINDINGS.items():
+        assert bound((LOADER_RESOLUTION_CACHE_MAPPING_FIXTURE / name).read_bytes()) == expected
+        assert provenance['files'][name] == {'artifact_member': 'observation/capture/' + name, **expected}
+    assert provenance['original_capture'] == {
+        'artifact_member': 'observation/capture/capture.json',
+        'sha256': 'a57216f68aaf5a258615452c93b80eb655f0ee0ccedba7bd36b6ab7e76c0b987',
+        'size_bytes': 23775, 'status': 'incomplete',
+        'failure': 'loader_resolution_unselected_file_mapping',
+        'accepted_return_events': 0, 'partial_return_checkpoints': 1, 'ptrace_cont_count': 2}
+    assert provenance['boundary'] == {
+        'authority_effect': 'none', 'b2_complete': False, 'complete_capture_preserved_here': False,
+        'metric_pass': None, 'original_loader_capture_completed': False,
+        'physical_execution_authenticated': False}
+
+
+def test_loader_resolution_cache_mapping_real_cp0_accepts_and_first_return_still_rejects(
+        loader_readout_originals):
+    case = _loader_resolution_cache_mapping_observed_case(loader_readout_originals)
+    original = dict(case.raw)
+    _rows, layouts = case.reader._layouts(case.raw['cp0.maps.before.bin'], case.backings, case.native)
+    assert set(layouts) == {case.reader.LAUNCHER, case.reader.LOADER}
+    identities = {value['identity'] for value in case.backings.values()}
+    rows = case.reader.decoding.proc.parse_maps(case.raw['return.01.maps.before.bin'])
+    unselected = [row for row in rows if (row['major'], row['minor'], row['inode']) not in identities
+                  and any(row[name] for name in ('major', 'minor', 'inode', 'offset'))]
+    assert unselected == [{'start': 0x7f434f0d2000, 'end': 0x7f434f0d4000,
+        'permissions': 'r--p', 'offset': 0, 'major': 0, 'minor': 46, 'inode': 5505580,
+        'path': '/etc/ld.so.cache'}]
+    selinux = case.backings['native/libselinux.so.1']['identity']
+    assert selinux == (0, 46, 4009352)
+    assert sum((row['major'], row['minor'], row['inode']) == selinux for row in rows) == 4
+    with pytest.raises(case.reader.ReadoutError, match='^loader_resolution_unselected_file_mapping$'):
+        case.reader._layouts(case.raw['return.01.maps.before.bin'], case.backings, case.native)
+    assert case.raw == original
+
+
+@pytest.mark.parametrize('path,permissions', [
+    (b'/etc/ld.so.cache', b'rw-p'), (b'/etc/ld.so.cache', b'r-xp'),
+    (b'/tmp/other-cache', b'r--p'), (b'/usr/lib/x86_64-linux-gnu/libselinux.so.1', b'r--p'),
+])
+def test_loader_resolution_cache_mapping_never_admits_an_unselected_inode_by_path_or_permissions(
+        loader_readout_originals, path, permissions):
+    case = _loader_resolution_cache_mapping_observed_case(loader_readout_originals)
+    raw = case.raw['return.01.maps.before.bin']
+    assert raw.count(b'/etc/ld.so.cache') == 1
+    changed = raw.replace(b'/etc/ld.so.cache', path).replace(
+        b'r--p 00000000 00:2e 5505580', permissions + b' 00000000 00:2e 5505580')
+    with pytest.raises(case.reader.ReadoutError, match='^loader_resolution_unselected_file_mapping$'):
+        case.reader._layouts(changed, case.backings, case.native)
+
+
+def _loader_resolution_hosted_cache_state(phase):
+    """Authored passive-state transport record, not a live container claim."""
+    checker = loader_resolution_hosted_checker()
+    return {
+        'record_type': 'required_gate_idempotence_loader_resolution_hosted_loader_cache_state_v0',
+        'profile': checker.PROFILE, 'phase': phase,
+        'environment_selection': copy.deepcopy(checker.ENVIRONMENT_BINDING),
+        'loader_cache': {**checker.LOADER_CACHE_POLICY, 'absence_verified': True}}
+
+
+@pytest.mark.parametrize('phase', ['acquire', 'verify'])
+@pytest.mark.parametrize('fault', [None, 'missing', 'path', 'policy', 'false', 'integer',
+    'string', 'null', 'extra_cache_field', 'extra_record_field', 'phase', 'profile', 'environment'])
+def test_loader_resolution_hosted_cache_state_requires_exact_fresh_phase_absence(phase, fault):
+    checker = loader_resolution_hosted_checker()
+    record = _loader_resolution_hosted_cache_state(phase)
+    if fault == 'missing': del record['loader_cache']
+    elif fault == 'path': record['loader_cache']['path'] = '/tmp/ld.so.cache'
+    elif fault == 'policy': record['loader_cache']['policy'] = 'allow_readonly_cache'
+    elif fault == 'false': record['loader_cache']['absence_verified'] = False
+    elif fault == 'integer': record['loader_cache']['absence_verified'] = 1
+    elif fault == 'string': record['loader_cache']['absence_verified'] = 'true'
+    elif fault == 'null': record['loader_cache']['absence_verified'] = None
+    elif fault == 'extra_cache_field': record['loader_cache']['content_admitted'] = True
+    elif fault == 'extra_record_field': record['physical_execution_authenticated'] = True
+    elif fault == 'phase': record['phase'] = 'verify' if phase == 'acquire' else 'acquire'
+    elif fault == 'profile': record['profile'] = 'other_profile'
+    elif fault == 'environment': record['environment_selection']['sha256'] = 'e' * 64
+    if fault:
+        with pytest.raises(ValueError, match='loader_resolution_hosted_loader_cache_state'):
+            checker.validate_loader_cache_state(record, phase)
+    else:
+        assert checker.validate_loader_cache_state(record, phase) == record
+        assert record['loader_cache'] == {'path': '/etc/ld.so.cache',
+            'policy': 'absent_after_package_install', 'absence_verified': True}
+
+
+@pytest.mark.parametrize('fault', ['missing', 'path', 'policy', 'false', 'integer', 'string',
+    'null', 'extra', 'selected_path', 'selected_policy'])
+def test_loader_resolution_hosted_build_record_rejects_cache_absence_or_selection_tampering(fault):
+    checker = loader_resolution_hosted_checker()
+    selected, record = _loader_resolution_hosted_build_record()
+    if fault == 'missing': del record['loader_cache']
+    elif fault == 'path': record['loader_cache']['path'] = '/tmp/ld.so.cache'
+    elif fault == 'policy': record['loader_cache']['policy'] = 'allow_readonly_cache'
+    elif fault == 'false': record['loader_cache']['absence_verified'] = False
+    elif fault == 'integer': record['loader_cache']['absence_verified'] = 1
+    elif fault == 'string': record['loader_cache']['absence_verified'] = 'true'
+    elif fault == 'null': record['loader_cache']['absence_verified'] = None
+    elif fault == 'extra': record['loader_cache']['unselected'] = True
+    elif fault == 'selected_path': selected['loader_cache']['path'] = '/tmp/ld.so.cache'
+    elif fault == 'selected_policy': selected['loader_cache']['policy'] = 'allow_readonly_cache'
+    with pytest.raises(ValueError, match='loader_resolution_hosted_(loader_cache|build_record)'):
+        checker.validate_build_record(record, selected)
+
+
+@pytest.mark.parametrize('phase', ['acquire', 'verify'])
+@pytest.mark.parametrize('oversized', [False, True])
+def test_loader_resolution_hosted_cache_state_transport_is_selected_and_bounded(tmp_path, phase, oversized):
+    root = tmp_path / 'cache-state-prefix'
+    _loader_resolution_hosted_prefix(root, phase)
+    relative = ('observation' if phase == 'acquire' else 'verification') + '/loader-cache-state.json'
+    raw = b'x' * 4097 if oversized else encoded(_loader_resolution_hosted_cache_state(phase))
+    _loader_resolution_hosted_tree(root, {relative: raw})
+    checker = loader_resolution_hosted_checker()
+    if oversized:
+        with pytest.raises(ValueError): checker.inventory(root)
+    else:
+        files, total = checker.inventory(root)
+        assert files[relative] == bound(raw)
+        assert total == sum(item['size_bytes'] for item in files.values())
+
+
+def _loader_resolution_cache_directory_case(tmp_path, monkeypatch):
+    builder, runner = loader_resolution_hosted_builder(), loader_resolution_hosted_runner()
+    directory = tmp_path / 'etc'
+    directory.mkdir()
+    for helper in (builder, runner):
+        monkeypatch.setattr(helper, 'LOADER_CACHE_DIRECTORY', directory)
+    selected = {'loader_cache': copy.deepcopy(builder.LOADER_CACHE_POLICY)}
+    return SimpleNamespace(builder=builder, runner=runner, directory=directory,
+        target=directory / 'ld.so.cache', selected=selected,
+        expected={**builder.LOADER_CACHE_POLICY, 'absence_verified': True})
+
+
+def _loader_resolution_cache_os_proxy(helper, monkeypatch, **overrides):
+    """Inject a filesystem race/denial without altering pytest's own os module."""
+    namespace = dict(vars(os))
+    namespace.update(overrides)
+    monkeypatch.setattr(helper, 'os', SimpleNamespace(**namespace))
+
+
+@pytest.mark.parametrize('present', [False, True])
+def test_loader_resolution_hosted_builder_removes_only_one_regular_fixed_cache(tmp_path, monkeypatch, present):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    other = case.directory / 'ld.so.cache.other'
+    other.write_bytes(b'unselected file remains untouched')
+    if present: case.target.write_bytes(b'authored cache bytes; never loaded')
+    removed = []
+    def unlink(path, *, dir_fd=None):
+        assert path == 'ld.so.cache' and dir_fd is not None
+        assert os.fstat(dir_fd).st_ino == case.directory.stat().st_ino
+        removed.append(path)
+        return os.unlink(path, dir_fd=dir_fd)
+    _loader_resolution_cache_os_proxy(case.builder, monkeypatch, unlink=unlink)
+    assert case.builder.remove_loader_cache(case.selected) == case.expected
+    assert removed == (['ld.so.cache'] if present else [])
+    assert not case.target.exists()
+    assert other.read_bytes() == b'unselected file remains untouched'
+    assert case.builder.check_loader_cache_absent(case.selected) == case.expected
+    assert case.runner._loader_cache_absent() == case.expected
+
+
+@pytest.mark.parametrize('fault', ['symlink', 'dangling_symlink', 'directory', 'fifo', 'hardlink'])
+def test_loader_resolution_hosted_builder_never_removes_alias_or_nonregular_cache(tmp_path, monkeypatch, fault):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    other = tmp_path / 'unselected-target'
+    other.write_bytes(b'preserve unselected bytes')
+    if fault == 'symlink': case.target.symlink_to(other)
+    elif fault == 'dangling_symlink': case.target.symlink_to(tmp_path / 'absent-target')
+    elif fault == 'directory': case.target.mkdir()
+    elif fault == 'fifo': os.mkfifo(case.target)
+    else: os.link(other, case.target)
+    before = case.target.lstat()
+    with pytest.raises(ValueError, match='^build_loader_cache_entry$'):
+        case.builder.remove_loader_cache(case.selected)
+    after = case.target.lstat()
+    assert (before.st_dev, before.st_ino, before.st_mode) == (after.st_dev, after.st_ino, after.st_mode)
+    assert other.read_bytes() == b'preserve unselected bytes'
+
+
+@pytest.mark.parametrize('fault', ['missing', 'path', 'policy', 'extra'])
+def test_loader_resolution_hosted_builder_rejects_unselected_cache_mutation_before_filesystem_access(
+        tmp_path, monkeypatch, fault):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    if fault == 'missing': del case.selected['loader_cache']
+    elif fault == 'path': case.selected['loader_cache']['path'] = '/tmp/other-cache'
+    elif fault == 'policy': case.selected['loader_cache']['policy'] = 'allow_readonly_cache'
+    else: case.selected['loader_cache']['extra'] = True
+    def forbidden(*_args, **_kwargs): pytest.fail('unselected cache policy reached filesystem access')
+    _loader_resolution_cache_os_proxy(case.builder, monkeypatch, open=forbidden)
+    for operation in (case.builder.remove_loader_cache, case.builder.check_loader_cache_absent):
+        with pytest.raises(ValueError, match='^build_loader_cache_selection$'):
+            operation(case.selected)
+
+
+@pytest.mark.parametrize('operation', ['remove', 'builder_check', 'runner_check'])
+@pytest.mark.parametrize('fault', ['parent_symlink', 'parent_missing', 'permission'])
+def test_loader_resolution_hosted_cache_absence_rejects_bad_parent_or_access_denial(
+        tmp_path, monkeypatch, operation, fault):
+    import errno
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    helper = case.runner if operation == 'runner_check' else case.builder
+    call = case.runner._loader_cache_absent if operation == 'runner_check' else (
+        lambda: (case.builder.remove_loader_cache if operation == 'remove'
+                 else case.builder.check_loader_cache_absent)(case.selected))
+    if fault == 'parent_symlink':
+        alias = tmp_path / 'etc-alias'; alias.symlink_to(case.directory, target_is_directory=True)
+        monkeypatch.setattr(helper, 'LOADER_CACHE_DIRECTORY', alias)
+    elif fault == 'parent_missing':
+        monkeypatch.setattr(helper, 'LOADER_CACHE_DIRECTORY', tmp_path / 'missing-parent')
+    else:
+        def denied(*_args, **_kwargs): raise PermissionError(errno.EACCES, 'authored cache parent denial')
+        _loader_resolution_cache_os_proxy(helper, monkeypatch, open=denied)
+    with pytest.raises((OSError, ValueError)): call()
+
+
+@pytest.mark.parametrize('fault', ['entry_open', 'entry_stat', 'unlink'])
+def test_loader_resolution_hosted_builder_cache_access_denial_never_claims_absence(tmp_path, monkeypatch, fault):
+    import errno
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    case.target.write_bytes(b'preserve denied cache bytes')
+    overrides = {}
+    if fault == 'entry_open':
+        def opened(path, flags, *args, **kwargs):
+            if path == 'ld.so.cache': raise PermissionError(errno.EACCES, 'authored entry denial')
+            return os.open(path, flags, *args, **kwargs)
+        overrides['open'] = opened
+    elif fault == 'entry_stat':
+        def observed(path, *args, **kwargs):
+            if path == 'ld.so.cache': raise PermissionError(errno.EACCES, 'authored entry denial')
+            return os.stat(path, *args, **kwargs)
+        overrides['stat'] = observed
+    else:
+        def denied(*_args, **_kwargs): raise PermissionError(errno.EACCES, 'authored unlink denial')
+        overrides['unlink'] = denied
+    _loader_resolution_cache_os_proxy(case.builder, monkeypatch, **overrides)
+    with pytest.raises(PermissionError): case.builder.remove_loader_cache(case.selected)
+    assert case.target.read_bytes() == b'preserve denied cache bytes'
+
+
+def test_loader_resolution_hosted_builder_rejects_cache_reappearance_after_removal(tmp_path, monkeypatch):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    case.target.write_bytes(b'first selected entry')
+    def recreate(path, *, dir_fd=None):
+        os.unlink(path, dir_fd=dir_fd)
+        case.target.write_bytes(b'unselected replacement')
+    _loader_resolution_cache_os_proxy(case.builder, monkeypatch, unlink=recreate)
+    with pytest.raises(ValueError, match='^build_loader_cache_present$'):
+        case.builder.remove_loader_cache(case.selected)
+    assert case.target.read_bytes() == b'unselected replacement'
+
+
+def test_loader_resolution_hosted_builder_rejects_entry_replacement_before_removal(tmp_path, monkeypatch):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    case.target.write_bytes(b'first selected entry')
+    def replaced_after_open(path, flags, *args, **kwargs):
+        descriptor = os.open(path, flags, *args, **kwargs)
+        if path == 'ld.so.cache':
+            case.target.unlink()
+            case.target.write_bytes(b'unselected replacement')
+        return descriptor
+    _loader_resolution_cache_os_proxy(case.builder, monkeypatch, open=replaced_after_open)
+    with pytest.raises(ValueError, match='^build_loader_cache_changed$'):
+        case.builder.remove_loader_cache(case.selected)
+    assert case.target.read_bytes() == b'unselected replacement'
+
+
+@pytest.mark.parametrize('fault', [None, 'regular', 'symlink', 'dangling_symlink', 'directory', 'fifo'])
+def test_loader_resolution_hosted_runtime_cache_check_is_passive_and_rejects_every_entry(
+        tmp_path, monkeypatch, fault):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    if fault == 'regular': case.target.write_bytes(b'cache must remain on failed passive check')
+    elif fault == 'symlink':
+        other = tmp_path / 'unselected'; other.write_bytes(b'other bytes'); case.target.symlink_to(other)
+    elif fault == 'dangling_symlink': case.target.symlink_to(tmp_path / 'absent-target')
+    elif fault == 'directory': case.target.mkdir()
+    elif fault == 'fifo': os.mkfifo(case.target)
+    def forbidden(*_args, **_kwargs): pytest.fail('runtime cache check attempted mutation')
+    _loader_resolution_cache_os_proxy(case.runner, monkeypatch,
+        unlink=forbidden, remove=forbidden, rename=forbidden, replace=forbidden)
+    if fault:
+        before = case.target.lstat()
+        with pytest.raises(ValueError, match='^loader_resolution_hosted_inner_loader_cache_present$'):
+            case.runner._loader_cache_absent()
+        after = case.target.lstat()
+        assert (before.st_dev, before.st_ino, before.st_mode) == (after.st_dev, after.st_ino, after.st_mode)
+    else:
+        assert case.runner._loader_cache_absent() == case.expected
+        assert list(case.directory.iterdir()) == []
+
+
+@pytest.mark.parametrize('runtime', [False, True])
+def test_loader_resolution_hosted_passive_cache_check_rejects_reappearance_during_absence_observation(
+        tmp_path, monkeypatch, runtime):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    helper = case.runner if runtime else case.builder
+    calls = []
+    def appears_after_lookup(path, *args, **kwargs):
+        try:
+            return os.stat(path, *args, **kwargs)
+        except FileNotFoundError:
+            if path == 'ld.so.cache':
+                calls.append(path)
+                case.target.write_bytes(b'reappeared after negative lookup')
+            raise
+    _loader_resolution_cache_os_proxy(helper, monkeypatch, stat=appears_after_lookup)
+    code = 'loader_resolution_hosted_inner_loader_cache_changed' if runtime else 'build_loader_cache_changed'
+    with pytest.raises(ValueError, match='^' + code + '$'):
+        if runtime: case.runner._loader_cache_absent()
+        else: case.builder.check_loader_cache_absent(case.selected)
+    assert calls == ['ld.so.cache'] and case.target.read_bytes() == b'reappeared after negative lookup'
+
+
+@pytest.mark.parametrize('runtime', [False, True])
+def test_loader_resolution_hosted_passive_cache_check_rejects_non_enoent_negative_lookup(
+        tmp_path, monkeypatch, runtime):
+    import errno
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    helper = case.runner if runtime else case.builder
+    def wrong_errno(path, *args, **kwargs):
+        if path == 'ld.so.cache': raise FileNotFoundError(errno.EACCES, 'authored non-ENOENT failure')
+        return os.stat(path, *args, **kwargs)
+    _loader_resolution_cache_os_proxy(helper, monkeypatch, stat=wrong_errno)
+    code = 'loader_resolution_hosted_inner_loader_cache_changed' if runtime else 'build_loader_cache_changed'
+    with pytest.raises(ValueError, match='^' + code + '$'):
+        if runtime: case.runner._loader_cache_absent()
+        else: case.builder.check_loader_cache_absent(case.selected)
+
+
+@pytest.mark.parametrize('reappears', [False, True])
+def test_loader_resolution_hosted_builder_removes_cache_after_all_installers_and_rechecks_before_record(
+        tmp_path, monkeypatch, reappears):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    selected, authored = _loader_resolution_hosted_build_record()
+    inputs = tmp_path / 'inputs'
+    inputs.mkdir()
+    for name in ('environment.json', 'requirements.lock', 'build_environment.py'):
+        (inputs / name).write_bytes((ROOT / LOADER_RESOLUTION_HOSTED_CONFIG / name).read_bytes())
+    builder = case.builder
+    # Installer/native-file seams are authored; only the temporary cache path
+    # is mutated. This does not construct an image or execute a payload.
+    monkeypatch.setattr(builder, 'sys', SimpleNamespace(executable=builder.PYTHON,
+        flags=SimpleNamespace(isolated=1), platform='linux'))
+    monkeypatch.setattr(builder, 'platform', SimpleNamespace(
+        python_version=lambda: builder.PYTHON_VERSION, machine=lambda: 'x86_64'))
+    monkeypatch.setattr(builder, 'check_input_layout', lambda *_args: None)
+    monkeypatch.setattr(builder, 'check_downloads',
+        lambda directory, items: [directory / row['filename'] for row in items])
+    monkeypatch.setattr(builder, 'check_native_inputs', lambda *_args: None)
+    monkeypatch.setattr(builder, 'restore_original_native_objects',
+        lambda *_args: copy.deepcopy(authored['native_object_restorations']))
+    monkeypatch.setattr(builder, 'install_original_objects',
+        lambda *_args: copy.deepcopy(authored['original_native_objects']))
+    monkeypatch.setattr(builder, 'verify_native_restorations', lambda *_args: None)
+    monkeypatch.setattr(builder, 'check_runtime_files',
+        lambda *_args, **_kwargs: copy.deepcopy(authored['checked_files']))
+    versions = {row['name']: row['version'] for row in selected['python']['packages']}
+    monkeypatch.setattr(builder, 'importlib', SimpleNamespace(metadata=SimpleNamespace(
+        version=lambda name: versions[name])))
+    before = {row['name']: row['base_version'] for row in selected['debian']['closure']
+              if row['base_version'] is not None}
+    before.update(selected['crypto_backend']['base_packages'])
+    after = {**before, **{row['name']: row['version'] for row in selected['debian']['packages']}}
+    calls = []
+    monkeypatch.setattr(builder, 'installed_debian', lambda: dict(after if len(calls) == 3 else before))
+    def installer(argv, **kwargs):
+        assert kwargs['shell'] is False and kwargs['check'] is True
+        calls.append(argv)
+        case.target.write_bytes(('authored installer cache ' + str(len(calls))).encode())
+        return subprocess.CompletedProcess(argv, 0)
+    monkeypatch.setattr(builder, 'subprocess', SimpleNamespace(run=installer, DEVNULL=subprocess.DEVNULL))
+    def crypto(_selection):
+        assert len(calls) == 3 and not case.target.exists()
+        assert calls[0][:2] == ['/usr/bin/dpkg', '--install']
+        assert calls[1][:6] == [builder.PYTHON, '-I', '-B', '-m', 'pip', 'install']
+        assert calls[2] == [builder.PYTHON, '-I', '-B', '-m', 'pip', 'check']
+        if reappears: case.target.write_bytes(b'unselected post-install replacement')
+        return copy.deepcopy(authored['openssl_backend'])
+    monkeypatch.setattr(builder, 'check_openssl_backend', crypto)
+    if reappears:
+        with pytest.raises(ValueError, match='^build_loader_cache_present$'):
+            builder.install(inputs)
+        assert not (inputs / 'build-environment-record.json').exists()
+    else:
+        record = builder.install(inputs)
+        assert record['loader_cache'] == case.expected
+        assert loader_resolution_hosted_checker().validate_build_record(record, selected) == record
+        assert (inputs / 'build-environment-record.json').read_bytes() == encoded(record)
+    assert len(calls) == 3
+
+
+@pytest.mark.parametrize('phase', ['acquire', 'verify'])
+@pytest.mark.parametrize('present', [False, True])
+def test_loader_resolution_hosted_passive_environment_preserves_fresh_cache_state_only_after_absence(
+        tmp_path, monkeypatch, phase, present):
+    case = _loader_resolution_cache_directory_case(tmp_path, monkeypatch)
+    runner = case.runner
+    selected, record = _loader_resolution_hosted_build_record()
+    observer = b'authored passive interpreter bytes; never executed'
+    selected['python']['observer_binding'] = bound(observer)
+    selected['python']['packages'] = []
+    selected['expected_files'] = []
+    build, output = tmp_path / 'build-environment-record.json', tmp_path / 'output'
+    build.write_bytes(encoded(record)); output.mkdir()
+    if present: case.target.write_bytes(b'cache after build must reject the runtime')
+    monkeypatch.setattr(runner, 'BUILD_RECORD', build)
+    monkeypatch.setattr(runner, 'OUTPUT', output)
+    monkeypatch.setattr(runner.hosted, 'environment', lambda: copy.deepcopy(selected))
+    # Other passive runtime checks use authored inputs here; the production
+    # absence check and closed state validator remain unpatched.
+    validated = []
+    def validate_build(actual, *_args):
+        assert actual == record
+        validated.append(actual)
+        return actual
+    monkeypatch.setattr(runner.hosted, 'validate_build_record', validate_build)
+    monkeypatch.setattr(runner, 'platform', SimpleNamespace(system=lambda: 'Linux',
+        machine=lambda: 'x86_64', python_version=lambda: '3.11.16'))
+    monkeypatch.setattr(runner, 'sys', SimpleNamespace(executable=runner.PYTHON,
+        flags=SimpleNamespace(isolated=1)))
+    _loader_resolution_cache_os_proxy(runner, monkeypatch,
+        getuid=lambda: 1000, getgid=lambda: 1000,
+        getresuid=lambda: (1000, 1000, 1000), getresgid=lambda: (1000, 1000, 1000))
+    original_read = runner.bounded_io.read_regular
+    monkeypatch.setattr(runner.bounded_io, 'read_regular', lambda path, *args, **kwargs:
+        observer if str(path) == runner.PYTHON else original_read(path, *args, **kwargs))
+    def forbidden(*_args, **_kwargs): pytest.fail('passive runtime check attempted a subprocess')
+    monkeypatch.setattr(runner, '_command', forbidden)
+    if present:
+        with pytest.raises(ValueError, match='^loader_resolution_hosted_inner_loader_cache_present$'):
+            runner._environment_check(preserve=True, phase=phase)
+        assert list(output.iterdir()) == []
+        assert case.target.read_bytes() == b'cache after build must reject the runtime'
+    else:
+        assert runner._environment_check() == record
+        assert list(output.iterdir()) == []
+        assert runner._environment_check(preserve=True, phase=phase) == record
+        assert (output / 'build-environment-record.json').read_bytes() == encoded(record)
+        assert (output / 'loader-cache-state.json').read_bytes() == encoded(
+            _loader_resolution_hosted_cache_state(phase))
+    assert len(validated) == (1 if present else 2)

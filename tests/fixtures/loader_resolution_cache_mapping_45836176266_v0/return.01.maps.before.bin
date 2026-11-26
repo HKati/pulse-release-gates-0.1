@@ -1,0 +1,21 @@
+55f814417000-55f81441a000 r--p 00000000 00:01 36                         /memfd:pulse-entry-stop-launcher-v0 (deleted)
+55f81441a000-55f814424000 r-xp 00003000 00:01 36                         /memfd:pulse-entry-stop-launcher-v0 (deleted)
+55f814424000-55f81442a000 r--p 0000d000 00:01 36                         /memfd:pulse-entry-stop-launcher-v0 (deleted)
+55f81442a000-55f81442c000 rw-p 00012000 00:01 36                         /memfd:pulse-entry-stop-launcher-v0 (deleted)
+7f434f09e000-7f434f0a5000 r--p 00000000 00:2e 4009352                    /usr/lib/x86_64-linux-gnu/libselinux.so.1
+7f434f0a5000-7f434f0c5000 r-xp 00007000 00:2e 4009352                    /usr/lib/x86_64-linux-gnu/libselinux.so.1
+7f434f0c5000-7f434f0ce000 r--p 00027000 00:2e 4009352                    /usr/lib/x86_64-linux-gnu/libselinux.so.1
+7f434f0ce000-7f434f0d0000 rw-p 00030000 00:2e 4009352                    /usr/lib/x86_64-linux-gnu/libselinux.so.1
+7f434f0d0000-7f434f0d2000 rw-p 00000000 00:00 0 
+7f434f0d2000-7f434f0d4000 r--p 00000000 00:2e 5505580                    /etc/ld.so.cache
+7f434f0d4000-7f434f0d6000 rw-p 00000000 00:00 0 
+7f434f0d6000-7f434f0da000 r--p 00000000 00:00 0                          [vvar]
+7f434f0da000-7f434f0dc000 r--p 00000000 00:00 0                          [vvar_vclock]
+7f434f0dc000-7f434f0de000 r-xp 00000000 00:00 0                          [vdso]
+7f434f0de000-7f434f0df000 r--p 00000000 00:2e 4009276                    /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f434f0df000-7f434f107000 r-xp 00001000 00:2e 4009276                    /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f434f107000-7f434f112000 r--p 00029000 00:2e 4009276                    /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f434f112000-7f434f115000 rw-p 00034000 00:2e 4009276                    /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f434f115000-7f434f116000 rw-p 00000000 00:00 0 
+7ffc1a131000-7ffc1a152000 rw-p 00000000 00:00 0                          [stack]
+ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]

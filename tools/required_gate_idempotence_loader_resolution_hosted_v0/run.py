@@ -9,11 +9,13 @@ adapter. Its only subprocesses are the two independent raw checker commands.
 from __future__ import annotations
 
 import argparse
+import errno
 import importlib.metadata
 import os
 from pathlib import Path
 import platform
 import re
+import stat
 import sys
 
 
@@ -33,6 +35,7 @@ INPUT = Path("/input")
 OUTPUT = Path("/output")
 BUILD_RECORD = Path("/opt/pulse-loader-resolution-build/build-environment-record.json")
 CONTROL_LIMIT = 1024 * 1024
+LOADER_CACHE_DIRECTORY = Path("/etc")
 
 
 def _need(condition, code):
@@ -59,9 +62,41 @@ def _command(argv, logdir, label, timeout_seconds, stream_cap=1048576):
     return bounded_io.run_command(argv, logdir, label, timeout_seconds, stream_cap)
 
 
-def _environment_check(preserve=False):
+def _loader_cache_absent():
+    """Passively inspect the fixed cache entry through its real parent directory."""
+    directory = os.open(LOADER_CACHE_DIRECTORY,
+                        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    identity = lambda value: (value.st_dev, value.st_ino, value.st_mode, value.st_nlink,
+                               value.st_size, value.st_mtime_ns, value.st_ctime_ns,
+                               value.st_uid, value.st_gid)
+    try:
+        before = os.fstat(directory)
+        linked = os.stat(LOADER_CACHE_DIRECTORY, follow_symlinks=False)
+        _need(stat.S_ISDIR(before.st_mode) and stat.S_ISDIR(linked.st_mode)
+              and identity(before) == identity(linked),
+              "loader_resolution_hosted_inner_loader_cache_parent")
+        try:
+            os.stat("ld.so.cache", dir_fd=directory, follow_symlinks=False)
+        except FileNotFoundError as error:
+            _need(error.errno == errno.ENOENT,
+                  "loader_resolution_hosted_inner_loader_cache_changed")
+        else:
+            raise ValueError("loader_resolution_hosted_inner_loader_cache_present")
+        _need(identity(before) == identity(os.fstat(directory))
+              == identity(os.stat(LOADER_CACHE_DIRECTORY, follow_symlinks=False)),
+              "loader_resolution_hosted_inner_loader_cache_changed")
+    finally:
+        os.close(directory)
+    return {**hosted.LOADER_CACHE_POLICY, "absence_verified": True}
+
+
+def _environment_check(preserve=False, phase=None):
     """Check the selected interpreter, crypto tools and original bytes passively."""
     selected = hosted.environment()
+    _need(selected.get("loader_cache") == hosted.LOADER_CACHE_POLICY,
+          "loader_resolution_hosted_inner_loader_cache_selection")
+    _need(not preserve or phase in ("acquire", "verify"),
+          "loader_resolution_hosted_inner_loader_cache_phase")
     python = selected["python"]
     _need(platform.system() == "Linux" and platform.machine() == "x86_64"
           and platform.python_version() == python["version"]
@@ -103,8 +138,17 @@ def _environment_check(preserve=False):
     _need(core.canonical(record) == raw, "loader_resolution_hosted_inner_build_canonical")
     hosted.validate_build_record(record, selected,
         core.binding(environment_raw), core.binding(requirements_raw))
+    loader_cache = _loader_cache_absent()
     if preserve:
+        state = {
+            "record_type": "required_gate_idempotence_loader_resolution_hosted_loader_cache_state_v0",
+            "profile": hosted.PROFILE, "phase": phase,
+            "environment_selection": hosted.ENVIRONMENT_BINDING,
+            "loader_cache": loader_cache,
+        }
+        hosted.validate_loader_cache_state(state, phase)
         hosted.write_new(OUTPUT / "build-environment-record.json", raw)
+        hosted.write_new(OUTPUT / "loader-cache-state.json", core.canonical(state))
     return record
 
 
@@ -251,7 +295,7 @@ def acquire():
     selection = _selection("acquire")
     reports, error_code = (), None
     try:
-        _environment_check(preserve=True)
+        _environment_check(preserve=True, phase="acquire")
         result = _command([PYTHON, "-I", "-B", str(RUNNER), "observe"],
                           OUTPUT / "commands", "observe", 240)
         _need(_clean_result(result), "loader_resolution_hosted_inner_observer_command")
@@ -266,7 +310,7 @@ def verify():
     reports, error_code = (), None
     root = INPUT / "observation"
     try:
-        _environment_check(preserve=True)
+        _environment_check(preserve=True, phase="verify")
         reports = _replay(root, selection, "verify")
     except (OSError, ValueError, TypeError, KeyError, IndexError, OverflowError, RecursionError) as exc:
         error_code = _error(exc)

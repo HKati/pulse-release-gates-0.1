@@ -8,8 +8,11 @@ merged in #3055. Its implementation base is
 `a97e493fdca0d7d9bd4f472fe6825fe61e22f769`.
 Implementation checks do not execute the original launcher, native probes or
 this workflow. The [first owner-dispatched attempt](#first-hosted-attempt-455866533791)
-stopped incomplete at cp0. A new actual hosted attempt remains a separate
-owner-dispatched operation at the reviewed main commit containing the repair.
+stopped incomplete at cp0. The [second attempt](#second-hosted-attempt-458361762661)
+passed cp0 and stopped on an unselected loader-cache mapping at the first
+dependency return. Both records remain incomplete. A new actual hosted attempt
+remains a separate owner-dispatched operation at the reviewed main commit
+containing the selected-environment correction.
 
 The selected interval remains nine unique original-loader dependency returns,
 followed by original executable entry: eleven `PTRACE_CONT` calls in total and
@@ -32,7 +35,7 @@ or release authority. The hosted boundary remains conservative:
 | [Manual workflow](../../.github/workflows/required_gate_idempotence_loader_resolution_v0.yml) | Owner/source/policy selection, separate acquisition and verification jobs, preserved failure prefixes and completion-only attestation |
 | [Host controller](../../tools/required_gate_idempotence_loader_resolution_hosted_v0.py) | Exact source snapshots, bounded input transport, offline builds, restricted owned containers and cleanup |
 | [Independent hosted checker](../../tools/check_required_gate_idempotence_loader_resolution_hosted_v0.py) | Closed context, commands, sources, raw-byte/report joins, artifact handoff, receipts and verified statement |
-| [Environment selection](../../tools/required_gate_idempotence_loader_resolution_hosted_v0/environment.json) | Exact base, Python, GPG, OpenSSL, package and original-object bytes |
+| [Environment selection](../../tools/required_gate_idempotence_loader_resolution_hosted_v0/environment.json) | Exact base, Python, GPG, OpenSSL, package and original-object bytes, with explicit loader-cache absence |
 | [Dockerfile](../../tools/required_gate_idempotence_loader_resolution_hosted_v0/Dockerfile), [lock](../../tools/required_gate_idempotence_loader_resolution_hosted_v0/requirements.lock), [builder](../../tools/required_gate_idempotence_loader_resolution_hosted_v0/build_environment.py) | Offline environment reconstruction and checked build record |
 | [Container runner](../../tools/required_gate_idempotence_loader_resolution_hosted_v0/run.py) | One observer subprocess or two separate data-only checker processes |
 | [Hosted schema](../../schemas/required_gate_idempotence_loader_resolution_hosted_v0.schema.json) | Closed hosted controls and finite source/material/evidence vocabulary |
@@ -119,11 +122,40 @@ launcher remains build data; no build step executes it.
 
 Both builds use the selected local base tag, `--pull=false`, `--no-cache` and
 `--network none`. The builder checks the complete materials before mutation,
-installs the fixed `.deb` and wheel sets offline, checks selected file and
-package identities, and runs positive and negative Ed25519 known-answer tests.
+installs the fixed `.deb` and wheel sets offline, applies the selected cache
+absence policy, checks selected file and package identities, and runs positive
+and negative Ed25519 known-answer tests in that final filesystem configuration.
 Fresh original GPG verification and rebuild acceptance, including their own
 OpenSSL checks, still run in the unchanged admission code before native probes.
 The build record is not an admission result.
+
+The hosted filesystem explicitly selects `/etc/ld.so.cache` as
+`absent_after_package_install`. Package triggers can generate this additional
+resolver input, whose bytes and backing identity are outside the six selected
+original ELF objects. After all package installers finish, the builder removes
+only a regular, single-link cache entry through a pinned real `/etc` directory.
+Symlinks, other file types, access errors, replacement and reappearance fail the
+build. The builder checks absence before its final crypto tests and again before
+publishing its bound build record. This operation is confined to the constructed
+image; the host controller does not remove a host cache.
+
+Acquisition, the observer and verification each passively check the current
+cache absence before continuing. Acquisition and verification separately preserve
+`loader-cache-state.json`; the hosted checker requires its exact phase,
+environment binding and absence statement alongside the build record. Missing,
+changed or contradictory state cannot establish completed hosted verification.
+The selected readonly root and exact mounts provide no writable `/etc` path.
+These process observations retain the existing physical-authentication limits.
+
+The original loader's compiled default directories include
+`/lib/x86_64-linux-gnu/`, `/usr/lib/x86_64-linux-gnu/`, `/lib/` and `/usr/lib/`.
+The four selected dependent libraries occupy those directories, and the original
+ELFs have no `DF_1_NODEFLIB` restriction. The pinned Python observer has
+`RUNPATH=$ORIGIN/../lib`. Data-only inspection therefore supports cache-independent
+lookup without changing original bytes, argv, environment or the accepted
+rebuild policy. It does not establish completion of a future native attempt.
+The native map checker still rejects every unselected file-backed mapping,
+including `/etc/ld.so.cache`; there is no pathname exemption.
 
 Acquisition preserves the base image archive, all twenty package/wheel/native
 materials and five configuration files. Independent verification loads that
@@ -136,9 +168,9 @@ recorded separately; reproducible image IDs are not claimed.
 | Phase | Execution | Required evidence |
 | --- | --- | --- |
 | Acquisition host | Build the selected environment and create one restricted, labelled container | Source/Git/material bindings, fixed command records and actual inspections |
-| Acquisition container | Supervise one PID-greater-than-one observer; invoke the existing adapter once; run two separate native raw checkers | Request, complete raw capture, two equal canonical reports and build record |
+| Acquisition container | Check cache absence, supervise one PID-greater-than-one observer, invoke the existing adapter once and run two separate native raw checkers | Fresh cache state, request, complete raw capture, two equal canonical reports and build record |
 | Verification host | Check the exact current-run artifact and receipt; privately copy preserved bytes; rebuild offline | Artifact metadata, source and material identity, fresh container policy |
-| Verification container | Run two separate data-only raw checkers against the preserved request and capture | Two reports equal to each other and both acquisition reports |
+| Verification container | Check cache absence and run two separate data-only raw checkers against the preserved request and capture | Fresh cache state and two reports equal to each other and both acquisition reports |
 | Hosted completion | Reconstruct both phases and owned cleanup, then create and attest `verified-binding.json` | Bound original evidence, four report bindings and verified GitHub attestation bundle |
 
 The PID 1 entrypoint supervises exactly one `run.py observe` worker. The worker
@@ -261,3 +293,52 @@ That small test fixture is explicitly not a complete capture or a replacement
 for the original artifacts. The original incomplete record is not rewritten or
 promoted by the [native process-pair correction](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md#process-identity-and-resident-memory-accounting).
 A fresh owner dispatch after repair review, CI and merge is still required.
+
+## Second hosted attempt: 45836176266/1
+
+Owner-dispatched [run 45836176266, attempt 1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45836176266)
+used source `b88f3a4df2aabd1e9c39c98eeae9b09147c06f07`. The dispatch guards,
+fresh original admission and same-observer qualifications passed. The native
+capture passed cp0 and recorded two successful continuations. Its first
+dependency-return checkpoint remained partial, with no accepted return event
+and no terminal entry checkpoint. Acquisition stopped with
+`loader_resolution_unselected_file_mapping`.
+
+The unchanged first-return map contains one file-backed identity outside the
+admitted original roster:
+
+```text
+7f434f0d2000-7f434f0d4000 r--p 00000000 00:2e 5505580                    /etc/ld.so.cache
+```
+
+That is an 8,192-byte cache mapping. The concurrently appearing
+`libselinux.so.1` mapping matches its selected backing. Data-only replay of the
+preserved readout against the original maps and backing records accepts cp0
+and rejects the first return with the same code. The original build log records
+the `libc-bin` package trigger; the environment had not selected cache absence
+after installation. The strict mapping guard is retained unchanged.
+
+The owned acquisition container was removed and its absence verified. The
+verification job verified the original artifact, receipt and all 330 preserved
+files, including the receipt itself, then stopped with
+`loader_resolution_hosted_incomplete_prefix`. The receipt binds 329 payload
+files. Attestation was skipped; this is diagnostic custody of an incomplete
+attempt.
+
+| Original artifact | ID | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| [Acquisition](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45836176266/artifacts/15126560334) | `15126560334` | 220047130 | `a8d7930cfc17e0adaad619569a91cd7c67f1cb7c93b4be13b30540c088988f0c` |
+| [Verification](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45836176266/artifacts/15125821404) | `15125821404` | 6773 | `6204c162e436663b377be4953854d2788e537fbc024e99416d5554eb208b1f4f` |
+
+The acquisition receipt SHA-256 is
+`6d47c807cac9e1f930b3e4f487020f887ecf884c6f09a2f0ce45020513d48a3e`.
+Unchanged cp0/first-return maps, the original backing record and exact provenance
+are retained as a [small regression fixture](../../tests/fixtures/loader_resolution_cache_mapping_45836176266_v0/provenance.json).
+It is not a complete capture or a substitute for the original artifacts.
+
+The selected cache-absence correction changes the hosted environment binding
+and requires a fresh source-bound owner dispatch after review, CI and merge.
+It does not rewrite either failed attempt, relax original admission or claim
+that later return checkpoints will complete. The whole-runtime issue #2879
+remains open, with `b2_complete=false`, `metric_pass=null` and
+`authority_effect=none`.

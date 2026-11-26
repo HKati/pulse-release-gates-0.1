@@ -442,6 +442,10 @@
     }
   ],
   "host_environment_qualified": false,
+  "loader_cache": {
+    "path": "/etc/ld.so.cache",
+    "policy": "absent_after_package_install"
+  },
   "native_acquisition_performed": false,
   "native_object_restorations": [
     {
