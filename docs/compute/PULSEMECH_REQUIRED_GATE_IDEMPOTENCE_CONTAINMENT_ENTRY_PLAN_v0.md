@@ -2,11 +2,19 @@
 
 ## Status and selected next boundary
 
-This unit records a **source-bound design proposal**, its exact input inventory,
-and acceptance conditions for the next bounded B2 observation. It adds no
-collector, executable policy, workflow, plan schema or independent plan checker.
-No native probe, launcher, static entry, Python interpreter, container or workflow
-was executed for this unit. Merging this proposal does not authorize acquisition.
+The immutable proposal recorded by
+[PR #3060](https://github.com/HKati/pulse-release-gates-0.1/pull/3060) specifies
+the exact input inventory and acceptance conditions for the next bounded B2
+observation. **Data-only plan checking is now implemented** by a closed schema,
+an independent checker and appended regressions. The current implementation base
+is `e4c2c755b84b89ee0e02c3738c6dfbcf6ecb69e5`.
+The original proposal and source-inventory JSON bytes remain unchanged.
+
+The new checker reconstructs design relationships from original preserved bytes.
+It supplies no collector, executable policy or workflow. No native probe,
+launcher, static entry, selected Python interpreter, container or workflow was
+executed for this implementation unit. A verified design does not authorize
+acquisition.
 
 The development base is `aa7ca551a06cf553c5dc13f052693706f1227bbf`, after
 [PR #3059](https://github.com/HKati/pulse-release-gates-0.1/pull/3059).
@@ -24,10 +32,11 @@ then terminates and accounts for every owned task without restarting the termina
 payload. Python, bootstrap diagnostics and operator applications remain later
 boundaries.
 
-| Boundary | Meaning in this unit |
+| Boundary | Current meaning |
 | --- | --- |
 | Previous original-loader observation | Preserved prerequisite; no new replay or acquisition claimed here. |
 | Minimal containment-entry request | Concrete proposed argv, view, role graph, evidence and terminal contract. |
+| Data-only plan checking | Implemented; original-byte reconstruction and closed policy checks. |
 | New observation and host qualification | Not implemented, not performed, not authorized. |
 | Static-entry instructions | Zero execution in the proposed terminal profile. |
 | Real selected CPython capsule | Still requires new original inputs and selection. |
@@ -53,6 +62,137 @@ bindings refer to those **Git blob bytes at the named commit**, including the
 hosted-observation document before this unit's additive link. This inventory is
 not the exhaustive source closure of a future execution environment. A future
 implementation must declare its own complete helper/producer/checker/host inputs.
+
+## Implemented data-only plan checking
+
+The [checker](../../tools/check_required_gate_idempotence_containment_entry_plan_v0.py)
+uses the [closed schema](../../schemas/required_gate_idempotence_containment_entry_plan_v0.schema.json)
+for three distinct records: the original proposal, its source inventory, and a
+new `required_gate_idempotence_containment_entry_plan_verification_v0` report.
+The report has `record_status=verified_design`. It has a separate `boundary`
+object; it does not rewrite the historical proposal's implementation flags or
+readiness gates.
+
+### Original bytes and independently selected policy
+
+Both control files require caller-supplied exact SHA-256 values. A matching
+digest is only a byte-selection check. The checker also enforces its own reviewed
+policy and reconstructs relationships from 14 independently pinned carriers:
+the original-input archive, static-entry build archive, historical loader control
+archive and preservation record, complete Debian source-index and glibc archive
+parts, the three bubblewrap source files, and the frozen baseline source archive.
+Changing a control and recomputing its supplied digest cannot select a different
+argv, task graph, terminal boundary, source member, budget or authority claim.
+Equivalent JSON formatting remains acceptable with new exact control digests and
+the corresponding plan-to-inventory binding.
+
+The [frozen baseline source archive](../../preservation/required_gate_idempotence_containment_entry_plan_v0/baseline_sources_aa7ca551_v0.zip)
+preserves all 34 original Git blobs at
+`aa7ca551a06cf553c5dc13f052693706f1227bbf`. Its size is 522,415 bytes and its
+SHA-256 is `0008c5aa1dfce8052d8c0cd06429bef00ee5d499888c7d732bc7e38012089bd1`.
+The exact member roster totals 2,128,466 decoded bytes. This is necessary because
+the original hosted-observation document and the current appended test module
+have legitimately changed since that baseline. The checker verifies historical
+source bytes from this archive without Git, network access or importing archived
+Python. This claim does not assert that the current checkout still has those
+historical source hashes.
+
+The reconstruction includes:
+
+- The six original native ELF objects and their nine `DT_NEEDED` relationships,
+  joined to the historical descriptive loader record without replaying its raw
+  execution capture.
+- Equal static entry bytes in both build runs and the original-input carrier,
+  ELF64/x86-64 `ET_EXEC` shape, a file-backed executable entry point, and absence
+  of `PT_INTERP` and `PT_DYNAMIC`.
+- Exact source-index and Release relationships, selected package identity, source
+  descriptor checksums, bounded source archives, active quilt series and the
+  patch scope for the selected process/namespace/filter operations. Signed
+  messages are parsed as data; cryptographic signatures are not freshly verified.
+- Function-scoped C token checks, with comments excluded, for namespace cloning,
+  the glibc fork/wait chain, separate R/T filter submission, copied entry bytes,
+  `PWD` assignment, and the declared `openat2` build selection. The complete
+  pinned carriers also supply `utils.h` and `debian/changelog` for their macro and
+  package-version joins. These checks establish reviewed source consistency,
+  not a compiler proof or executable provenance.
+- The 69 selected syscall numbers from the frozen policy's literal dictionary,
+  followed by independent construction of 145 classic BPF instructions. The
+  archived Python module is parsed as syntax and never imported or executed.
+- The fixed minimal-view recipe, its 47 NUL-terminated tokens / 454 bytes,
+  two source-bound clone masks, ptrace option mask, and the historical example
+  runtime's cross-record bindings and continued non-admission.
+
+ZIP and TAR parsers inspect records and member bytes without extraction or link
+resolution. They reject ambiguous paths, duplicate or colliding members,
+unsupported types, malformed sizes/checksums/padding, incomplete streams and
+trailing data. XZ decoding has a 64 MiB decoder-memory limit and 64 KiB chunks;
+the complete glibc source TAR is streamed within its existing 256 MiB bound.
+Only selected glibc source files are retained as text. No source budget or
+historical evidence-entry limit is increased.
+
+The checker reads regular files through pinned directory descriptors, rejects
+symlinked input paths, snapshots the caller's byte mapping, and checks its own
+implementation/schema bytes again before returning. Output is create-only and
+checked against the file it created; it cannot overwrite an existing report or
+silently accept a replaced output path.
+
+### Run the data-only checker
+
+From the repository root, with its existing Python test dependencies installed:
+
+```bash
+python tools/check_required_gate_idempotence_containment_entry_plan_v0.py \
+  --plan docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json \
+  --expected-plan-sha256 dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0 \
+  --source-inventory docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json \
+  --expected-source-inventory-sha256 80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0 \
+  --repo-root . \
+  --out /tmp/containment-entry-plan-verification.json
+```
+
+Choose a new output path for each independent invocation. Success writes the same
+canonical JSON to that new file and stdout; rejection returns a nonzero status
+and a stable JSON reason on stderr. The report binds both supplied controls,
+all 14 actual input files and the two current implementation sources.
+
+Its true flags are limited to design relationships, historical baseline bytes,
+source-carrier bytes and the implemented plan schema/checker. Host qualification,
+native acquisition, containment observation, bootstrap execution, selected-runtime
+admission, raw-capture replay, fresh signature verification, physical execution
+authentication, complete runtime closure, execution readiness/authorization and
+B2 completion remain false. `metric_pass=null`, `authority_effect=none`, and
+[#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879) remains open.
+
+The targeted regression command uses the already registered module:
+
+```bash
+python -m pytest -q tests/test_required_gate_idempotence_containment_v0.py \
+  -k containment_entry_plan
+```
+
+The original 1,294,995-byte test prefix remains unchanged, with SHA-256
+`59c2c556e473bb10d55ee469a097b0a83a89636810c463208187b00741381fe6`.
+Both CI manifests remain unchanged at 190 Tools entries and 41 targeted pytest
+entries. The new cases exercise successful reconstruction and meaningful
+rejections, including rehashed semantic substitutions, archive ambiguity,
+example promotion, mutable input mappings, filesystem replacement and forbidden
+execution/network entry points.
+
+### This implementation unit's complete seven-file change set
+
+| Path | Change |
+| --- | --- |
+| `tools/check_required_gate_idempotence_containment_entry_plan_v0.py` | Independent data-only reconstruction and create-only CLI. |
+| `schemas/required_gate_idempotence_containment_entry_plan_v0.schema.json` | Closed proposal, source-inventory and verification-report schemas. |
+| `tests/test_required_gate_idempotence_containment_v0.py` | Append focused plan-checker regressions after the unchanged historical prefix. |
+| `preservation/required_gate_idempotence_containment_entry_plan_v0/baseline_sources_aa7ca551_v0.zip` | Exact 34-file historical baseline, with independently selected carrier and member identities. |
+| `docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md` | Document implemented checking, historical scope and remaining boundaries. |
+| `docs/INDEX.md` | Mark plan checking implemented while native observation remains pending. |
+| `CHANGELOG.md` | Record this bounded implementation unit. |
+
+The next implementation unit is the separately reviewed startup helper and
+multitask guard/qualification contract. The original observation collector and
+its hosted workflow follow their own implementation and review gates.
 
 ### Exact selected objects
 
@@ -470,12 +610,13 @@ cover these paired obligations with tests that distinguish failure from success:
 
 ## Implementation inventory and CI integration
 
-All 29 future paths are explicitly listed in the plan JSON, grouped by unit.
-They are **proposed paths**, not implementation delivered by this PR:
+All 29 paths remain explicitly listed in the immutable plan JSON, grouped by
+their originally proposed units. The two plan-checking paths are now implemented
+as described above; the startup, observation and hosted paths remain proposed:
 
 | Next implementation unit | Files and responsibility |
 | --- | --- |
-| Data-only plan checking | New `required_gate_idempotence_containment_entry_plan_v0` schema and independent `check_...` tool. Reconstruct original source members and proposal relationships rather than trusting authored booleans. |
+| Data-only plan checking | Implemented `required_gate_idempotence_containment_entry_plan_v0` schema and independent `check_...` tool; original-byte reconstruction and fixed reviewed policy. |
 | Startup and qualification | New `containment_startup_v0.c`, fixed `containment_task_probe_v0.c`, separate task guard, qualifier, independent qualifier checker and schema. Bind helper source/build/environment and actual same-host capabilities. |
 | Original observation | New entry core, preparation tool, collector, independent checker and capture schema. No change to old single-tracee meanings. |
 | Hosted route, after implementation review | New workflow, hosted controller/checker/schema, exact environment JSON, Dockerfile, lock, build and run helpers; separate acquisition and offline verification roles. |
@@ -493,7 +634,7 @@ inventories after choosing actual inputs. The old runtime/bootstrap/process
 files are source-bound interfaces and constraints here, not a promise that those
 contracts can be enabled without new work.
 
-### This unit's complete nine-file change set
+### Historical proposal's complete nine-file change set (#3060)
 
 | Path | Change |
 | --- | --- |

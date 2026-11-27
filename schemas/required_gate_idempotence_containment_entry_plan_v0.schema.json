@@ -1,0 +1,2281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/required_gate_idempotence_containment_entry_plan_v0.schema.json",
+  "title": "Bounded containment-entry plan, source inventory and verification v0",
+  "description": "Closed structures for the preserved design and source inventory. Schema validity does not reconstruct original inputs, qualify a host, execute containment, admit a real runtime, complete B2 or grant release authority. Duplicate keys and non-integer numeric encodings must be rejected by the independent loader.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/plan"
+    },
+    {
+      "$ref": "#/$defs/report"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+    },
+    "commit": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 40,
+      "pattern": "^[0-9a-f]{40}$(?![\\s\\S])"
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?:[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*|\\.[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*)(?:/(?:[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*|\\.[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*))*$(?![\\s\\S])"
+    },
+    "absolute_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^/(?:(?:[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*|\\.[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*)(?:/(?:[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*|\\.[A-Za-z0-9_+~-][A-Za-z0-9_.+~-]*))*)?$(?![\\s\\S])"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*$(?![\\s\\S])"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[ -~]+$(?![\\s\\S])"
+    },
+    "word": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[!-~]+$(?![\\s\\S])"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9.+~_-]*$(?![\\s\\S])"
+    },
+    "byte_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 134217728
+    },
+    "hex_flags": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 10,
+      "pattern": "^0x[0-9a-f]{8}$(?![\\s\\S])"
+    },
+    "mode": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 4,
+      "pattern": "^0[0-7]{3}$(?![\\s\\S])"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/byte_size"
+        }
+      }
+    },
+    "file_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/byte_size"
+        }
+      }
+    },
+    "member_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/byte_size"
+        }
+      }
+    },
+    "source_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "retrieval_url",
+        "matched_preserved_sources_stanza"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/byte_size"
+        },
+        "retrieval_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^https://deb\\.debian\\.org/debian/pool/main/b/bubblewrap/[A-Za-z0-9._+~-]+$(?![\\s\\S])"
+        },
+        "matched_preserved_sources_stanza": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "example_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member",
+        "sha256",
+        "size_bytes",
+        "record_status"
+      ],
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/byte_size"
+        },
+        "record_status": {
+          "type": "string",
+          "const": "example"
+        }
+      }
+    },
+    "patch_touch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member",
+        "sha256",
+        "size_bytes",
+        "touches_reviewed_members"
+      ],
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/byte_size"
+        },
+        "touches_reviewed_members": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/relative_path"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "view_directory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "mode_octal"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/absolute_path"
+        },
+        "kind": {
+          "type": "string",
+          "const": "directory"
+        },
+        "mode_octal": {
+          "$ref": "#/$defs/mode"
+        }
+      }
+    },
+    "view_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "mode_octal",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/absolute_path"
+        },
+        "kind": {
+          "type": "string",
+          "const": "regular_file"
+        },
+        "mode_octal": {
+          "$ref": "#/$defs/mode"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "$ref": "#/$defs/byte_size"
+        }
+      }
+    },
+    "acceptance_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "positive",
+        "reject_or_incomplete"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "positive": {
+          "$ref": "#/$defs/text"
+        },
+        "reject_or_incomplete": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "readiness_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "satisfied"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "satisfied": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "subject_role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "parent",
+        "meaning"
+      ],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "L",
+            "R",
+            "T"
+          ]
+        },
+        "parent": {
+          "type": "string",
+          "enum": [
+            "L",
+            "R",
+            "T",
+            "observer"
+          ]
+        },
+        "meaning": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "namespace_birth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parent",
+        "child",
+        "syscall_number",
+        "flags_hex",
+        "child_stack",
+        "source",
+        "trailing_ignored_arguments_must_not_be_required_zero"
+      ],
+      "properties": {
+        "parent": {
+          "type": "string",
+          "enum": [
+            "L",
+            "R",
+            "T"
+          ]
+        },
+        "child": {
+          "type": "string",
+          "enum": [
+            "L",
+            "R",
+            "T"
+          ]
+        },
+        "syscall_number": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "flags_hex": {
+          "$ref": "#/$defs/hex_flags"
+        },
+        "child_stack": {
+          "type": "integer",
+          "const": 0
+        },
+        "source": {
+          "$ref": "#/$defs/text"
+        },
+        "trailing_ignored_arguments_must_not_be_required_zero": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "payload_birth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parent",
+        "child",
+        "syscall_number",
+        "flags_hex",
+        "child_stack",
+        "source",
+        "child_tid_pointer"
+      ],
+      "properties": {
+        "parent": {
+          "type": "string",
+          "enum": [
+            "L",
+            "R",
+            "T"
+          ]
+        },
+        "child": {
+          "type": "string",
+          "enum": [
+            "L",
+            "R",
+            "T"
+          ]
+        },
+        "syscall_number": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "flags_hex": {
+          "$ref": "#/$defs/hex_flags"
+        },
+        "child_stack": {
+          "type": "integer",
+          "const": 0
+        },
+        "source": {
+          "$ref": "#/$defs/text"
+        },
+        "child_tid_pointer": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "record_status",
+        "profile",
+        "baseline_commit",
+        "previous_merged_pr",
+        "source_inventory",
+        "this_unit_files",
+        "implemented",
+        "plan_schema_implemented",
+        "independent_plan_checker_implemented",
+        "execution_authorized",
+        "execution_ready",
+        "native_acquisition_performed",
+        "host_environment_qualified",
+        "containment_observed",
+        "bootstrap_execution_observed",
+        "selected_runtime_admitted",
+        "operator_application_count",
+        "model_call_count",
+        "entry_source_binary_equivalence_verified",
+        "b2_complete",
+        "metric_pass",
+        "authority_effect",
+        "whole_runtime_issue",
+        "next_terminal_boundary",
+        "launch",
+        "task_graph",
+        "observation_contract",
+        "proposed_budgets_not_observed_measurements",
+        "readiness_gates",
+        "acceptance_cases",
+        "future_implementation_paths_all_proposed",
+        "ci_boundary",
+        "selected_bootstrap_follow_on"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_containment_entry_plan_v0"
+        },
+        "record_status": {
+          "type": "string",
+          "const": "authored_design_proposal"
+        },
+        "profile": {
+          "type": "string",
+          "const": "linux_x86_64_original_bwrap_minimal_entry_exec_stop_v0"
+        },
+        "baseline_commit": {
+          "$ref": "#/$defs/commit"
+        },
+        "previous_merged_pr": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "source_inventory": {
+          "$ref": "#/$defs/file_binding"
+        },
+        "this_unit_files": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "$ref": "#/$defs/relative_path"
+          },
+          "uniqueItems": true
+        },
+        "implemented": {
+          "type": "boolean",
+          "const": false
+        },
+        "plan_schema_implemented": {
+          "type": "boolean",
+          "const": false
+        },
+        "independent_plan_checker_implemented": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_authorized": {
+          "type": "boolean",
+          "const": false
+        },
+        "execution_ready": {
+          "type": "boolean",
+          "const": false
+        },
+        "native_acquisition_performed": {
+          "type": "boolean",
+          "const": false
+        },
+        "host_environment_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "containment_observed": {
+          "type": "boolean",
+          "const": false
+        },
+        "bootstrap_execution_observed": {
+          "type": "boolean",
+          "const": false
+        },
+        "selected_runtime_admitted": {
+          "type": "boolean",
+          "const": false
+        },
+        "operator_application_count": {
+          "type": "integer",
+          "const": 0
+        },
+        "model_call_count": {
+          "type": "integer",
+          "const": 0
+        },
+        "entry_source_binary_equivalence_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "b2_complete": {
+          "type": "boolean",
+          "const": false
+        },
+        "metric_pass": {
+          "type": "null",
+          "const": null
+        },
+        "authority_effect": {
+          "type": "string",
+          "const": "none"
+        },
+        "whole_runtime_issue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "number",
+            "keep_open"
+          ],
+          "properties": {
+            "number": {
+              "type": "integer",
+              "const": 2879
+            },
+            "keep_open": {
+              "type": "boolean",
+              "const": true
+            }
+          }
+        },
+        "next_terminal_boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "role",
+            "event",
+            "image_sha256",
+            "image_size_bytes",
+            "rip_requirement",
+            "allowed_post_terminal_T_restarts",
+            "shim_checks_executed",
+            "shim_close_range_executed",
+            "shim_rlimits_installed",
+            "shim_environment_replacement_executed",
+            "selected_bootstrap_loader_executed",
+            "python_executed"
+          ],
+          "properties": {
+            "role": {
+              "type": "string",
+              "const": "T"
+            },
+            "event": {
+              "type": "string",
+              "const": "PTRACE_EVENT_EXEC"
+            },
+            "image_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "image_size_bytes": {
+              "$ref": "#/$defs/byte_size"
+            },
+            "rip_requirement": {
+              "$ref": "#/$defs/text"
+            },
+            "allowed_post_terminal_T_restarts": {
+              "type": "integer",
+              "const": 0
+            },
+            "shim_checks_executed": {
+              "type": "boolean",
+              "const": false
+            },
+            "shim_close_range_executed": {
+              "type": "boolean",
+              "const": false
+            },
+            "shim_rlimits_installed": {
+              "type": "boolean",
+              "const": false
+            },
+            "shim_environment_replacement_executed": {
+              "type": "boolean",
+              "const": false
+            },
+            "selected_bootstrap_loader_executed": {
+              "type": "boolean",
+              "const": false
+            },
+            "python_executed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "launch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "argv",
+            "cwd",
+            "environment",
+            "expected_T_environment",
+            "initial_helper_FD_roles",
+            "fd_integer_reuse_is_not_identity_continuity",
+            "arguments",
+            "arguments_encoding",
+            "arguments_bytes",
+            "argument_change_requires_new_reviewed_selection",
+            "terminal_T_fd_numbers",
+            "minimal_view",
+            "mount_requirement"
+          ],
+          "properties": {
+            "argv": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "$ref": "#/$defs/word"
+              }
+            },
+            "cwd": {
+              "$ref": "#/$defs/absolute_path"
+            },
+            "environment": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "LC_ALL",
+                "TZ"
+              ],
+              "properties": {
+                "LC_ALL": {
+                  "type": "string",
+                  "const": "C"
+                },
+                "TZ": {
+                  "type": "string",
+                  "const": "UTC"
+                }
+              }
+            },
+            "expected_T_environment": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "LC_ALL",
+                "TZ",
+                "PWD"
+              ],
+              "properties": {
+                "LC_ALL": {
+                  "type": "string",
+                  "const": "C"
+                },
+                "TZ": {
+                  "type": "string",
+                  "const": "UTC"
+                },
+                "PWD": {
+                  "$ref": "#/$defs/absolute_path"
+                }
+              }
+            },
+            "initial_helper_FD_roles": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7"
+              ],
+              "properties": {
+                "0": {
+                  "$ref": "#/$defs/text"
+                },
+                "1": {
+                  "$ref": "#/$defs/text"
+                },
+                "2": {
+                  "$ref": "#/$defs/text"
+                },
+                "3": {
+                  "$ref": "#/$defs/text"
+                },
+                "4": {
+                  "$ref": "#/$defs/text"
+                },
+                "5": {
+                  "$ref": "#/$defs/text"
+                },
+                "6": {
+                  "$ref": "#/$defs/text"
+                },
+                "7": {
+                  "$ref": "#/$defs/text"
+                }
+              }
+            },
+            "fd_integer_reuse_is_not_identity_continuity": {
+              "type": "boolean",
+              "const": true
+            },
+            "arguments": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "$ref": "#/$defs/word"
+              }
+            },
+            "arguments_encoding": {
+              "type": "string",
+              "const": "ASCII tokens, each terminated by exactly one NUL"
+            },
+            "arguments_bytes": {
+              "$ref": "#/$defs/binding"
+            },
+            "argument_change_requires_new_reviewed_selection": {
+              "type": "boolean",
+              "const": true
+            },
+            "terminal_T_fd_numbers": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "uniqueItems": true
+            },
+            "minimal_view": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/view_directory"
+                  },
+                  {
+                    "$ref": "#/$defs/view_file"
+                  }
+                ]
+              },
+              "uniqueItems": true
+            },
+            "mount_requirement": {
+              "$ref": "#/$defs/text"
+            }
+          }
+        },
+        "task_graph": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "subject_roles",
+            "observer_excluded",
+            "subject_task_count",
+            "bwrap_birth_count",
+            "creation_contracts",
+            "expected_ptrace_birth_event",
+            "guard_and_preexecution_role_validation_required",
+            "deny_creation",
+            "dynamic_identity_fields"
+          ],
+          "properties": {
+            "subject_roles": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "$ref": "#/$defs/subject_role"
+              },
+              "uniqueItems": true
+            },
+            "observer_excluded": {
+              "type": "boolean",
+              "const": true
+            },
+            "subject_task_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "bwrap_birth_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2
+            },
+            "creation_contracts": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/namespace_birth"
+                },
+                {
+                  "$ref": "#/$defs/payload_birth"
+                }
+              ],
+              "items": false
+            },
+            "expected_ptrace_birth_event": {
+              "$ref": "#/$defs/text"
+            },
+            "guard_and_preexecution_role_validation_required": {
+              "type": "boolean",
+              "const": true
+            },
+            "deny_creation": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "uniqueItems": true
+            },
+            "dynamic_identity_fields": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "observation_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "new_startup_helper_required",
+            "helper_is_L_preexec_not_fourth_task",
+            "ptrace_strategy",
+            "ptrace_options",
+            "ptrace_options_hex",
+            "ptrace_traceexit_enabled",
+            "initial_barrier",
+            "newborn_stop_join",
+            "explicit_stop_state_ledger",
+            "observer_subreaper",
+            "fresh_L_checkpoints",
+            "unexpected_native_mapping",
+            "new_argv_nine_return_observation_claimed",
+            "old_guard_or_two_slot_qualification_admits_new_profile",
+            "observed_seccomp_submission_roles",
+            "seccomp_claim",
+            "R_park",
+            "required_raw_evidence",
+            "observer_writes_prohibited",
+            "cleanup",
+            "incomplete_prefix_cleanup",
+            "final_removal",
+            "all_subject_identities_required",
+            "post_terminal_T_restart_allowed",
+            "historical_capture_can_supply_live_prefix"
+          ],
+          "properties": {
+            "new_startup_helper_required": {
+              "type": "boolean",
+              "const": true
+            },
+            "helper_is_L_preexec_not_fourth_task": {
+              "type": "boolean",
+              "const": true
+            },
+            "ptrace_strategy": {
+              "$ref": "#/$defs/text"
+            },
+            "ptrace_options": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "PTRACE_O_TRACEFORK",
+                  "PTRACE_O_TRACEVFORK",
+                  "PTRACE_O_TRACECLONE",
+                  "PTRACE_O_TRACEEXEC",
+                  "PTRACE_O_TRACESYSGOOD",
+                  "PTRACE_O_EXITKILL"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "ptrace_options_hex": {
+              "$ref": "#/$defs/hex_flags"
+            },
+            "ptrace_traceexit_enabled": {
+              "type": "boolean",
+              "const": false
+            },
+            "initial_barrier": {
+              "$ref": "#/$defs/text"
+            },
+            "newborn_stop_join": {
+              "$ref": "#/$defs/text"
+            },
+            "explicit_stop_state_ledger": {
+              "$ref": "#/$defs/text"
+            },
+            "observer_subreaper": {
+              "$ref": "#/$defs/text"
+            },
+            "fresh_L_checkpoints": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "uniqueItems": true
+            },
+            "unexpected_native_mapping": {
+              "$ref": "#/$defs/text"
+            },
+            "new_argv_nine_return_observation_claimed": {
+              "type": "boolean",
+              "const": false
+            },
+            "old_guard_or_two_slot_qualification_admits_new_profile": {
+              "type": "boolean",
+              "const": false
+            },
+            "observed_seccomp_submission_roles": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "R",
+                  "T"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "seccomp_claim": {
+              "$ref": "#/$defs/text"
+            },
+            "R_park": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "syscall_number",
+                "pid_semantics",
+                "options",
+                "rusage",
+                "status_pointer"
+              ],
+              "properties": {
+                "syscall_number": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1024
+                },
+                "pid_semantics": {
+                  "type": "integer",
+                  "minimum": -1,
+                  "maximum": 2147483647
+                },
+                "options": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "rusage": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "status_pointer": {
+                  "$ref": "#/$defs/text"
+                }
+              }
+            },
+            "required_raw_evidence": {
+              "type": "array",
+              "minItems": 11,
+              "maxItems": 11,
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "uniqueItems": true
+            },
+            "observer_writes_prohibited": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "uniqueItems": true
+            },
+            "cleanup": {
+              "$ref": "#/$defs/text"
+            },
+            "incomplete_prefix_cleanup": {
+              "$ref": "#/$defs/text"
+            },
+            "final_removal": {
+              "$ref": "#/$defs/text"
+            },
+            "all_subject_identities_required": {
+              "type": "boolean",
+              "const": true
+            },
+            "post_terminal_T_restart_allowed": {
+              "type": "boolean",
+              "const": false
+            },
+            "historical_capture_can_supply_live_prefix": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "proposed_budgets_not_observed_measurements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "attempts",
+            "retries",
+            "max_live_subject_tasks",
+            "max_bwrap_birth_events",
+            "max_ordered_trace_events",
+            "setup_wall_seconds",
+            "cleanup_wall_seconds",
+            "stdout_bytes",
+            "stderr_bytes",
+            "capture_payload_bytes",
+            "capture_members",
+            "argument_bytes",
+            "single_control_memory_read_bytes",
+            "aggregate_control_memory_bytes_per_checkpoint",
+            "event_stream_storage",
+            "on_exceeded"
+          ],
+          "properties": {
+            "attempts": {
+              "type": "integer",
+              "const": 1
+            },
+            "retries": {
+              "type": "integer",
+              "const": 0
+            },
+            "max_live_subject_tasks": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "max_bwrap_birth_events": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2
+            },
+            "max_ordered_trace_events": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            },
+            "setup_wall_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            },
+            "cleanup_wall_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "stdout_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65536
+            },
+            "stderr_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4096
+            },
+            "capture_payload_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 33554432
+            },
+            "capture_members": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2048
+            },
+            "argument_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "single_control_memory_read_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65536
+            },
+            "aggregate_control_memory_bytes_per_checkpoint": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "event_stream_storage": {
+              "$ref": "#/$defs/text"
+            },
+            "on_exceeded": {
+              "$ref": "#/$defs/text"
+            }
+          }
+        },
+        "readiness_gates": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "$ref": "#/$defs/readiness_gate"
+          },
+          "uniqueItems": true
+        },
+        "acceptance_cases": {
+          "type": "array",
+          "minItems": 14,
+          "maxItems": 14,
+          "items": {
+            "$ref": "#/$defs/acceptance_case"
+          },
+          "uniqueItems": true
+        },
+        "future_implementation_paths_all_proposed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan_checking",
+            "startup_and_host_qualification",
+            "finite_original_observation",
+            "separate_hosted_route_after_local_review",
+            "existing_files_with_narrow_future_updates",
+            "future_observation_documentation"
+          ],
+          "properties": {
+            "plan_checking": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "uniqueItems": true
+            },
+            "startup_and_host_qualification": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "uniqueItems": true
+            },
+            "finite_original_observation": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "uniqueItems": true
+            },
+            "separate_hosted_route_after_local_review": {
+              "type": "array",
+              "minItems": 9,
+              "maxItems": 9,
+              "items": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "uniqueItems": true
+            },
+            "existing_files_with_narrow_future_updates": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "uniqueItems": true
+            },
+            "future_observation_documentation": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "ci_boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current_tools_entries",
+            "current_targeted_pytest_entries",
+            "current_manifest_changes",
+            "new_tests_append_to_existing_containment_module",
+            "preserve_historical_test_prefixes",
+            "new_workflow_requires_explicit_path_and_hash_carrier_classification"
+          ],
+          "properties": {
+            "current_tools_entries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "current_targeted_pytest_entries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "current_manifest_changes": {
+              "type": "boolean",
+              "const": false
+            },
+            "new_tests_append_to_existing_containment_module": {
+              "type": "boolean",
+              "const": true
+            },
+            "preserve_historical_test_prefixes": {
+              "type": "boolean",
+              "const": true
+            },
+            "new_workflow_requires_explicit_path_and_hash_carrier_classification": {
+              "type": "boolean",
+              "const": true
+            }
+          }
+        },
+        "selected_bootstrap_follow_on": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current_example_capsule_accepted_as_real",
+            "new_real_capsule_required",
+            "current_v0_python_version",
+            "current_v0_unicode_version",
+            "capsule_preparation_required_for_minimal_entry_checkpoint",
+            "stages",
+            "v0_limits_must_be_measured_on_real_inventory",
+            "v0_constraints_change_requires_new_version_or_distinct_profile",
+            "existing_selected_execution_guards_unchanged",
+            "diagnostic_is_property_application"
+          ],
+          "properties": {
+            "current_example_capsule_accepted_as_real": {
+              "type": "boolean",
+              "const": false
+            },
+            "new_real_capsule_required": {
+              "type": "boolean",
+              "const": true
+            },
+            "current_v0_python_version": {
+              "$ref": "#/$defs/version"
+            },
+            "current_v0_unicode_version": {
+              "$ref": "#/$defs/version"
+            },
+            "capsule_preparation_required_for_minimal_entry_checkpoint": {
+              "type": "boolean",
+              "const": false
+            },
+            "stages": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "uniqueItems": true
+            },
+            "v0_limits_must_be_measured_on_real_inventory": {
+              "type": "boolean",
+              "const": true
+            },
+            "v0_constraints_change_requires_new_version_or_distinct_profile": {
+              "type": "boolean",
+              "const": true
+            },
+            "existing_selected_execution_guards_unchanged": {
+              "type": "boolean",
+              "const": true
+            },
+            "diagnostic_is_property_application": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        }
+      },
+      "description": "The preserved authored design. False implementation and readiness fields describe that historical proposal; structural acceptance does not establish execution readiness."
+    },
+    "source_inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "record_status",
+        "baseline_repository",
+        "baseline_commit",
+        "baseline_files",
+        "inventory_is_complete_future_execution_closure",
+        "historical_loader_observation",
+        "original_native_inputs",
+        "static_entry",
+        "existing_containment_policy",
+        "bubblewrap_source",
+        "glibc_source",
+        "historical_example_runtime",
+        "trust_limits",
+        "authority_effect",
+        "metric_pass",
+        "b2_complete"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_containment_entry_plan_source_inventory_v0"
+        },
+        "record_status": {
+          "type": "string",
+          "const": "authored_design_inventory"
+        },
+        "baseline_repository": {
+          "type": "string",
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "baseline_commit": {
+          "$ref": "#/$defs/commit"
+        },
+        "baseline_files": {
+          "type": "array",
+          "minItems": 34,
+          "maxItems": 34,
+          "items": {
+            "$ref": "#/$defs/file_binding"
+          },
+          "uniqueItems": true
+        },
+        "inventory_is_complete_future_execution_closure": {
+          "type": "boolean",
+          "const": false
+        },
+        "historical_loader_observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run_id",
+            "attempt",
+            "run_number",
+            "source_commit",
+            "control_carrier",
+            "preservation_record",
+            "live_prefix_available",
+            "fresh_replay_in_this_design_unit"
+          ],
+          "properties": {
+            "run_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "run_number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "source_commit": {
+              "$ref": "#/$defs/commit"
+            },
+            "control_carrier": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "preservation_record": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "live_prefix_available": {
+              "type": "boolean",
+              "const": false
+            },
+            "fresh_replay_in_this_design_unit": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "original_native_inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "carrier",
+            "members",
+            "selected_package"
+          ],
+          "properties": {
+            "carrier": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "members": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "$ref": "#/$defs/member_binding"
+              },
+              "uniqueItems": true
+            },
+            "selected_package": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "version",
+                "architecture",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "const": "bubblewrap"
+                },
+                "version": {
+                  "$ref": "#/$defs/version"
+                },
+                "architecture": {
+                  "type": "string",
+                  "const": "amd64"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "size_bytes": {
+                  "$ref": "#/$defs/byte_size"
+                }
+              }
+            }
+          }
+        },
+        "static_entry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "build_carrier",
+            "members",
+            "run_id",
+            "attempt",
+            "source_commit",
+            "source_binary_semantic_equivalence_claimed"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "build_carrier": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "members": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/member_binding"
+              },
+              "uniqueItems": true
+            },
+            "run_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "source_commit": {
+              "$ref": "#/$defs/commit"
+            },
+            "source_binary_semantic_equivalence_claimed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "existing_containment_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "derived_classic_bpf"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "derived_classic_bpf": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "instruction_count",
+                "encoding",
+                "installed_in_this_unit"
+              ],
+              "properties": {
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "size_bytes": {
+                  "$ref": "#/$defs/byte_size"
+                },
+                "instruction_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                },
+                "encoding": {
+                  "type": "string",
+                  "const": "x86_64-little-endian-sock_filter"
+                },
+                "installed_in_this_unit": {
+                  "type": "boolean",
+                  "const": false
+                }
+              }
+            }
+          }
+        },
+        "bubblewrap_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_index_parts",
+            "joined_compressed_source_index",
+            "matched_stanza",
+            "new_source_files",
+            "reviewed_original_members",
+            "reviewed_debian_members",
+            "patch_series",
+            "patch_scope",
+            "build_selection",
+            "required_openat2_resolution",
+            "pre_5_6_openat_fallback_compiled_out_by_declared_build_selection"
+          ],
+          "properties": {
+            "source_index_parts": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/file_binding"
+              },
+              "uniqueItems": true
+            },
+            "joined_compressed_source_index": {
+              "$ref": "#/$defs/binding"
+            },
+            "matched_stanza": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "package",
+                "version",
+                "exact_bytes_without_blank_separator",
+                "directory"
+              ],
+              "properties": {
+                "package": {
+                  "type": "string",
+                  "const": "bubblewrap"
+                },
+                "version": {
+                  "$ref": "#/$defs/version"
+                },
+                "exact_bytes_without_blank_separator": {
+                  "$ref": "#/$defs/binding"
+                },
+                "directory": {
+                  "$ref": "#/$defs/relative_path"
+                }
+              }
+            },
+            "new_source_files": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "$ref": "#/$defs/source_file"
+              },
+              "uniqueItems": true
+            },
+            "reviewed_original_members": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "$ref": "#/$defs/member_binding"
+              },
+              "uniqueItems": true
+            },
+            "reviewed_debian_members": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "$ref": "#/$defs/member_binding"
+              },
+              "uniqueItems": true
+            },
+            "patch_series": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "uniqueItems": true
+            },
+            "patch_scope": {
+              "$ref": "#/$defs/text"
+            },
+            "build_selection": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source_format",
+                "hardening",
+                "assume_kernel"
+              ],
+              "properties": {
+                "source_format": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[ -~]+$(?![\\s\\S])"
+                },
+                "hardening": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[ -~]+$(?![\\s\\S])"
+                },
+                "assume_kernel": {
+                  "$ref": "#/$defs/version"
+                }
+              }
+            },
+            "required_openat2_resolution": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "RESOLVE_IN_ROOT",
+                  "RESOLVE_NO_MAGICLINKS"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "pre_5_6_openat_fallback_compiled_out_by_declared_build_selection": {
+              "type": "boolean",
+              "const": true
+            }
+          }
+        },
+        "glibc_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "original_parts",
+            "joined_original_archive",
+            "reviewed_original_members",
+            "debian_carrier",
+            "patches_touching_reviewed_members",
+            "review_scope"
+          ],
+          "properties": {
+            "original_parts": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "$ref": "#/$defs/file_binding"
+              },
+              "uniqueItems": true
+            },
+            "joined_original_archive": {
+              "$ref": "#/$defs/binding"
+            },
+            "reviewed_original_members": {
+              "type": "array",
+              "minItems": 8,
+              "maxItems": 8,
+              "items": {
+                "$ref": "#/$defs/member_binding"
+              },
+              "uniqueItems": true
+            },
+            "debian_carrier": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "patches_touching_reviewed_members": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "$ref": "#/$defs/patch_touch"
+              },
+              "uniqueItems": true
+            },
+            "review_scope": {
+              "$ref": "#/$defs/text"
+            }
+          }
+        },
+        "historical_example_runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "carrier",
+            "capsule",
+            "python",
+            "records",
+            "can_be_promoted_to_selected_by_relabelling"
+          ],
+          "properties": {
+            "carrier": {
+              "$ref": "#/$defs/file_binding"
+            },
+            "capsule": {
+              "$ref": "#/$defs/member_binding"
+            },
+            "python": {
+              "$ref": "#/$defs/member_binding"
+            },
+            "records": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "$ref": "#/$defs/example_record"
+              },
+              "uniqueItems": true
+            },
+            "can_be_promoted_to_selected_by_relabelling": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "trust_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_bytes_matched_preserved_index",
+            "fresh_distribution_signature_verification",
+            "fresh_attestation_signature_verification",
+            "patches_applied",
+            "native_build_performed",
+            "source_binary_equivalence_verified",
+            "future_host_admitted"
+          ],
+          "properties": {
+            "source_bytes_matched_preserved_index": {
+              "type": "boolean",
+              "const": true
+            },
+            "fresh_distribution_signature_verification": {
+              "type": "boolean",
+              "const": false
+            },
+            "fresh_attestation_signature_verification": {
+              "type": "boolean",
+              "const": false
+            },
+            "patches_applied": {
+              "type": "boolean",
+              "const": false
+            },
+            "native_build_performed": {
+              "type": "boolean",
+              "const": false
+            },
+            "source_binary_equivalence_verified": {
+              "type": "boolean",
+              "const": false
+            },
+            "future_host_admitted": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "authority_effect": {
+          "type": "string",
+          "const": "none"
+        },
+        "metric_pass": {
+          "type": "null",
+          "const": null
+        },
+        "b2_complete": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "description": "Closed authored inventory. Hash, size, source-member, package and relationship assertions require independent byte reconstruction."
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "record_status",
+        "profile",
+        "plan",
+        "source_inventory",
+        "historical_baseline_commit",
+        "input_files",
+        "implementation_sources",
+        "derived",
+        "boundary"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_containment_entry_plan_verification_v0"
+        },
+        "record_status": {
+          "type": "string",
+          "const": "verified_design"
+        },
+        "profile": {
+          "type": "string",
+          "const": "linux_x86_64_original_bwrap_minimal_entry_exec_stop_v0"
+        },
+        "plan": {
+          "$ref": "#/$defs/binding"
+        },
+        "source_inventory": {
+          "$ref": "#/$defs/binding"
+        },
+        "historical_baseline_commit": {
+          "type": "string",
+          "const": "aa7ca551a06cf553c5dc13f052693706f1227bbf"
+        },
+        "input_files": {
+          "type": "array",
+          "minItems": 14,
+          "maxItems": 14,
+          "items": {
+            "$ref": "#/$defs/file_binding"
+          },
+          "uniqueItems": true
+        },
+        "implementation_sources": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/file_binding"
+          },
+          "uniqueItems": true
+        },
+        "derived": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseline_source_files",
+            "baseline_decoded_bytes",
+            "original_native_objects",
+            "original_native_dt_needed_edges",
+            "static_entry",
+            "argument_bytes",
+            "argument_count",
+            "containment_bpf",
+            "bubblewrap_source_version",
+            "bubblewrap_patch_count",
+            "glibc_reviewed_source_members",
+            "clone_flags",
+            "ptrace_options_hex",
+            "subject_roles",
+            "terminal_fd_numbers",
+            "historical_python_size_bytes",
+            "acceptance_case_count",
+            "future_implementation_path_count"
+          ],
+          "properties": {
+            "baseline_source_files": {
+              "type": "integer",
+              "const": 34
+            },
+            "baseline_decoded_bytes": {
+              "type": "integer",
+              "const": 2128466
+            },
+            "original_native_objects": {
+              "type": "integer",
+              "const": 6
+            },
+            "original_native_dt_needed_edges": {
+              "type": "integer",
+              "const": 9
+            },
+            "static_entry": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "elf_type",
+                "machine",
+                "entry_virtual_address",
+                "has_interpreter"
+              ],
+              "properties": {
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "size_bytes": {
+                  "$ref": "#/$defs/byte_size"
+                },
+                "elf_type": {
+                  "type": "string",
+                  "const": "ET_EXEC"
+                },
+                "machine": {
+                  "type": "string",
+                  "const": "EM_X86_64"
+                },
+                "entry_virtual_address": {
+                  "type": "integer",
+                  "const": 4198400
+                },
+                "has_interpreter": {
+                  "type": "boolean",
+                  "const": false
+                }
+              }
+            },
+            "argument_bytes": {
+              "$ref": "#/$defs/binding"
+            },
+            "argument_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
+            },
+            "containment_bpf": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "instruction_count"
+              ],
+              "properties": {
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "size_bytes": {
+                  "$ref": "#/$defs/byte_size"
+                },
+                "instruction_count": {
+                  "type": "integer",
+                  "const": 145
+                }
+              }
+            },
+            "bubblewrap_source_version": {
+              "type": "string",
+              "const": "0.12.0-1~deb13u1"
+            },
+            "bubblewrap_patch_count": {
+              "type": "integer",
+              "const": 1
+            },
+            "glibc_reviewed_source_members": {
+              "type": "integer",
+              "const": 8
+            },
+            "clone_flags": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "$ref": "#/$defs/hex_flags"
+              }
+            },
+            "ptrace_options_hex": {
+              "type": "string",
+              "const": "0x0010001f"
+            },
+            "subject_roles": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "const": "L"
+                },
+                {
+                  "type": "string",
+                  "const": "R"
+                },
+                {
+                  "type": "string",
+                  "const": "T"
+                }
+              ],
+              "items": false
+            },
+            "terminal_fd_numbers": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "prefixItems": [
+                {
+                  "type": "integer",
+                  "const": 0
+                },
+                {
+                  "type": "integer",
+                  "const": 1
+                },
+                {
+                  "type": "integer",
+                  "const": 2
+                }
+              ],
+              "items": false
+            },
+            "historical_python_size_bytes": {
+              "type": "integer",
+              "const": 1056
+            },
+            "acceptance_case_count": {
+              "type": "integer",
+              "const": 14
+            },
+            "future_implementation_path_count": {
+              "type": "integer",
+              "const": 29
+            }
+          }
+        },
+        "boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "design_relationships_verified",
+            "historical_baseline_bytes_verified",
+            "source_carrier_bytes_verified",
+            "plan_schema_implemented",
+            "independent_plan_checker_implemented",
+            "historical_raw_capture_replayed",
+            "fresh_signature_verification_performed",
+            "source_binary_equivalence_verified",
+            "host_environment_qualified",
+            "native_acquisition_performed",
+            "containment_observed",
+            "bootstrap_execution_observed",
+            "selected_runtime_admitted",
+            "execution_ready",
+            "execution_authorized",
+            "physical_execution_authenticated",
+            "complete_runtime_closure_verified",
+            "b2_complete",
+            "production_gate_eligible",
+            "metric_pass",
+            "authority_effect",
+            "whole_runtime_issue"
+          ],
+          "properties": {
+            "design_relationships_verified": {
+              "type": "boolean",
+              "const": true
+            },
+            "historical_baseline_bytes_verified": {
+              "type": "boolean",
+              "const": true
+            },
+            "source_carrier_bytes_verified": {
+              "type": "boolean",
+              "const": true
+            },
+            "plan_schema_implemented": {
+              "type": "boolean",
+              "const": true
+            },
+            "independent_plan_checker_implemented": {
+              "type": "boolean",
+              "const": true
+            },
+            "historical_raw_capture_replayed": {
+              "type": "boolean",
+              "const": false
+            },
+            "fresh_signature_verification_performed": {
+              "type": "boolean",
+              "const": false
+            },
+            "source_binary_equivalence_verified": {
+              "type": "boolean",
+              "const": false
+            },
+            "host_environment_qualified": {
+              "type": "boolean",
+              "const": false
+            },
+            "native_acquisition_performed": {
+              "type": "boolean",
+              "const": false
+            },
+            "containment_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "bootstrap_execution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "selected_runtime_admitted": {
+              "type": "boolean",
+              "const": false
+            },
+            "execution_ready": {
+              "type": "boolean",
+              "const": false
+            },
+            "execution_authorized": {
+              "type": "boolean",
+              "const": false
+            },
+            "physical_execution_authenticated": {
+              "type": "boolean",
+              "const": false
+            },
+            "complete_runtime_closure_verified": {
+              "type": "boolean",
+              "const": false
+            },
+            "b2_complete": {
+              "type": "boolean",
+              "const": false
+            },
+            "production_gate_eligible": {
+              "type": "boolean",
+              "const": false
+            },
+            "metric_pass": {
+              "type": "null",
+              "const": null
+            },
+            "authority_effect": {
+              "type": "string",
+              "const": "none"
+            },
+            "whole_runtime_issue": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "number",
+                "keep_open"
+              ],
+              "properties": {
+                "number": {
+                  "type": "integer",
+                  "const": 2879
+                },
+                "keep_open": {
+                  "type": "boolean",
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Data-only reconstruction report. Verified design relationships and source bytes do not establish the historical capture, signatures, native execution, host readiness, runtime closure or authority."
+    }
+  }
+}
