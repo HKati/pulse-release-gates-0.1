@@ -1,0 +1,3409 @@
+{
+  "$defs": {
+    "contract": {
+      "additionalProperties": false,
+      "properties": {
+        "base_commit": {
+          "const": "92886ff5c6e86729d5a2837c18710d4c274c8fd7",
+          "type": "string"
+        },
+        "boundary": {
+          "additionalProperties": false,
+          "properties": {
+            "authenticated_build_provenance": {
+              "const": false,
+              "type": "boolean"
+            },
+            "authority_effect": {
+              "const": "none",
+              "type": "string"
+            },
+            "b2_complete": {
+              "const": false,
+              "type": "boolean"
+            },
+            "complete_runtime_closure_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "containment_observed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "execution_authorized": {
+              "const": false,
+              "type": "boolean"
+            },
+            "execution_ready": {
+              "const": false,
+              "type": "boolean"
+            },
+            "guard_installation_observed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "guard_policy_bytes_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "helper_execution_observed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "host_environment_qualified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "metric_pass": {
+              "type": "null"
+            },
+            "native_acquisition_performed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "native_collector_implemented": {
+              "const": false,
+              "type": "boolean"
+            },
+            "native_qualifier_implemented": {
+              "const": false,
+              "type": "boolean"
+            },
+            "original_launcher_executed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "prerequisite_plan_reconstructed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "production_gate_eligible": {
+              "const": false,
+              "type": "boolean"
+            },
+            "selected_runtime_admitted": {
+              "const": false,
+              "type": "boolean"
+            },
+            "source_binary_equivalence_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "startup_source_contract_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "whole_runtime_issue": {
+              "additionalProperties": false,
+              "properties": {
+                "keep_open": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "number": {
+                  "const": 2879,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "keep_open",
+                "number"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "authenticated_build_provenance",
+            "authority_effect",
+            "b2_complete",
+            "complete_runtime_closure_verified",
+            "containment_observed",
+            "execution_authorized",
+            "execution_ready",
+            "guard_installation_observed",
+            "guard_policy_bytes_verified",
+            "helper_execution_observed",
+            "host_environment_qualified",
+            "metric_pass",
+            "native_acquisition_performed",
+            "native_collector_implemented",
+            "native_qualifier_implemented",
+            "original_launcher_executed",
+            "prerequisite_plan_reconstructed",
+            "production_gate_eligible",
+            "selected_runtime_admitted",
+            "source_binary_equivalence_verified",
+            "startup_source_contract_verified",
+            "whole_runtime_issue"
+          ],
+          "type": "object"
+        },
+        "build_selection": {
+          "additionalProperties": false,
+          "properties": {
+            "compiler": {
+              "const": "gcc",
+              "type": "string"
+            },
+            "compiler_runtime_closure_selected": {
+              "const": false,
+              "type": "boolean"
+            },
+            "entry_symbol": {
+              "const": "_start",
+              "type": "string"
+            },
+            "flags": {
+              "items": false,
+              "maxItems": 17,
+              "minItems": 17,
+              "prefixItems": [
+                {
+                  "const": "-std=c11",
+                  "type": "string"
+                },
+                {
+                  "const": "-O2",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wall",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wextra",
+                  "type": "string"
+                },
+                {
+                  "const": "-Werror",
+                  "type": "string"
+                },
+                {
+                  "const": "-ffreestanding",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-builtin",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-stack-protector",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-pie",
+                  "type": "string"
+                },
+                {
+                  "const": "-no-pie",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-asynchronous-unwind-tables",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-unwind-tables",
+                  "type": "string"
+                },
+                {
+                  "const": "-nostdlib",
+                  "type": "string"
+                },
+                {
+                  "const": "-static",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wl,--build-id=none",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wl,-z,noexecstack",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wl,-e,_start",
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "guard_section": {
+              "const": ".pulse_task_guard",
+              "type": "string"
+            },
+            "kind": {
+              "const": "compile_only_recipe_not_authenticated_toolchain",
+              "type": "string"
+            },
+            "native_qualification_satisfied_by_compilation": {
+              "const": false,
+              "type": "boolean"
+            },
+            "output_is_executed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "source": {
+              "const": "tools/required_gate_idempotence_containment_startup_v0.c",
+              "type": "string"
+            }
+          },
+          "required": [
+            "compiler",
+            "compiler_runtime_closure_selected",
+            "entry_symbol",
+            "flags",
+            "guard_section",
+            "kind",
+            "native_qualification_satisfied_by_compilation",
+            "output_is_executed",
+            "source"
+          ],
+          "type": "object"
+        },
+        "policy": {
+          "additionalProperties": false,
+          "properties": {
+            "authority_effect": {
+              "const": "none",
+              "type": "string"
+            },
+            "b2_complete": {
+              "const": false,
+              "type": "boolean"
+            },
+            "execution_authorized": {
+              "const": false,
+              "type": "boolean"
+            },
+            "execution_ready": {
+              "const": false,
+              "type": "boolean"
+            },
+            "guard": {
+              "additionalProperties": false,
+              "properties": {
+                "allow_action": {
+                  "const": 2147418112,
+                  "type": "integer"
+                },
+                "audit_arch": {
+                  "const": 3221225534,
+                  "type": "integer"
+                },
+                "blocked_syscalls": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "clone3": {
+                      "const": 435,
+                      "type": "integer"
+                    },
+                    "fork": {
+                      "const": 57,
+                      "type": "integer"
+                    },
+                    "io_uring_enter": {
+                      "const": 426,
+                      "type": "integer"
+                    },
+                    "io_uring_register": {
+                      "const": 427,
+                      "type": "integer"
+                    },
+                    "io_uring_setup": {
+                      "const": 425,
+                      "type": "integer"
+                    },
+                    "vfork": {
+                      "const": 58,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "clone3",
+                    "fork",
+                    "io_uring_enter",
+                    "io_uring_register",
+                    "io_uring_setup",
+                    "vfork"
+                  ],
+                  "type": "object"
+                },
+                "clone_contracts": {
+                  "items": false,
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "argument_5": {
+                          "const": "ignored",
+                          "type": "string"
+                        },
+                        "child": {
+                          "const": "R",
+                          "type": "string"
+                        },
+                        "child_stack": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "child_tid": {
+                          "const": "ignored",
+                          "type": "string"
+                        },
+                        "flags": {
+                          "const": 2114060305,
+                          "type": "integer"
+                        },
+                        "parent": {
+                          "const": "L",
+                          "type": "string"
+                        },
+                        "parent_tid": {
+                          "const": "ignored",
+                          "type": "string"
+                        },
+                        "tls": {
+                          "const": "ignored",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "argument_5",
+                        "child",
+                        "child_stack",
+                        "child_tid",
+                        "flags",
+                        "parent",
+                        "parent_tid",
+                        "tls"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "argument_5": {
+                          "const": "ignored",
+                          "type": "string"
+                        },
+                        "child": {
+                          "const": "T",
+                          "type": "string"
+                        },
+                        "child_stack": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "child_tid": {
+                          "const": "nonzero_dynamic",
+                          "type": "string"
+                        },
+                        "flags": {
+                          "const": 18874385,
+                          "type": "integer"
+                        },
+                        "parent": {
+                          "const": "R",
+                          "type": "string"
+                        },
+                        "parent_tid": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "tls": {
+                          "const": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "argument_5",
+                        "child",
+                        "child_stack",
+                        "child_tid",
+                        "flags",
+                        "parent",
+                        "parent_tid",
+                        "tls"
+                      ],
+                      "type": "object"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "clone_syscall_number": {
+                  "const": 56,
+                  "type": "integer"
+                },
+                "deny_action": {
+                  "const": 2147483648,
+                  "type": "integer"
+                },
+                "is_containment_policy": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "kernel_enforces_role_order_count": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "kernel_validates_child_tid_identity_or_writability": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "other_native_syscalls_allowed": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "program": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": {
+                      "const": "cc75cb083fb0f6b235eb429384dfb5aaffdd4653891eb2010cd0fd5b6939a51f",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "const": 272,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "size_bytes"
+                  ],
+                  "type": "object"
+                },
+                "program_instruction_count": {
+                  "const": 34,
+                  "type": "integer"
+                },
+                "x32_syscall_bit": {
+                  "const": 1073741824,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "allow_action",
+                "audit_arch",
+                "blocked_syscalls",
+                "clone_contracts",
+                "clone_syscall_number",
+                "deny_action",
+                "is_containment_policy",
+                "kernel_enforces_role_order_count",
+                "kernel_validates_child_tid_identity_or_writability",
+                "other_native_syscalls_allowed",
+                "program",
+                "program_instruction_count",
+                "x32_syscall_bit"
+              ],
+              "type": "object"
+            },
+            "host_environment_qualified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "aggregate_control_memory_bytes_per_checkpoint": {
+                  "const": 1048576,
+                  "type": "integer"
+                },
+                "argument_bytes": {
+                  "const": 4096,
+                  "type": "integer"
+                },
+                "attempts": {
+                  "const": 1,
+                  "type": "integer"
+                },
+                "capture_members": {
+                  "const": 2048,
+                  "type": "integer"
+                },
+                "capture_payload_bytes": {
+                  "const": 33554432,
+                  "type": "integer"
+                },
+                "cleanup_wall_seconds": {
+                  "const": 5,
+                  "type": "integer"
+                },
+                "max_bwrap_birth_events": {
+                  "const": 2,
+                  "type": "integer"
+                },
+                "max_live_subject_tasks": {
+                  "const": 3,
+                  "type": "integer"
+                },
+                "max_ordered_trace_events": {
+                  "const": 8192,
+                  "type": "integer"
+                },
+                "retries": {
+                  "const": 0,
+                  "type": "integer"
+                },
+                "setup_wall_seconds": {
+                  "const": 30,
+                  "type": "integer"
+                },
+                "single_control_memory_read_bytes": {
+                  "const": 65536,
+                  "type": "integer"
+                },
+                "stderr_bytes": {
+                  "const": 4096,
+                  "type": "integer"
+                },
+                "stdout_bytes": {
+                  "const": 65536,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "aggregate_control_memory_bytes_per_checkpoint",
+                "argument_bytes",
+                "attempts",
+                "capture_members",
+                "capture_payload_bytes",
+                "cleanup_wall_seconds",
+                "max_bwrap_birth_events",
+                "max_live_subject_tasks",
+                "max_ordered_trace_events",
+                "retries",
+                "setup_wall_seconds",
+                "single_control_memory_read_bytes",
+                "stderr_bytes",
+                "stdout_bytes"
+              ],
+              "type": "object"
+            },
+            "metric_pass": {
+              "type": "null"
+            },
+            "native_acquisition_performed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "native_qualifier_implemented": {
+              "const": false,
+              "type": "boolean"
+            },
+            "observer": {
+              "additionalProperties": false,
+              "properties": {
+                "cleanup_global_trace_adoption_reap_drain": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "cleanup_only_created_owned_identities": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "cleanup_order": {
+                  "items": false,
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "prefixItems": [
+                    {
+                      "const": "T",
+                      "type": "string"
+                    },
+                    {
+                      "const": "R",
+                      "type": "string"
+                    },
+                    {
+                      "const": "L",
+                      "type": "string"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "cleanup_signal": {
+                  "const": "pidfd_send_signal(SIGKILL,NULL,0)",
+                  "type": "string"
+                },
+                "dynamic_child_tid_writability_and_identity_required": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "expected_birth_event": {
+                  "const": "PTRACE_EVENT_FORK",
+                  "type": "string"
+                },
+                "final_pidfd_hangup_and_drained_wait_ledger_required": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "fixed_wait_count_is_completion": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "newborn_event_join_order_independent": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "newborn_reattach_allowed": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "normal_SIGCHLD_and_single_wait_consumer": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "per_creation_role_order_count_and_arguments_before_restart": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "primary_and_cleanup_failures_preserved_separately": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "ptrace_options": {
+                  "const": 1048607,
+                  "type": "integer"
+                },
+                "strategy": {
+                  "const": "PTRACE_SEIZE_then_INTERRUPT_then_consumed_stop",
+                  "type": "string"
+                },
+                "subreaper_verified_before_L": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "terminal_T_restarts": {
+                  "const": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "cleanup_global_trace_adoption_reap_drain",
+                "cleanup_only_created_owned_identities",
+                "cleanup_order",
+                "cleanup_signal",
+                "dynamic_child_tid_writability_and_identity_required",
+                "expected_birth_event",
+                "final_pidfd_hangup_and_drained_wait_ledger_required",
+                "fixed_wait_count_is_completion",
+                "newborn_event_join_order_independent",
+                "newborn_reattach_allowed",
+                "normal_SIGCHLD_and_single_wait_consumer",
+                "per_creation_role_order_count_and_arguments_before_restart",
+                "primary_and_cleanup_failures_preserved_separately",
+                "ptrace_options",
+                "strategy",
+                "subreaper_verified_before_L",
+                "terminal_T_restarts"
+              ],
+              "type": "object"
+            },
+            "profile": {
+              "const": "linux_x86_64_original_bwrap_minimal_entry_task_guard_v0",
+              "type": "string"
+            },
+            "qualification_obligations_pending": {
+              "items": false,
+              "maxItems": 13,
+              "minItems": 13,
+              "prefixItems": [
+                {
+                  "const": "fresh_original_source_and_explicit_policy_admission",
+                  "type": "string"
+                },
+                {
+                  "const": "source_to_executed_helper_binding",
+                  "type": "string"
+                },
+                {
+                  "const": "same_observer_kernel_image_and_outer_security_selection",
+                  "type": "string"
+                },
+                {
+                  "const": "nonroot_equal_real_effective_ids_and_non_setuid_launcher",
+                  "type": "string"
+                },
+                {
+                  "const": "guard_denials_and_two_source_bound_clone_shapes",
+                  "type": "string"
+                },
+                {
+                  "const": "guard_inheritance_across_exec_and_births",
+                  "type": "string"
+                },
+                {
+                  "const": "owned_barrier_seize_interrupt_stop_and_parent_loss",
+                  "type": "string"
+                },
+                {
+                  "const": "per_role_before_restart_validation_and_unordered_birth_notifications",
+                  "type": "string"
+                },
+                {
+                  "const": "namespace_mount_openat2_and_expected_extra_userns_denial",
+                  "type": "string"
+                },
+                {
+                  "const": "cross_namespace_proc_memory_register_and_descriptor_observation",
+                  "type": "string"
+                },
+                {
+                  "const": "separate_R_and_T_containment_filter_submissions",
+                  "type": "string"
+                },
+                {
+                  "const": "bounded_cancellation_and_owned_graph_cleanup",
+                  "type": "string"
+                },
+                {
+                  "const": "separate_owner_execution_authorization",
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "record_status": {
+              "const": "authored_source_contract",
+              "type": "string"
+            },
+            "record_type": {
+              "const": "required_gate_idempotence_containment_task_guard_contract_v0",
+              "type": "string"
+            },
+            "startup": {
+              "additionalProperties": false,
+              "properties": {
+                "barrier": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "close_after_release": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "close_after_revalidation": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "early_eof_rejected": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "fd": {
+                      "const": 7,
+                      "type": "integer"
+                    },
+                    "release_requires_consumed_interrupt_stop": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "require_eof_after_token": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "revalidate_descriptors_0_through_6": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "token_hex": {
+                      "const": "50554c534576300a",
+                      "type": "string"
+                    },
+                    "trailing_bytes_rejected": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "close_after_release",
+                    "close_after_revalidation",
+                    "early_eof_rejected",
+                    "fd",
+                    "release_requires_consumed_interrupt_stop",
+                    "require_eof_after_token",
+                    "revalidate_descriptors_0_through_6",
+                    "token_hex",
+                    "trailing_bytes_rejected"
+                  ],
+                  "type": "object"
+                },
+                "close_range": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "first": {
+                      "const": 8,
+                      "type": "integer"
+                    },
+                    "flags": {
+                      "const": 0,
+                      "type": "integer"
+                    },
+                    "last": {
+                      "const": 4294967295,
+                      "type": "integer"
+                    },
+                    "unsupported_is_failure": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "first",
+                    "flags",
+                    "last",
+                    "unsupported_is_failure"
+                  ],
+                  "type": "object"
+                },
+                "credentials": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capability_bounding_or_ambient_readback_claimed": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "capget_version": {
+                      "const": 537396514,
+                      "type": "integer"
+                    },
+                    "gid_nonzero": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "real_effective_gid_equal": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "real_effective_uid_equal": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "required_zero_capability_sets": {
+                      "items": false,
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "prefixItems": [
+                        {
+                          "const": "effective",
+                          "type": "string"
+                        },
+                        {
+                          "const": "permitted",
+                          "type": "string"
+                        },
+                        {
+                          "const": "inheritable",
+                          "type": "string"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "uid_nonzero": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "capability_bounding_or_ambient_readback_claimed",
+                    "capget_version",
+                    "gid_nonzero",
+                    "real_effective_gid_equal",
+                    "real_effective_uid_equal",
+                    "required_zero_capability_sets",
+                    "uid_nonzero"
+                  ],
+                  "type": "object"
+                },
+                "cwd": {
+                  "const": "/",
+                  "type": "string"
+                },
+                "deadline": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "clock": {
+                      "const": "CLOCK_MONOTONIC",
+                      "type": "string"
+                    },
+                    "fixed_inner_loops_statically_bounded": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "hash_finish_checks_deadline": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "maximum_hash_read_bytes": {
+                      "const": 4096,
+                      "type": "integer"
+                    },
+                    "seconds": {
+                      "const": 30,
+                      "type": "integer"
+                    },
+                    "sha_compression_rounds": {
+                      "const": 64,
+                      "type": "integer"
+                    },
+                    "sha_update_maximum_block_iterations": {
+                      "const": 65,
+                      "type": "integer"
+                    },
+                    "timeout_is_failure": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "variable_length_loops_and_hash_chunks_check_deadline": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "clock",
+                    "fixed_inner_loops_statically_bounded",
+                    "hash_finish_checks_deadline",
+                    "maximum_hash_read_bytes",
+                    "seconds",
+                    "sha_compression_rounds",
+                    "sha_update_maximum_block_iterations",
+                    "timeout_is_failure",
+                    "variable_length_loops_and_hash_chunks_check_deadline"
+                  ],
+                  "type": "object"
+                },
+                "descriptor_flag_preparation": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cloexec_clear_fds": {
+                      "items": false,
+                      "maxItems": 6,
+                      "minItems": 6,
+                      "prefixItems": [
+                        {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 1,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 2,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 3,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 4,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 5,
+                          "type": "integer"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "cloexec_set_fds": {
+                      "items": false,
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "const": 6,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 7,
+                          "type": "integer"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "nonblocking_pipe_fds": {
+                      "items": false,
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "prefixItems": [
+                        {
+                          "const": 1,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 2,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 7,
+                          "type": "integer"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "normalize_cloexec_and_readback": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "regular_optional_status_flag": {
+                      "const": "O_LARGEFILE",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cloexec_clear_fds",
+                    "cloexec_set_fds",
+                    "nonblocking_pipe_fds",
+                    "normalize_cloexec_and_readback",
+                    "regular_optional_status_flag"
+                  ],
+                  "type": "object"
+                },
+                "descriptor_roles_require_distinct_objects": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "descriptors": {
+                  "items": false,
+                  "maxItems": 8,
+                  "minItems": 8,
+                  "prefixItems": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_RDONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 32768,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 3072,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "sealed_regular",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "required_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "empty_stdin",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "const": 15,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_WRONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "type": "null"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 1,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "pipe",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "type": "null"
+                        },
+                        "required_status_flags": {
+                          "const": 2049,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "stdout",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_WRONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "type": "null"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 2,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "pipe",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "type": "null"
+                        },
+                        "required_status_flags": {
+                          "const": 2049,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "stderr",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_RDONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 32768,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "52757caea06d247ac1cf3433c06974bdecba7ecb069e8759f07a91465c882847",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 454,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 3,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 3072,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "sealed_regular",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "required_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "arguments",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "const": 15,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_RDONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 32768,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 9568,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 4,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 3072,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "sealed_regular",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "required_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "static_entry",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "const": 15,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_RDONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 32768,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "9f3570a87b1fde59299d69d242496cbd9d2f1b1631a40dbc5ed8e4976edfa6ab",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 1160,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 5,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 3072,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "sealed_regular",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "required_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "containment_bpf",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "const": 15,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_RDONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 32768,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 80248,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 6,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 3072,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "sealed_regular",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "required_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "original_launcher",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "const": 15,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "access_mode": {
+                          "const": "O_RDONLY",
+                          "type": "string"
+                        },
+                        "allowed_additional_status_flags": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "cloexec": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "content": {
+                          "type": "null"
+                        },
+                        "current_uid_gid_required": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "fd": {
+                          "const": 7,
+                          "type": "integer"
+                        },
+                        "forbidden_mode_bits": {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "pipe",
+                          "type": "string"
+                        },
+                        "offset": {
+                          "type": "null"
+                        },
+                        "required_status_flags": {
+                          "const": 2048,
+                          "type": "integer"
+                        },
+                        "role": {
+                          "const": "helper_barrier",
+                          "type": "string"
+                        },
+                        "seals": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "access_mode",
+                        "allowed_additional_status_flags",
+                        "cloexec",
+                        "content",
+                        "current_uid_gid_required",
+                        "fd",
+                        "forbidden_mode_bits",
+                        "kind",
+                        "offset",
+                        "required_status_flags",
+                        "role",
+                        "seals"
+                      ],
+                      "type": "object"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "error_output": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "best_effort_raw_fd_revalidation_before_write": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "exit_return_traps": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "fd": {
+                      "const": 2,
+                      "type": "integer"
+                    },
+                    "maximum_message_bytes": {
+                      "const": 96,
+                      "type": "integer"
+                    },
+                    "maximum_write_calls": {
+                      "const": 1,
+                      "type": "integer"
+                    },
+                    "partial_write_continuation": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "pipe_and_nonblocking_readback_required": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "validated_nonblocking_fd_required": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "write_retries": {
+                      "const": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "best_effort_raw_fd_revalidation_before_write",
+                    "exit_return_traps",
+                    "fd",
+                    "maximum_message_bytes",
+                    "maximum_write_calls",
+                    "partial_write_continuation",
+                    "pipe_and_nonblocking_readback_required",
+                    "validated_nonblocking_fd_required",
+                    "write_retries"
+                  ],
+                  "type": "object"
+                },
+                "full_output_limits_enforced_by": {
+                  "const": "outer_observer",
+                  "type": "string"
+                },
+                "helper_argv": {
+                  "items": false,
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "const": "pulsemech-containment-startup-v0",
+                      "type": "string"
+                    },
+                    {
+                      "const": "<observer-pid>",
+                      "type": "string"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "helper_source": {
+                  "const": "tools/required_gate_idempotence_containment_startup_v0.c",
+                  "type": "string"
+                },
+                "input_validation": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "after_release_roster": {
+                      "items": false,
+                      "maxItems": 7,
+                      "minItems": 7,
+                      "prefixItems": [
+                        {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 1,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 2,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 3,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 4,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 5,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 6,
+                          "type": "integer"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "content_fds": {
+                      "items": false,
+                      "maxItems": 5,
+                      "minItems": 5,
+                      "prefixItems": [
+                        {
+                          "const": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 3,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 4,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 5,
+                          "type": "integer"
+                        },
+                        {
+                          "const": 6,
+                          "type": "integer"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "content_method": {
+                      "const": "pread64_size_and_sha256",
+                      "type": "string"
+                    },
+                    "metadata_and_content_revalidated_after_release": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "regular_offsets_zero_before_and_after_release": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "after_release_roster",
+                    "content_fds",
+                    "content_method",
+                    "metadata_and_content_revalidated_after_release",
+                    "regular_offsets_zero_before_and_after_release"
+                  ],
+                  "type": "object"
+                },
+                "installation": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "after_barrier_release": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "extra_receipt_fd": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "guard_submission_syscall": {
+                      "const": "prctl(PR_SET_SECCOMP,SECCOMP_MODE_FILTER)",
+                      "type": "string"
+                    },
+                    "no_new_privs_set_and_readback_required": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "observed_exact_program_and_successful_return_required": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "after_barrier_release",
+                    "extra_receipt_fd",
+                    "guard_submission_syscall",
+                    "no_new_privs_set_and_readback_required",
+                    "observed_exact_program_and_successful_return_required"
+                  ],
+                  "type": "object"
+                },
+                "launcher_exec": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "argv": {
+                      "items": false,
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "prefixItems": [
+                        {
+                          "const": "bubblewrap",
+                          "type": "string"
+                        },
+                        {
+                          "const": "--args",
+                          "type": "string"
+                        },
+                        {
+                          "const": "3",
+                          "type": "string"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "eintr_retry": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "environment": {
+                      "items": false,
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "const": "LC_ALL=C",
+                          "type": "string"
+                        },
+                        {
+                          "const": "TZ=UTC",
+                          "type": "string"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "fallback_allowed": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "fd": {
+                      "const": 6,
+                      "type": "integer"
+                    },
+                    "flags": {
+                      "const": 4096,
+                      "type": "integer"
+                    },
+                    "maximum_calls": {
+                      "const": 1,
+                      "type": "integer"
+                    },
+                    "path": {
+                      "const": "",
+                      "type": "string"
+                    },
+                    "syscall_number": {
+                      "const": 322,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "argv",
+                    "eintr_retry",
+                    "environment",
+                    "fallback_allowed",
+                    "fd",
+                    "flags",
+                    "maximum_calls",
+                    "path",
+                    "syscall_number"
+                  ],
+                  "type": "object"
+                },
+                "parent_death": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "expected_parent_checks": {
+                      "items": false,
+                      "maxItems": 3,
+                      "minItems": 3,
+                      "prefixItems": [
+                        {
+                          "const": "before_set",
+                          "type": "string"
+                        },
+                        {
+                          "const": "after_set",
+                          "type": "string"
+                        },
+                        {
+                          "const": "after_release",
+                          "type": "string"
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    "observer_loss_is_incomplete": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "set_and_readback_required": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "signal": {
+                      "const": 9,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "expected_parent_checks",
+                    "observer_loss_is_incomplete",
+                    "set_and_readback_required",
+                    "signal"
+                  ],
+                  "type": "object"
+                },
+                "self_authentication": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "barrier_writer_identity": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "observer_identity": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "tracer_identity": {
+                      "const": false,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "barrier_writer_identity",
+                    "observer_identity",
+                    "tracer_identity"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "barrier",
+                "close_range",
+                "credentials",
+                "cwd",
+                "deadline",
+                "descriptor_flag_preparation",
+                "descriptor_roles_require_distinct_objects",
+                "descriptors",
+                "error_output",
+                "full_output_limits_enforced_by",
+                "helper_argv",
+                "helper_source",
+                "input_validation",
+                "installation",
+                "launcher_exec",
+                "parent_death",
+                "self_authentication"
+              ],
+              "type": "object"
+            },
+            "synthetic_data_is_runtime_evidence": {
+              "const": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "authority_effect",
+            "b2_complete",
+            "execution_authorized",
+            "execution_ready",
+            "guard",
+            "host_environment_qualified",
+            "limits",
+            "metric_pass",
+            "native_acquisition_performed",
+            "native_qualifier_implemented",
+            "observer",
+            "profile",
+            "qualification_obligations_pending",
+            "record_status",
+            "record_type",
+            "startup",
+            "synthetic_data_is_runtime_evidence"
+          ],
+          "type": "object"
+        },
+        "prerequisite_plan": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+              "type": "string"
+            },
+            "sha256": {
+              "const": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+              "type": "string"
+            },
+            "size_bytes": {
+              "const": 21284,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "type": "object"
+        },
+        "prerequisite_source_inventory": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+              "type": "string"
+            },
+            "sha256": {
+              "const": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+              "type": "string"
+            },
+            "size_bytes": {
+              "const": 21350,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "linux_x86_64_original_bwrap_minimal_entry_exec_stop_v0",
+          "type": "string"
+        },
+        "record_status": {
+          "const": "authored_source_contract",
+          "type": "string"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_guard_contract_v0",
+          "type": "string"
+        },
+        "source_files": {
+          "items": false,
+          "maxItems": 10,
+          "minItems": 10,
+          "prefixItems": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 21284,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 21350,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_containment_entry_plan_v0.schema.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "58f46b593fae80fe25ba1911b5aed5134a98d04f5d371e2bdeaebb680c9f28a3",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 65002,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes",
+                "path"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_containment_entry_plan_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "c8f3f70b1780dc14d8e8b6ef684714bbab6be8d691d5685558424610d1231167",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 154932,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes",
+                "path"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_entry_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "25fa48cc1824c0641fe0ba9265fbe3c698a3f36b19cb29adf212ffa8b049b58e",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 24395,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_containment_startup_v0.c",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 27461,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 19568,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_entry_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "7d739ea58aa248c6d1785882847ee1d45b9e32925514cc7b0cf510558fbdf83d",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 23130,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            }
+          ],
+          "type": "array"
+        },
+        "task_guard_program": {
+          "additionalProperties": false,
+          "properties": {
+            "encoding": {
+              "const": "linux_classic_bpf_le_sock_filter",
+              "type": "string"
+            },
+            "hex": {
+              "const": "20000000040000001500001f3e0000c0200000000000000045001d000000004015001c003900000015001b003a00000015001a00a901000015001900aa01000015001800ab01000015001700b301000015000015380000002000000014000000150000140000000020000000180000001500001200000000200000001c0000001500001000000000200000001000000015000d001100027e1500000d1100200120000000200000001500000b0000000020000000240000001500000900000000200000003000000015000007000000002000000034000000150000050000000020000000280000001500000200000000200000002c0000001500010000000000060000000000ff7f0600000000000080",
+              "type": "string"
+            },
+            "instruction_count": {
+              "const": 34,
+              "type": "integer"
+            },
+            "sha256": {
+              "const": "cc75cb083fb0f6b235eb429384dfb5aaffdd4653891eb2010cd0fd5b6939a51f",
+              "type": "string"
+            },
+            "size_bytes": {
+              "const": 272,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "encoding",
+            "hex",
+            "instruction_count",
+            "sha256",
+            "size_bytes"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "base_commit",
+        "boundary",
+        "build_selection",
+        "policy",
+        "prerequisite_plan",
+        "prerequisite_source_inventory",
+        "profile",
+        "record_status",
+        "record_type",
+        "source_files",
+        "task_guard_program"
+      ],
+      "type": "object"
+    },
+    "report": {
+      "additionalProperties": false,
+      "properties": {
+        "base_commit": {
+          "const": "92886ff5c6e86729d5a2837c18710d4c274c8fd7",
+          "type": "string"
+        },
+        "boundary": {
+          "additionalProperties": false,
+          "properties": {
+            "authenticated_build_provenance": {
+              "const": false,
+              "type": "boolean"
+            },
+            "authority_effect": {
+              "const": "none",
+              "type": "string"
+            },
+            "b2_complete": {
+              "const": false,
+              "type": "boolean"
+            },
+            "complete_runtime_closure_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "containment_observed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "execution_authorized": {
+              "const": false,
+              "type": "boolean"
+            },
+            "execution_ready": {
+              "const": false,
+              "type": "boolean"
+            },
+            "guard_installation_observed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "guard_policy_bytes_verified": {
+              "const": true,
+              "type": "boolean"
+            },
+            "helper_execution_observed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "host_environment_qualified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "metric_pass": {
+              "type": "null"
+            },
+            "native_acquisition_performed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "native_collector_implemented": {
+              "const": false,
+              "type": "boolean"
+            },
+            "native_qualifier_implemented": {
+              "const": false,
+              "type": "boolean"
+            },
+            "original_launcher_executed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "prerequisite_plan_reconstructed": {
+              "const": true,
+              "type": "boolean"
+            },
+            "production_gate_eligible": {
+              "const": false,
+              "type": "boolean"
+            },
+            "selected_runtime_admitted": {
+              "const": false,
+              "type": "boolean"
+            },
+            "source_binary_equivalence_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "startup_source_contract_verified": {
+              "const": true,
+              "type": "boolean"
+            },
+            "whole_runtime_issue": {
+              "additionalProperties": false,
+              "properties": {
+                "keep_open": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "number": {
+                  "const": 2879,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "keep_open",
+                "number"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "authenticated_build_provenance",
+            "authority_effect",
+            "b2_complete",
+            "complete_runtime_closure_verified",
+            "containment_observed",
+            "execution_authorized",
+            "execution_ready",
+            "guard_installation_observed",
+            "guard_policy_bytes_verified",
+            "helper_execution_observed",
+            "host_environment_qualified",
+            "metric_pass",
+            "native_acquisition_performed",
+            "native_collector_implemented",
+            "native_qualifier_implemented",
+            "original_launcher_executed",
+            "prerequisite_plan_reconstructed",
+            "production_gate_eligible",
+            "selected_runtime_admitted",
+            "source_binary_equivalence_verified",
+            "startup_source_contract_verified",
+            "whole_runtime_issue"
+          ],
+          "type": "object"
+        },
+        "build_selection": {
+          "additionalProperties": false,
+          "properties": {
+            "compiler": {
+              "const": "gcc",
+              "type": "string"
+            },
+            "compiler_runtime_closure_selected": {
+              "const": false,
+              "type": "boolean"
+            },
+            "entry_symbol": {
+              "const": "_start",
+              "type": "string"
+            },
+            "flags": {
+              "items": false,
+              "maxItems": 17,
+              "minItems": 17,
+              "prefixItems": [
+                {
+                  "const": "-std=c11",
+                  "type": "string"
+                },
+                {
+                  "const": "-O2",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wall",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wextra",
+                  "type": "string"
+                },
+                {
+                  "const": "-Werror",
+                  "type": "string"
+                },
+                {
+                  "const": "-ffreestanding",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-builtin",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-stack-protector",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-pie",
+                  "type": "string"
+                },
+                {
+                  "const": "-no-pie",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-asynchronous-unwind-tables",
+                  "type": "string"
+                },
+                {
+                  "const": "-fno-unwind-tables",
+                  "type": "string"
+                },
+                {
+                  "const": "-nostdlib",
+                  "type": "string"
+                },
+                {
+                  "const": "-static",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wl,--build-id=none",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wl,-z,noexecstack",
+                  "type": "string"
+                },
+                {
+                  "const": "-Wl,-e,_start",
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "guard_section": {
+              "const": ".pulse_task_guard",
+              "type": "string"
+            },
+            "kind": {
+              "const": "compile_only_recipe_not_authenticated_toolchain",
+              "type": "string"
+            },
+            "native_qualification_satisfied_by_compilation": {
+              "const": false,
+              "type": "boolean"
+            },
+            "output_is_executed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "source": {
+              "const": "tools/required_gate_idempotence_containment_startup_v0.c",
+              "type": "string"
+            }
+          },
+          "required": [
+            "compiler",
+            "compiler_runtime_closure_selected",
+            "entry_symbol",
+            "flags",
+            "guard_section",
+            "kind",
+            "native_qualification_satisfied_by_compilation",
+            "output_is_executed",
+            "source"
+          ],
+          "type": "object"
+        },
+        "contract": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 1048576,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "type": "object"
+        },
+        "implementation_sources": {
+          "items": false,
+          "maxItems": 10,
+          "minItems": 10,
+          "prefixItems": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 21284,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 21350,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_containment_entry_plan_v0.schema.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "58f46b593fae80fe25ba1911b5aed5134a98d04f5d371e2bdeaebb680c9f28a3",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 65002,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes",
+                "path"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_containment_entry_plan_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "c8f3f70b1780dc14d8e8b6ef684714bbab6be8d691d5685558424610d1231167",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 154932,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes",
+                "path"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_entry_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "25fa48cc1824c0641fe0ba9265fbe3c698a3f36b19cb29adf212ffa8b049b58e",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 24395,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_containment_startup_v0.c",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 27461,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 19568,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_entry_task_guard_v0.py",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "7d739ea58aa248c6d1785882847ee1d45b9e32925514cc7b0cf510558fbdf83d",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 23130,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            }
+          ],
+          "type": "array"
+        },
+        "input_files": {
+          "items": false,
+          "maxItems": 16,
+          "minItems": 16,
+          "prefixItems": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 21284,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 21350,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_containment_entry_plan_v0/baseline_sources_aa7ca551_v0.zip",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "0008c5aa1dfce8052d8c0cd06429bef00ee5d499888c7d732bc7e38012089bd1",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 522415,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0-1~deb13u1.debian.tar.xz",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "7b54f121aebf5d4b38360ea728274c26fa471582bc3e6658379b679ecd8b5a2f",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 13728,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0-1~deb13u1.dsc",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "1abef77e6c35ce6c48c8969d31bffcc7a589bfd8e8fea9284fd8d77750f01d39",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 2362,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0.orig.tar.xz",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "9760d007363e3abba7c747489910f9f82d9fca53ba3bd3282e396fa3c97a3314",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 126452,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_entry_build_v0/run_43854478248_attempt_1/required-gate-idempotence-entry-build-43854478248-1.zip",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "1ad3f84009ff7446e204ab18cb61bd5494a6d1182878833de017a438a3f36855",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 64298,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "70b57f9a40cb375e267e215b3704be21c9f6d8987cadc13d92dfcc8db56d9c8a",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 24816167,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/Sources.xz.part001",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "3dd4790f65540cb7004b5b13cc98d60b706fa62ec347da24f34629c18d1bc724",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 8000000,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/Sources.xz.part002",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "4a2df0061f07a5aabc5a976cd4c5c80faa1a25f9455b67780fd87e7d2c5270cf",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 2540436,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41-12+deb13u4.debian.tar.xz",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 499524,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41.orig.tar.xz.part001",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "4790b9cafe4425b2776884b87f345591accb35232f6db5d891d869d20626fde4",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 8000000,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41.orig.tar.xz.part002",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "89c780719196bcbdce8ba0290918ea5468a681525b5836d24cbf2d788c9e5f75",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 8000000,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41.orig.tar.xz.part003",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "875cb7ed49f8f386a6ba4948dad2eeb4da80494ece0c49d566a93271870997ba",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 4323540,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_resolution_v0/run_45881405789_attempt_1/control_evidence_v0.zip",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "7f67a1f6dc816ae382d140d91e9f95b754d766cee6645d8607a4b2398ce1ad9c",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 5994163,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "preservation/required_gate_idempotence_loader_resolution_v0/run_45881405789_attempt_1/verification_record_v0.json",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "60578dd84f76cb89630267699c290f42c41dc90b7285ae9f535e8594bab3bfef",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 440911,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            }
+          ],
+          "type": "array"
+        },
+        "prerequisite_report": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 1048576,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "linux_x86_64_original_bwrap_minimal_entry_exec_stop_v0",
+          "type": "string"
+        },
+        "record_status": {
+          "const": "verified_source_contract",
+          "type": "string"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_guard_verification_v0",
+          "type": "string"
+        },
+        "task_guard_program": {
+          "additionalProperties": false,
+          "properties": {
+            "instruction_count": {
+              "const": 34,
+              "type": "integer"
+            },
+            "sha256": {
+              "const": "cc75cb083fb0f6b235eb429384dfb5aaffdd4653891eb2010cd0fd5b6939a51f",
+              "type": "string"
+            },
+            "size_bytes": {
+              "const": 272,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "instruction_count",
+            "sha256",
+            "size_bytes"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "base_commit",
+        "boundary",
+        "build_selection",
+        "contract",
+        "implementation_sources",
+        "input_files",
+        "prerequisite_report",
+        "profile",
+        "record_status",
+        "record_type",
+        "task_guard_program"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:pulsemech:required-gate-idempotence-containment-task-guard:v0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Closed authored source selection and data-only verdict; no native qualification or authority.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/contract"
+    },
+    {
+      "$ref": "#/$defs/report"
+    }
+  ],
+  "title": "Containment startup source contract and independent verification v0"
+}
