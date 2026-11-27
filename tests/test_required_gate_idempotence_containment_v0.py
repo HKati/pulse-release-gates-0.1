@@ -23787,3 +23787,1003 @@ def test_containment_entry_plan_report_uses_the_verified_input_snapshot(
     row = next(item for item in report["input_files"] if item["path"] == path)
     assert row == {"path": path, **bound(original)}
     assert row["sha256"] != digest(replacement)
+
+
+# #3061 containment-entry task guard: appended, data-only regression coverage.
+# These cases neither execute the startup helper nor qualify a native host.
+CONTAINMENT_TASK_GUARD_CORE_REL = "tools/required_gate_idempotence_containment_task_guard_v0.py"
+CONTAINMENT_TASK_GUARD_CHECKER_REL = "tools/check_required_gate_idempotence_containment_task_guard_v0.py"
+CONTAINMENT_TASK_GUARD_HELPER_REL = "tools/required_gate_idempotence_containment_startup_v0.c"
+CONTAINMENT_TASK_GUARD_PREFIX_BYTES = 1326369
+CONTAINMENT_TASK_GUARD_PREFIX_SHA256 = "afa8b0dacc29308185d205c4338fee1ba3fb322b0d91972846e82f255974dd46"
+CONTAINMENT_TASK_GUARD_ALLOW = 0x7FFF0000
+CONTAINMENT_TASK_GUARD_KILL = 0x80000000
+CONTAINMENT_TASK_GUARD_ARCH = 0xC000003E
+CONTAINMENT_TASK_GUARD_NAMESPACE_FLAGS = 0x7E020011
+CONTAINMENT_TASK_GUARD_REAPER_FLAGS = 0x01200011
+CONTAINMENT_TASK_GUARD_CC_FLAGS = (
+    "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-ffreestanding",
+    "-fno-builtin", "-fno-stack-protector", "-fno-pie", "-no-pie",
+    "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-nostdlib", "-static",
+    "-Wl,--build-id=none", "-Wl,-z,noexecstack", "-Wl,-e,_start",
+)
+
+
+@pytest.fixture(scope="module")
+def containment_task_guard_core():
+    return module("required_gate_idempotence_containment_task_guard_v0",
+                  CONTAINMENT_TASK_GUARD_CORE_REL)
+
+
+def _containment_task_guard_reference(*, arch, number, args):
+    """Independent syscall predicate: do not import policy constants here."""
+    if arch != 0xC000003E or number & 0x40000000:
+        return 0x80000000
+    if number in (57, 58, 435, 425, 426, 427):
+        return 0x80000000
+    if number != 56:
+        return 0x7FFF0000
+    if args[1] != 0:
+        return 0x80000000
+    if args[0] == 0x7E020011:
+        return 0x7FFF0000
+    if args[0] == 0x01200011 and args[2] == 0 and args[4] == 0 and args[3] != 0:
+        return 0x7FFF0000
+    return 0x80000000
+
+
+def _containment_task_guard_interpret(program, *, arch, number, args):
+    """Small independent classic-BPF machine over an explicit seccomp_data."""
+    assert isinstance(program, bytes) and len(program) % 8 == 0
+    instructions = list(struct.iter_unpack("<HBBI", program))
+    memory = struct.pack("<IIQ6Q", number, arch, 0, *args)
+    accumulator = 0
+    pc = 0
+    for _step in range(len(instructions) + 1):
+        assert 0 <= pc < len(instructions), "BPF branched outside its bytecode"
+        opcode, yes, no, value = instructions[pc]
+        if opcode == 0x20:  # BPF_LD | BPF_W | BPF_ABS
+            assert yes == no == 0 and value % 4 == 0 and value <= len(memory) - 4
+            accumulator = struct.unpack_from("<I", memory, value)[0]
+            pc += 1
+        elif opcode in (0x15, 0x45):  # BPF_JEQ / BPF_JSET with BPF_K
+            condition = accumulator == value if opcode == 0x15 else bool(accumulator & value)
+            pc += 1 + (yes if condition else no)
+        elif opcode == 0x05:  # BPF_JMP | BPF_JA
+            assert yes == no == 0
+            pc += 1 + value
+        elif opcode == 0x54:  # BPF_ALU | BPF_AND | BPF_K
+            assert yes == no == 0
+            accumulator &= value
+            pc += 1
+        elif opcode == 0x06:  # BPF_RET | BPF_K
+            assert yes == no == 0
+            return value
+        else:
+            pytest.fail("unexpected task-guard BPF opcode: %#x" % opcode)
+    pytest.fail("task-guard BPF did not terminate within a forward-only program")
+
+
+def _containment_task_guard_assert_action(core, *, number=56,
+                                        arch=CONTAINMENT_TASK_GUARD_ARCH, args,
+                                        expected=None):
+    independent = _containment_task_guard_reference(arch=arch, number=number, args=args)
+    if expected is not None:
+        assert independent == expected
+    raw = core.guard_program()
+    assert _containment_task_guard_interpret(raw, arch=arch, number=number, args=args) == independent
+    assert core.evaluate_program(raw, arch=arch, number=number, args=args) == independent
+    assert core.evaluate_guard(arch=arch, number=number, args=args) == independent
+
+
+def test_containment_task_guard_preserves_the_original_sources_and_test_prefix():
+    raw = (ROOT / SELF).read_bytes()
+    assert digest(raw[:CONTAINMENT_TASK_GUARD_PREFIX_BYTES]) == CONTAINMENT_TASK_GUARD_PREFIX_SHA256
+    assert len(raw) > CONTAINMENT_TASK_GUARD_PREFIX_BYTES
+    frozen = {
+        "tools/required_gate_idempotence_entry_task_guard_v0.py":
+            (23130, "7d739ea58aa248c6d1785882847ee1d45b9e32925514cc7b0cf510558fbdf83d"),
+        "tools/check_required_gate_idempotence_entry_task_guard_v0.py":
+            (24395, "25fa48cc1824c0641fe0ba9265fbe3c698a3f36b19cb29adf212ffa8b049b58e"),
+    }
+    for path, (size, sha256) in frozen.items():
+        original = (ROOT / path).read_bytes()
+        assert len(original) == size and digest(original) == sha256
+
+
+def test_containment_task_guard_all_syscall_numbers_have_independent_bpf_results(
+        containment_task_guard_core):
+    core = containment_task_guard_core
+    # This finite sweep includes fork, vfork, both clone forms, clone3 and all
+    # three io_uring syscalls, as well as ordinary calls on either side of them.
+    for flags in (0x7E020011, 0x01200011, 17):
+        args = (flags, 0, 0, 0x1122334455667788, 0, 0xFFEEDDCCBBAA0099)
+        for number in range(512):
+            _containment_task_guard_assert_action(core, number=number, args=args)
+
+
+@pytest.mark.parametrize("arch", [0, 0x40000003, 0xC00000B7, 0x8000003E, 0xFFFFFFFF])
+@pytest.mark.parametrize("number", [0, 56, 57, 435])
+def test_containment_task_guard_rejects_wrong_architecture_before_syscall_dispatch(
+        containment_task_guard_core, arch, number):
+    _containment_task_guard_assert_action(containment_task_guard_core, arch=arch, number=number,
+        args=(0x7E020011, 0, 0, 0, 0, 0), expected=CONTAINMENT_TASK_GUARD_KILL)
+
+
+@pytest.mark.parametrize("number", [0, 56, 57, 58, 425, 426, 427, 435, 511])
+def test_containment_task_guard_rejects_x32_number_even_for_otherwise_allowed_calls(
+        containment_task_guard_core, number):
+    _containment_task_guard_assert_action(containment_task_guard_core, number=number | 0x40000000,
+        args=(0x7E020011, 0, 0, 0, 0, 0), expected=CONTAINMENT_TASK_GUARD_KILL)
+
+
+@pytest.mark.parametrize("flags", [0x7E020011, 0x01200011])
+@pytest.mark.parametrize("word", [1, 0x80000000, 0xFFFFFFFF])
+def test_containment_task_guard_checks_entire_clone_flags_word(
+        containment_task_guard_core, flags, word):
+    _containment_task_guard_assert_action(containment_task_guard_core,
+        args=(flags | (word << 32), 0, 0, 1, 0, 0), expected=CONTAINMENT_TASK_GUARD_KILL)
+
+
+@pytest.mark.parametrize("flags", [0x7E020011, 0x01200011])
+@pytest.mark.parametrize("stack", [1, 0xFFFFFFFF, 1 << 32, 1 << 63, 0xFFFFFFFFFFFFFFFF])
+def test_containment_task_guard_checks_entire_clone_stack_word(
+        containment_task_guard_core, flags, stack):
+    _containment_task_guard_assert_action(containment_task_guard_core,
+        args=(flags, stack, 0, 1, 0, 0), expected=CONTAINMENT_TASK_GUARD_KILL)
+
+
+@pytest.mark.parametrize("flags", [0x7E020011, 0x01200011])
+def test_containment_task_guard_rejects_every_single_bit_flag_change(
+        containment_task_guard_core, flags):
+    for bit in range(64):
+        _containment_task_guard_assert_action(containment_task_guard_core,
+            args=(flags ^ (1 << bit), 0, 0, 1, 0, 0), expected=CONTAINMENT_TASK_GUARD_KILL)
+
+
+@pytest.mark.parametrize("register", [2, 3, 4, 5])
+@pytest.mark.parametrize("value", [1, 1 << 32, 1 << 63, 0xFFFFFFFFFFFFFFFF])
+def test_containment_task_guard_namespace_clone_ignores_unused_argument_registers(
+        containment_task_guard_core, register, value):
+    args = [0x7E020011, 0, 0, 0, 0, 0]
+    args[register] = value
+    _containment_task_guard_assert_action(containment_task_guard_core,
+        args=tuple(args), expected=CONTAINMENT_TASK_GUARD_ALLOW)
+
+
+@pytest.mark.parametrize("register", [2, 4])
+@pytest.mark.parametrize("value", [1, 0xFFFFFFFF, 1 << 32, 1 << 63, 0xFFFFFFFFFFFFFFFF])
+def test_containment_task_guard_reaper_clone_requires_full_width_zero_parent_tid_and_tls(
+        containment_task_guard_core, register, value):
+    args = [0x01200011, 0, 0, 1, 0, 0]
+    args[register] = value
+    _containment_task_guard_assert_action(containment_task_guard_core,
+        args=tuple(args), expected=CONTAINMENT_TASK_GUARD_KILL)
+
+
+@pytest.mark.parametrize("child_tid", [1, 0xFFFFFFFF, 1 << 32, 1 << 63, 0xFFFFFFFFFFFFFFFF])
+@pytest.mark.parametrize("unused", [0, 0xFFFFFFFFFFFFFFFF])
+def test_containment_task_guard_reaper_clone_accepts_full_width_nonzero_child_tid_and_ignores_arg5(
+        containment_task_guard_core, child_tid, unused):
+    _containment_task_guard_assert_action(containment_task_guard_core,
+        args=(0x01200011, 0, 0, child_tid, 0, unused), expected=CONTAINMENT_TASK_GUARD_ALLOW)
+
+
+def test_containment_task_guard_reaper_clone_rejects_zero_child_tid(
+        containment_task_guard_core):
+    _containment_task_guard_assert_action(containment_task_guard_core,
+        args=(0x01200011, 0, 0, 0, 0, 0xFFFFFFFFFFFFFFFF), expected=CONTAINMENT_TASK_GUARD_KILL)
+
+
+def test_containment_task_guard_acceptance_is_stateless_and_cannot_assert_role_or_budget(
+        containment_task_guard_core):
+    core = containment_task_guard_core
+    for _repeat in range(4):
+        for args in ((0x7E020011, 0, 0, 0, 0, 0), (0x01200011, 0, 0, 1, 0, 0)):
+            _containment_task_guard_assert_action(core, args=args,
+                expected=CONTAINMENT_TASK_GUARD_ALLOW)
+    # Repeated success demonstrates only the syscall predicate. Role, lineage,
+    # source location and task count are deliberately absent from seccomp_data.
+
+
+@pytest.fixture(scope="module")
+def containment_task_guard_compiled_helper(tmp_path_factory):
+    compiler = shutil.which("gcc")
+    assert compiler is not None, "gcc is required for compile-only ELF regression"
+    directory = tmp_path_factory.mktemp("containment-task-guard-static-elf")
+    output = directory / "startup-helper-never-executed"
+    result = subprocess.run([compiler, *CONTAINMENT_TASK_GUARD_CC_FLAGS,
+        str(ROOT / CONTAINMENT_TASK_GUARD_HELPER_REL),
+        "-o", str(output)], capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert result.stdout == b"" and result.stderr == b""
+    # Read the output as inert bytes; never pass this path to process APIs.
+    return output.read_bytes()
+
+
+def test_containment_task_guard_helper_compiles_as_inert_static_x86_64_elf(
+        containment_task_guard_compiled_helper):
+    raw = containment_task_guard_compiled_helper
+    assert raw[:16] == b"\x7fELF\x02\x01\x01" + b"\0" * 9
+    elf_type, machine, version, entry, phoff, _shoff, _flags, ehsize, phentsize, phnum = \
+        struct.unpack_from("<HHIQQQIHHH", raw, 16)
+    assert (elf_type, machine, version, ehsize, phentsize) == (2, 62, 1, 64, 56)
+    assert 0 < phnum <= 32 and phoff + phnum * phentsize <= len(raw)
+    headers = [struct.unpack_from("<IIQQQQQQ", raw, phoff + index * phentsize)
+               for index in range(phnum)]
+    assert not any(row[0] in (2, 3) for row in headers), "PT_DYNAMIC/PT_INTERP are forbidden"
+    assert any(row[0] == 1 and row[1] & 1 and row[3] <= entry < row[3] + row[5]
+               for row in headers), "entry point must be within executable file-backed bytes"
+    stacks = [row for row in headers if row[0] == 0x6474E551]
+    assert len(stacks) == 1 and not stacks[0][1] & 1
+    for row in headers:
+        if row[0] == 1:
+            assert row[5] <= row[6] and row[2] + row[5] <= len(raw)
+            assert row[1] & 3 != 3, "writable executable segments are forbidden"
+
+
+def test_containment_task_guard_exact_bytecode_and_return_actions_are_frozen(
+        containment_task_guard_core):
+    core = containment_task_guard_core
+    raw = core.guard_program()
+    assert type(raw) is bytes and len(raw) == 272
+    assert digest(raw) == "cc75cb083fb0f6b235eb429384dfb5aaffdd4653891eb2010cd0fd5b6939a51f"
+    rows = tuple(struct.iter_unpack("<HBBI", raw))
+    assert rows == core.inspect_program(raw) == core.guard_instructions()
+    assert {row[3] for row in rows if row[0] == 6} == {0x7FFF0000, 0x80000000}
+    _containment_task_guard_assert_action(core, number=0x80000000,
+        args=(0, 0, 0, 0, 0, 0), expected=CONTAINMENT_TASK_GUARD_ALLOW)
+
+
+@pytest.mark.parametrize("fault", ["empty", "truncated", "oversize", "nonbytes", "opcode",
+    "offset", "unaligned", "load_branch", "jump", "return_branch", "return_action", "fallthrough"])
+def test_containment_task_guard_program_parser_rejects_unsafe_or_unsupported_structure(
+        containment_task_guard_core, fault):
+    core = containment_task_guard_core
+    allow = struct.pack("<HBBI", 6, 0, 0, 0x7FFF0000)
+    raw = {
+        "empty": b"", "truncated": core.guard_program()[:-1],
+        "oversize": allow * 4097, "nonbytes": bytearray(allow),
+        "opcode": struct.pack("<HBBI", 0xFFFF, 0, 0, 0) + allow,
+        "offset": struct.pack("<HBBI", 0x20, 0, 0, 8) + allow,
+        "unaligned": struct.pack("<HBBI", 0x20, 0, 0, 17) + allow,
+        "load_branch": struct.pack("<HBBI", 0x20, 1, 0, 0) + allow,
+        "jump": struct.pack("<HBBI", 0x15, 1, 0, 0) + allow,
+        "return_branch": struct.pack("<HBBI", 6, 1, 0, 0x7FFF0000),
+        "return_action": struct.pack("<HBBI", 6, 0, 0, 0),
+        "fallthrough": struct.pack("<HBBI", 0x20, 0, 0, 0),
+    }[fault]
+    with pytest.raises(core.GuardError):
+        core.inspect_program(raw)
+    with pytest.raises(core.GuardError):
+        core.evaluate_program(raw, arch=0xC000003E, number=0, args=(0,) * 6)
+
+
+def test_containment_task_guard_structural_program_parsing_is_not_policy_admission(
+        containment_task_guard_core):
+    core = containment_task_guard_core
+    substituted = struct.pack("<HBBI", 6, 0, 0, 0x7FFF0000)
+    assert core.inspect_program(substituted) == ((6, 0, 0, 0x7FFF0000),)
+    assert core.evaluate_program(substituted, arch=0xC000003E, number=57,
+                                 args=(0,) * 6) == 0x7FFF0000
+    assert core.evaluate_guard(arch=0xC000003E, number=57, args=(0,) * 6) == 0x80000000
+    assert digest(substituted) != digest(core.guard_program())
+
+
+@pytest.mark.parametrize("field,value", [
+    ("arch", True), ("arch", -1), ("arch", 1 << 32), ("arch", float(0xC000003E)),
+    ("number", True), ("number", -1), ("number", 1 << 32), ("number", 56.0),
+    ("args", (0,) * 5), ("args", (0,) * 7), ("args", "000000"),
+    ("args", (True, 0, 0, 0, 0, 0)), ("args", (0, 0, -1, 0, 0, 0)),
+    ("args", (0, 0, 0, 1 << 64, 0, 0)), ("args", (0, 0, 0, 0, 0.0, 0)),
+])
+def test_containment_task_guard_input_types_cannot_alias_kernel_integer_fields(
+        containment_task_guard_core, field, value):
+    core = containment_task_guard_core
+    arguments = {"arch": 0xC000003E, "number": 56, "args": (0x7E020011, 0, 0, 0, 0, 0)}
+    arguments[field] = value
+    for function in (core.evaluate_guard,
+                     lambda **values: core.evaluate_program(core.guard_program(), **values)):
+        with pytest.raises(core.GuardError):
+            function(**arguments)
+
+
+def _containment_task_guard_authored_births():
+    return [
+        {"parent": "L", "child": "R", "syscall_number": 56,
+         "arguments": [0x7E020011, 0, 0xFFFFFFFFFFFFFFFF, 0, 1 << 63, 0xFFFFFFFFFFFFFFFF]},
+        {"parent": "R", "child": "T", "syscall_number": 56,
+         "arguments": [0x01200011, 0, 0, 1 << 32, 0, 0xFFFFFFFFFFFFFFFF]},
+    ]
+
+
+def test_containment_task_guard_authored_birth_sequence_accepts_only_declared_relationship(
+        containment_task_guard_core):
+    core = containment_task_guard_core
+    births = _containment_task_guard_authored_births()
+    original = copy.deepcopy(births)
+    assert core.validate_birth_sequence(births) is None
+    assert births == original
+    # Passing again is still only data validation; it is no observed task budget.
+    assert core.validate_birth_sequence(copy.deepcopy(births)) is None
+
+
+@pytest.mark.parametrize("fault", ["empty", "one", "three", "tuple", "reversed", "unknown_parent",
+    "wrong_child", "extra_field", "missing_field", "wrong_number", "bool_number", "swapped_flags",
+    "flags_high", "stack_high", "parent_tid_high", "tls_high", "zero_child_tid"])
+def test_containment_task_guard_authored_birth_sequence_rejects_role_count_or_argument_drift(
+        containment_task_guard_core, fault):
+    births = _containment_task_guard_authored_births()
+    if fault == "empty": births = []
+    elif fault == "one": births.pop()
+    elif fault == "three": births.append(copy.deepcopy(births[-1]))
+    elif fault == "tuple": births = tuple(births)
+    elif fault == "reversed": births.reverse()
+    elif fault == "unknown_parent": births[0]["parent"] = "observer"
+    elif fault == "wrong_child": births[1]["child"] = "L"
+    elif fault == "extra_field": births[0]["native_observed"] = True
+    elif fault == "missing_field": births[1].pop("syscall_number")
+    elif fault == "wrong_number": births[0]["syscall_number"] = 57
+    elif fault == "bool_number": births[0]["syscall_number"] = True
+    elif fault == "swapped_flags":
+        births[0]["arguments"][0], births[1]["arguments"][0] = \
+            births[1]["arguments"][0], births[0]["arguments"][0]
+    elif fault == "flags_high": births[0]["arguments"][0] |= 1 << 32
+    elif fault == "stack_high": births[0]["arguments"][1] = 1 << 32
+    elif fault == "parent_tid_high": births[1]["arguments"][2] = 1 << 32
+    elif fault == "tls_high": births[1]["arguments"][4] = 1 << 32
+    else: births[1]["arguments"][3] = 0
+    with pytest.raises(containment_task_guard_core.GuardError):
+        containment_task_guard_core.validate_birth_sequence(births)
+
+
+def test_containment_task_guard_contract_explicitly_keeps_kernel_and_observer_promises_separate(
+        containment_task_guard_core):
+    spec = containment_task_guard_core.contract_spec()
+    assert spec["guard"]["kernel_enforces_role_order_count"] is False
+    assert spec["guard"]["kernel_validates_child_tid_identity_or_writability"] is False
+    assert spec["guard"]["is_containment_policy"] is False
+    assert spec["observer"]["per_creation_role_order_count_and_arguments_before_restart"] is True
+    assert spec["observer"]["dynamic_child_tid_writability_and_identity_required"] is True
+    assert spec["observer"]["terminal_T_restarts"] == 0
+    assert spec["observer"]["fixed_wait_count_is_completion"] is False
+    assert spec["observer"]["final_pidfd_hangup_and_drained_wait_ledger_required"] is True
+    for field in ("synthetic_data_is_runtime_evidence", "native_qualifier_implemented",
+                  "host_environment_qualified", "native_acquisition_performed", "execution_ready",
+                  "execution_authorized", "b2_complete"):
+        assert spec[field] is False
+    assert spec["metric_pass"] is None and spec["authority_effect"] == "none"
+    assert spec["startup"]["barrier"]["release_requires_consumed_interrupt_stop"] is True
+    assert spec["startup"]["installation"]["extra_receipt_fd"] is False
+    assert spec["startup"]["launcher_exec"]["fallback_allowed"] is False
+    spec["guard"]["blocked_syscalls"].clear()
+    assert containment_task_guard_core.contract_spec()["guard"]["blocked_syscalls"] == {
+        "fork": 57, "vfork": 58, "clone3": 435, "io_uring_setup": 425,
+        "io_uring_enter": 426, "io_uring_register": 427,
+    }
+
+
+@pytest.fixture(scope="module")
+def containment_task_guard_case():
+    checker = module("containment_task_guard_checker_tests", CONTAINMENT_TASK_GUARD_CHECKER_REL)
+    raw = (ROOT / checker.CONTRACT_REL).read_bytes()
+    return SimpleNamespace(checker=checker, raw=raw, contract=json.loads(raw),
+                           inputs=checker.load_inputs(ROOT))
+
+
+def _containment_task_guard_check(case, raw=None, *, inputs=None):
+    selected = case.raw if raw is None else raw
+    return case.checker.verify_contract(contract_bytes=selected,
+        expected_contract_sha256=digest(selected), inputs=case.inputs if inputs is None else inputs)
+
+
+def test_containment_task_guard_authored_contract_and_report_keep_all_execution_claims_false(
+        containment_task_guard_case, containment_task_guard_core):
+    case = containment_task_guard_case
+    assert case.raw == case.checker.canonical(case.contract)
+    assert case.contract == case.checker.derive_contract()
+    assert case.contract["policy"] == containment_task_guard_core.contract_spec()
+    assert case.checker.expected_guard_program() == containment_task_guard_core.guard_program()
+    assert case.contract["record_status"] == "authored_source_contract"
+    assert case.contract["boundary"]["startup_source_contract_verified"] is False
+    report = _containment_task_guard_check(case)
+    assert report["record_status"] == "verified_source_contract"
+    assert report["contract"] == bound(case.raw)
+    assert report["task_guard_program"] == {
+        **bound(containment_task_guard_core.guard_program()), "instruction_count": 34}
+    for field in ("startup_source_contract_verified", "guard_policy_bytes_verified",
+                  "prerequisite_plan_reconstructed"):
+        assert report["boundary"][field] is True
+    for value in (case.contract, report):
+        boundary = value["boundary"]
+        for field in ("native_qualifier_implemented", "native_collector_implemented",
+                      "host_environment_qualified", "guard_installation_observed",
+                      "helper_execution_observed", "original_launcher_executed", "containment_observed",
+                      "native_acquisition_performed", "source_binary_equivalence_verified",
+                      "authenticated_build_provenance", "complete_runtime_closure_verified",
+                      "selected_runtime_admitted", "execution_ready", "execution_authorized",
+                      "production_gate_eligible", "b2_complete"):
+            assert boundary[field] is False, field
+        assert boundary["metric_pass"] is None and boundary["authority_effect"] == "none"
+        assert boundary["whole_runtime_issue"] == {"number": 2879, "keep_open": True}
+        assert value["build_selection"]["output_is_executed"] is False
+        assert value["build_selection"]["compiler_runtime_closure_selected"] is False
+        assert value["build_selection"]["native_qualification_satisfied_by_compilation"] is False
+        assert value["build_selection"]["flags"] == list(CONTAINMENT_TASK_GUARD_CC_FLAGS)
+
+
+@pytest.mark.parametrize("fault", ["extra_top", "missing_top", "extra_nested", "native_claim",
+    "authority", "kernel_budget", "clone_flags", "flags_high", "reaper_parent_tid", "reaper_child_tid",
+    "ptrace_options", "cleanup_order", "terminal_restarts", "terminal_bool", "attempts_bool",
+    "barrier_token", "guard_hex_and_rehash", "guard_sha", "source_binding", "prerequisite_binding",
+    "build_exec", "drop_obligation", "containment_claim"])
+def test_containment_task_guard_rehashed_contract_drift_cannot_select_new_policy(
+        containment_task_guard_case, fault):
+    case = containment_task_guard_case
+    value = copy.deepcopy(case.contract)
+    policy = value["policy"]
+    if fault == "extra_top": value["native_result"] = "passed"
+    elif fault == "missing_top": value.pop("base_commit")
+    elif fault == "extra_nested": policy["guard"]["additional_allow_syscall"] = 435
+    elif fault == "native_claim": policy["native_qualifier_implemented"] = True
+    elif fault == "authority": value["boundary"]["authority_effect"] = "execution_authorized"
+    elif fault == "kernel_budget": policy["guard"]["kernel_enforces_role_order_count"] = True
+    elif fault == "clone_flags": policy["guard"]["clone_contracts"][0]["flags"] ^= 4
+    elif fault == "flags_high": policy["guard"]["clone_contracts"][0]["flags"] |= 1 << 32
+    elif fault == "reaper_parent_tid": policy["guard"]["clone_contracts"][1]["parent_tid"] = "ignored"
+    elif fault == "reaper_child_tid": policy["guard"]["clone_contracts"][1]["child_tid"] = "ignored"
+    elif fault == "ptrace_options": policy["observer"]["ptrace_options"] ^= 0x100000
+    elif fault == "cleanup_order": policy["observer"]["cleanup_order"].reverse()
+    elif fault == "terminal_restarts": policy["observer"]["terminal_T_restarts"] = 1
+    elif fault == "terminal_bool": policy["observer"]["terminal_T_restarts"] = False
+    elif fault == "attempts_bool": policy["limits"]["attempts"] = True
+    elif fault == "barrier_token": policy["startup"]["barrier"]["token_hex"] = b"wrong\n".hex()
+    elif fault == "guard_hex_and_rehash":
+        substituted = struct.pack("<HBBI", 6, 0, 0, 0x7FFF0000)
+        value["task_guard_program"].update(**bound(substituted), hex=substituted.hex(), instruction_count=1)
+        policy["guard"]["program"] = bound(substituted)
+        policy["guard"]["program_instruction_count"] = 1
+    elif fault == "guard_sha": value["task_guard_program"]["sha256"] = "0" * 64
+    elif fault == "source_binding": value["source_files"][0]["sha256"] = "0" * 64
+    elif fault == "prerequisite_binding": value["prerequisite_plan"]["sha256"] = "0" * 64
+    elif fault == "build_exec": value["build_selection"]["output_is_executed"] = True
+    elif fault == "drop_obligation": policy["qualification_obligations_pending"].pop()
+    else: policy["guard"]["is_containment_policy"] = True
+    raw = encoded(value)
+    assert digest(raw) != digest(case.raw)
+    with pytest.raises(case.checker.ContractError):
+        _containment_task_guard_check(case, raw)
+
+
+@pytest.mark.parametrize("raw", [b"", b"[]", b"null", b"true", b'"text"', b"\xff",
+    b'{"a":1,"a":2}', b'{"nested":{"a":1,"a":1}}', b'{"a":0.0}', b'{"a":1e0}',
+    b'{"a":NaN}', b'{"a":Infinity}', b'{"a":-Infinity}', b'{"a":18446744073709551616}',
+    b'{"a":-18446744073709551616}', b'{"a":1} trailing'])
+def test_containment_task_guard_json_parser_rejects_ambiguity_and_noninteger_numbers(
+        containment_task_guard_case, raw):
+    with pytest.raises(containment_task_guard_case.checker.ContractError):
+        containment_task_guard_case.checker.parse(raw)
+
+
+@pytest.mark.parametrize("fault", ["oversize", "depth", "nodes", "nonbytes"])
+def test_containment_task_guard_control_bounds_apply_before_source_or_schema_work(
+        containment_task_guard_case, monkeypatch, fault):
+    case = containment_task_guard_case
+    if fault == "oversize": raw = b"{}" + b" " * case.checker.CONTROL_BYTES
+    elif fault == "depth": raw = b'{"a":' * 64 + b"0" + b"}" * 64
+    elif fault == "nodes": raw = b'{"a":[' + b"0," * 100000 + b"0]}"
+    else: raw = bytearray(case.raw)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("invalid bounded control reached source or schema processing")
+    monkeypatch.setattr(case.checker, "_source_snapshot", forbidden)
+    monkeypatch.setattr(case.checker, "_validate", forbidden)
+    with pytest.raises(case.checker.ContractError):
+        case.checker.verify_contract(contract_bytes=raw,
+            expected_contract_sha256=digest(bytes(raw)), inputs=case.inputs)
+
+
+@pytest.mark.parametrize("expected", ["0" * 64, "A" * 64, "f" * 63, "f" * 65, True, 0, None])
+def test_containment_task_guard_contract_digest_is_exact_and_explicit(
+        containment_task_guard_case, expected):
+    case = containment_task_guard_case
+    with pytest.raises(case.checker.ContractError):
+        case.checker.verify_contract(contract_bytes=case.raw,
+            expected_contract_sha256=expected, inputs=case.inputs)
+
+
+@pytest.mark.parametrize("fault", ["missing", "extra", "nonbytes", "plan", "inventory", "carrier"])
+def test_containment_task_guard_fresh_prerequisite_reconstruction_rejects_missing_or_changed_inputs(
+        containment_task_guard_case, fault):
+    case = containment_task_guard_case
+    inputs = dict(case.inputs)
+    selected = case.checker.prior.BASELINE_REL
+    if fault == "missing": inputs.pop(selected)
+    elif fault == "extra": inputs["unreviewed-extra-input"] = b""
+    elif fault == "nonbytes": inputs[selected] = bytearray(inputs[selected])
+    else:
+        name = {"plan": case.checker.PLAN_REL, "inventory": case.checker.INVENTORY_REL,
+                "carrier": selected}[fault]
+        original = inputs[name]
+        inputs[name] = original[:-1] + bytes([original[-1] ^ 1])
+    with pytest.raises(case.checker.ContractError):
+        _containment_task_guard_check(case, inputs=inputs)
+
+
+def _containment_task_guard_source_tree(case, directory):
+    names = set(case.checker.CURRENT_SOURCES) | set(case.checker.PRIOR_IDENTITIES)
+    for name in names:
+        destination = directory / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((ROOT / name).read_bytes())
+
+
+@pytest.mark.parametrize("selected", [CONTAINMENT_TASK_GUARD_CORE_REL, CONTAINMENT_TASK_GUARD_HELPER_REL])
+def test_containment_task_guard_rehashed_contract_cannot_admit_changed_pinned_source(
+        containment_task_guard_case, tmp_path, monkeypatch, selected):
+    case = containment_task_guard_case
+    _containment_task_guard_source_tree(case, tmp_path)
+    changed = tmp_path / selected
+    replacement = changed.read_bytes() + b"\n/* caller changed source */\n" if selected.endswith(".c") \
+        else changed.read_bytes() + b"\n# caller changed source\n"
+    changed.write_bytes(replacement)
+    value = copy.deepcopy(case.contract)
+    row = next(row for row in value["source_files"] if row["path"] == selected)
+    row.update(bound(replacement))
+    monkeypatch.setattr(case.checker, "ROOT", tmp_path)
+    with pytest.raises(case.checker.ContractError) as failure:
+        _containment_task_guard_check(case, encoded(value))
+    assert failure.value.code == "containment_task_guard_reviewed_source_changed"
+
+
+def test_containment_task_guard_source_mutation_during_report_validation_is_rejected(
+        containment_task_guard_case, tmp_path, monkeypatch):
+    case = containment_task_guard_case
+    _containment_task_guard_source_tree(case, tmp_path)
+    changed = tmp_path / case.checker.SCHEMA_REL
+    original = changed.read_bytes()
+    validate = case.checker._validate
+    mutations = []
+    def validate_then_change_source(schema, definition, value):
+        result = validate(schema, definition, value)
+        if definition == "report":
+            changed.write_bytes(original + b" ")
+            mutations.append(definition)
+        return result
+    monkeypatch.setattr(case.checker, "ROOT", tmp_path)
+    monkeypatch.setattr(case.checker, "_validate", validate_then_change_source)
+    with pytest.raises(case.checker.ContractError) as failure:
+        _containment_task_guard_check(case)
+    assert mutations == ["report"] and changed.read_bytes() != original
+    assert failure.value.code == "containment_task_guard_implementation_changed"
+
+
+def _containment_task_guard_cli_arguments(case, output):
+    return ["--contract", str(ROOT / case.checker.CONTRACT_REL),
+        "--expected-contract-sha256", digest(case.raw), "--repo-root", str(ROOT),
+        "--out", str(output)]
+
+
+def test_containment_task_guard_verification_and_report_publication_have_no_process_or_native_path(
+        containment_task_guard_case, tmp_path, monkeypatch, capsys):
+    import builtins
+    import ctypes
+    import socket
+    import urllib.request
+    import zipfile
+    case = containment_task_guard_case
+    original_import = builtins.__import__
+    prohibited = {
+        "required_gate_idempotence_containment_task_guard_v0",
+        "required_gate_idempotence_entry_task_guard_v0", "required_gate_idempotence_containment_v0",
+        "required_gate_idempotence_loader_resolution_v0", "collect_required_gate_idempotence_loader_resolution_v0",
+        "qualify_required_gate_idempotence_loader_two_slot_v0", "required_gate_idempotence_bootstrap_probe_v0",
+        "acquire_required_gate_idempotence_v0", "required_gate_idempotence_worker_v0",
+    }
+    def guarded_import(name, *args, **kwargs):
+        assert name not in prohibited, "source-contract verification imported install/acquisition code"
+        return original_import(name, *args, **kwargs)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("source-contract checking and report publication must be data-only")
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    owners = [(subprocess, name) for name in ("Popen", "run", "call", "check_call", "check_output")]
+    owners += [(os, name) for name in ("fork", "forkpty", "posix_spawn", "posix_spawnp", "execve",
+                                      "execv", "execvp", "execvpe", "system", "popen") if hasattr(os, name)]
+    owners += [(ctypes, "CDLL"), (socket, "socket"), (socket, "create_connection"),
+               (urllib.request, "urlopen"), (zipfile.ZipFile, "extract"), (zipfile.ZipFile, "extractall"),
+               (tarfile.TarFile, "extract"), (tarfile.TarFile, "extractall")]
+    for owner, name in owners:
+        monkeypatch.setattr(owner, name, forbidden)
+    independent = module("containment_task_guard_no_execution", CONTAINMENT_TASK_GUARD_CHECKER_REL)
+    report = independent.verify_contract(contract_bytes=case.raw,
+        expected_contract_sha256=digest(case.raw), inputs=case.inputs)
+    output = tmp_path / "data-only-report.json"
+    assert independent.main(_containment_task_guard_cli_arguments(case, output)) == 0
+    captured = capsys.readouterr()
+    assert output.read_bytes() == independent.canonical(report) == captured.out.encode()
+    assert captured.err == ""
+    assert report["boundary"]["native_acquisition_performed"] is False
+    assert report["boundary"]["execution_authorized"] is False
+
+
+def test_containment_task_guard_cli_is_repeatable_and_preserves_existing_output(
+        containment_task_guard_case, tmp_path, capsys):
+    case = containment_task_guard_case
+    first, second = tmp_path / "one.json", tmp_path / "two.json"
+    for output in (first, second):
+        assert case.checker.main(_containment_task_guard_cli_arguments(case, output)) == 0
+        captured = capsys.readouterr()
+        assert captured.out.encode() == output.read_bytes()
+        assert not captured.err
+        assert output.read_bytes() == case.checker.canonical(json.loads(output.read_bytes()))
+    assert first.read_bytes() == second.read_bytes()
+    preserved = first.read_bytes()
+    assert case.checker.main(_containment_task_guard_cli_arguments(case, first)) == 1
+    captured = capsys.readouterr()
+    assert not captured.out and json.loads(captured.err)["status"] == "rejected"
+    assert first.read_bytes() == preserved
+
+
+def test_containment_task_guard_cli_rejection_does_not_publish_success(
+        containment_task_guard_case, tmp_path, capsys):
+    case = containment_task_guard_case
+    output = tmp_path / "rejected-must-not-exist.json"
+    arguments = _containment_task_guard_cli_arguments(case, output)
+    arguments[arguments.index("--expected-contract-sha256") + 1] = "0" * 64
+    assert case.checker.main(arguments) == 1
+    captured = capsys.readouterr()
+    assert not output.exists() and not captured.out
+    assert json.loads(captured.err)["status"] == "rejected"
+
+
+def test_containment_task_guard_write_race_preserves_caller_replacement(
+        containment_task_guard_case, tmp_path, monkeypatch):
+    output = tmp_path / "report.json"
+    replacement = b"caller-owned replacement\n"
+    real_write = os.write
+    replaced = []
+    def write_then_replace(fd, data):
+        written = real_write(fd, data)
+        if not replaced:
+            output.unlink()
+            output.write_bytes(replacement)
+            replaced.append(output)
+        return written
+    monkeypatch.setattr(os, "write", write_then_replace)
+    with pytest.raises(containment_task_guard_case.checker.ContractError):
+        containment_task_guard_case.checker._write_new(output, b'{"status":"verified"}\n')
+    assert replaced == [output] and output.read_bytes() == replacement
+
+
+def test_containment_task_guard_report_binds_the_verified_input_snapshot(
+        containment_task_guard_case, monkeypatch):
+    case = containment_task_guard_case
+    inputs = dict(case.inputs)
+    name = case.checker.prior.BASELINE_REL
+    original = inputs[name]
+    replacement = original[:-1] + bytes([original[-1] ^ 1])
+    verify = case.checker._verify_prerequisite
+    replacements = []
+    def verify_then_replace_caller_input(sources, snapshot):
+        result = verify(sources, snapshot)
+        inputs[name] = replacement
+        replacements.append(name)
+        return result
+    monkeypatch.setattr(case.checker, "_verify_prerequisite", verify_then_replace_caller_input)
+    report = _containment_task_guard_check(case, inputs=inputs)
+    assert replacements == [name] and inputs[name] == replacement
+    row = next(row for row in report["input_files"] if row["path"] == name)
+    assert row == {"path": name, **bound(original)}
+    assert row["sha256"] != digest(replacement)
+
+
+def _containment_task_guard_elf_layout(raw):
+    """Decode ELF table offsets independently of the production checker."""
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    phoff, shoff, phsize, phcount, shsize, shcount, shstrings = \
+        header[5], header[6], header[9], header[10], header[11], header[12], header[13]
+    program_headers = [(phoff + index * phsize,
+        struct.unpack_from("<IIQQQQQQ", raw, phoff + index * phsize)) for index in range(phcount)]
+    sections = [(shoff + index * shsize,
+        struct.unpack_from("<IIQQQQIIQQ", raw, shoff + index * shsize)) for index in range(shcount)]
+    strings = sections[shstrings][1]
+    names = raw[strings[4]:strings[4] + strings[5]]
+    named = {}
+    for offset, row in sections[1:]:
+        end = names.index(b"\0", row[0])
+        named[names[row[0]:end].decode("ascii")] = (offset, row)
+    return SimpleNamespace(header=header, program_headers=program_headers, sections=sections,
+                           strings=strings, named=named)
+
+
+def test_containment_task_guard_compiled_helper_contains_the_exact_readonly_policy_section(
+        containment_task_guard_compiled_helper, containment_task_guard_core):
+    raw = containment_task_guard_compiled_helper
+    layout = _containment_task_guard_elf_layout(raw)
+    _offset, guard = layout.named[".pulse_task_guard"]
+    assert guard[1] == 1 and guard[2] == 2 and guard[8] >= 4
+    assert raw[guard[4]:guard[4] + guard[5]] == containment_task_guard_core.guard_program()
+    assert sum(row[0] == 1 and row[1] == 4 and row[3] <= guard[3]
+               and guard[3] + guard[5] <= row[3] + row[5]
+               for _offset, row in layout.program_headers) == 1
+
+
+def test_containment_task_guard_compiled_helper_shape_report_has_no_build_or_runtime_authority(
+        containment_task_guard_case, containment_task_guard_compiled_helper, monkeypatch):
+    import ctypes
+    import socket
+    case = containment_task_guard_case
+    raw = containment_task_guard_compiled_helper
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("ELF validation must never execute or dynamically load the helper")
+    for owner, name in ((subprocess, "Popen"), (subprocess, "run"), (os, "execve"), (os, "fork"),
+                        (ctypes, "CDLL"), (socket, "socket")):
+        monkeypatch.setattr(owner, name, forbidden)
+    report = case.checker.verify_compiled_helper(raw, expected_elf_sha256=digest(raw))
+    assert report["helper_elf"] == bound(raw)
+    assert report["static_shape_verified"] is True and report["guard_section_bytes_verified"] is True
+    assert report["machine"] == "EM_X86_64" and report["elf_type"] == "ET_EXEC"
+    for field in ("source_binary_equivalence_verified", "authenticated_build_provenance",
+                  "host_environment_qualified", "native_execution_performed", "execution_authorized"):
+        assert report[field] is False
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault", ["short", "oversize", "nonbytes", "architecture", "class", "entry",
+    "ph_bounds", "sh_bounds", "exec_stack", "write_exec", "interp", "dynamic", "tls",
+    "guard_bytes", "guard_writable", "guard_executable", "guard_name", "guard_extent"])
+def test_containment_task_guard_rehashed_elf_shape_or_policy_mutation_is_rejected(
+        containment_task_guard_case, containment_task_guard_compiled_helper, fault):
+    case = containment_task_guard_case
+    original = containment_task_guard_compiled_helper
+    raw = bytearray(original)
+    layout = _containment_task_guard_elf_layout(original)
+    guard_at, guard = layout.named[".pulse_task_guard"]
+    stack_at, _stack = next((offset, row) for offset, row in layout.program_headers
+                            if row[0] == 0x6474E551)
+    code_at, _code = next((offset, row) for offset, row in layout.program_headers
+                          if row[0] == 1 and row[1] & 1)
+    if fault == "short": raw = raw[:63]
+    elif fault == "oversize": raw.extend(b"\0" * (case.checker.ELF_BYTES + 1 - len(raw)))
+    elif fault == "architecture": struct.pack_into("<H", raw, 18, 3)
+    elif fault == "class": raw[4] = 1
+    elif fault == "entry": struct.pack_into("<Q", raw, 24, 0)
+    elif fault == "ph_bounds": struct.pack_into("<Q", raw, 32, len(raw))
+    elif fault == "sh_bounds": struct.pack_into("<Q", raw, 40, len(raw))
+    elif fault == "exec_stack": struct.pack_into("<I", raw, stack_at + 4, 7)
+    elif fault == "write_exec": struct.pack_into("<I", raw, code_at + 4, 7)
+    elif fault in ("interp", "dynamic", "tls"):
+        struct.pack_into("<I", raw, stack_at, {"interp": 3, "dynamic": 2, "tls": 7}[fault])
+    elif fault == "guard_bytes": raw[guard[4]] ^= 1
+    elif fault == "guard_writable": struct.pack_into("<Q", raw, guard_at + 8, guard[2] | 1)
+    elif fault == "guard_executable": struct.pack_into("<Q", raw, guard_at + 8, guard[2] | 4)
+    elif fault == "guard_name": raw[layout.strings[4] + guard[0] + 1] = ord("x")
+    elif fault == "guard_extent": struct.pack_into("<Q", raw, guard_at + 32, len(raw) + 1)
+    changed = raw if fault == "nonbytes" else bytes(raw)
+    with pytest.raises(case.checker.ContractError):
+        case.checker.verify_compiled_helper(changed, expected_elf_sha256=digest(bytes(raw)))
+
+
+def test_containment_task_guard_compiled_helper_digest_is_checked_before_shape_report(
+        containment_task_guard_case, containment_task_guard_compiled_helper):
+    case = containment_task_guard_case
+    with pytest.raises(case.checker.ContractError) as failure:
+        case.checker.verify_compiled_helper(containment_task_guard_compiled_helper,
+                                            expected_elf_sha256="0" * 64)
+    assert failure.value.code == "containment_task_guard_elf_digest"
+
+
+def test_containment_task_guard_static_shape_cannot_authenticate_executable_instructions(
+        containment_task_guard_case, containment_task_guard_compiled_helper):
+    case = containment_task_guard_case
+    original = containment_task_guard_compiled_helper
+    layout = _containment_task_guard_elf_layout(original)
+    _offset, code = layout.named[".text"]
+    changed = bytearray(original)
+    assert code[5] > 0
+    changed[code[4] + code[5] - 1] ^= 1
+    raw = bytes(changed)
+    assert digest(raw) != digest(original)
+    report = case.checker.verify_compiled_helper(raw, expected_elf_sha256=digest(raw))
+    assert report["static_shape_verified"] is True
+    assert report["source_binary_equivalence_verified"] is False
+    assert report["authenticated_build_provenance"] is False
+    assert report["native_execution_performed"] is False
+    assert report["execution_authorized"] is False
+
+
+@pytest.mark.parametrize("fault", ["https_ref", "file_ref", "dynamic_ref", "recursive_ref", "nested_id", "local_cycle"])
+def test_containment_task_guard_valid_schema_identity_cannot_trigger_reference_resolution(
+        containment_task_guard_case, tmp_path, monkeypatch, fault):
+    import urllib.request
+    case = containment_task_guard_case
+    _containment_task_guard_source_tree(case, tmp_path)
+    path = tmp_path / case.checker.SCHEMA_REL
+    schema = json.loads(path.read_bytes())
+    assert schema["$id"] == case.checker.SCHEMA_ID
+    keyword, target = {
+        "https_ref": ("$ref", "https://must-not-fetch.invalid/task-guard-schema.json"),
+        "file_ref": ("$ref", "file:///must-not-read-task-guard-schema.json"),
+        "dynamic_ref": ("$dynamicRef", "https://must-not-fetch.invalid/dynamic-schema.json"),
+        "recursive_ref": ("$recursiveRef", "https://must-not-fetch.invalid/recursive-schema.json"),
+        "nested_id": ("$id", "https://must-not-fetch.invalid/nested-schema.json"),
+        "local_cycle": ("$ref", "#/$defs/contract"),
+    }[fault]
+    schema["$defs"]["contract"][keyword] = target
+    replacement = encoded(schema)
+    path.write_bytes(replacement)
+    value = copy.deepcopy(case.contract)
+    next(row for row in value["source_files"] if row["path"] == case.checker.SCHEMA_REL).update(bound(replacement))
+    requests = []
+    def forbidden_urlopen(*args, **kwargs):
+        requests.append((args, kwargs))
+        pytest.fail("untrusted schema caused external reference resolution")
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden_urlopen)
+    monkeypatch.setattr(case.checker, "ROOT", tmp_path)
+    with pytest.raises(case.checker.ContractError) as failure:
+        _containment_task_guard_check(case, encoded(value))
+    assert failure.value.code == "containment_task_guard_schema_reference"
+    assert requests == []
+
+
+def test_containment_task_guard_unresolved_permitted_local_reference_has_a_stable_rejection(
+        containment_task_guard_case, monkeypatch):
+    import urllib.request
+    case = containment_task_guard_case
+    schema = {"$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": case.checker.SCHEMA_ID,
+              "$defs": {"report": {}},
+              "oneOf": [{"$ref": "#/$defs/contract"}, {"$ref": "#/$defs/report"}]}
+    requests = []
+    def forbidden_urlopen(*args, **kwargs):
+        requests.append((args, kwargs))
+        pytest.fail("unresolved local reference caused external resolution")
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden_urlopen)
+    with pytest.raises(case.checker.ContractError) as failure:
+        case.checker._validate(schema, "contract", {})
+    assert failure.value.code == "containment_task_guard_contract_schema"
+    assert requests == []
+
+
+def test_containment_task_guard_readonly_guard_cannot_share_a_load_page_with_writable_bss(
+        containment_task_guard_case, containment_task_guard_compiled_helper):
+    case = containment_task_guard_case
+    original = containment_task_guard_compiled_helper
+    layout = _containment_task_guard_elf_layout(original)
+    _guard_at, guard = layout.named[".pulse_task_guard"]
+    _read_at, read = next((at, row) for at, row in layout.program_headers
+        if row[0] == 1 and row[1] == 4 and row[3] <= guard[3] < row[3] + row[6])
+    writable_at, writable = next((at, row) for at, row in layout.program_headers
+        if row[0] == 1 and row[1] == 6 and row[5] == 0 and row[6] > 0)
+    bss_at, bss = layout.named[".bss"]
+    moved_address = read[3] + read[6]
+    delta = moved_address - writable[3]
+    assert moved_address % 4096 == writable[2] % 4096
+    assert read[3] + read[6] <= moved_address  # Byte ranges remain disjoint.
+    assert read[3] // 4096 <= moved_address // 4096 < (read[3] + read[6] + 4095) // 4096
+    raw = bytearray(original)
+    struct.pack_into("<Q", raw, writable_at + 16, moved_address)
+    struct.pack_into("<Q", raw, writable_at + 24, writable[4] + delta)
+    struct.pack_into("<Q", raw, bss_at + 16, bss[3] + delta)
+    changed = bytes(raw)
+    with pytest.raises(case.checker.ContractError) as failure:
+        case.checker.verify_compiled_helper(changed, expected_elf_sha256=digest(changed))
+    assert failure.value.code == "containment_task_guard_elf_load_page_overlap"
+
+
+def test_containment_task_guard_page_congruence_cannot_be_bypassed_with_unit_alignment(
+        containment_task_guard_case, containment_task_guard_compiled_helper):
+    case = containment_task_guard_case
+    original = containment_task_guard_compiled_helper
+    layout = _containment_task_guard_elf_layout(original)
+    writable_at, writable = next((at, row) for at, row in layout.program_headers
+        if row[0] == 1 and row[1] == 6 and row[5] == 0 and row[6] > 0)
+    bss_at, bss = layout.named[".bss"]
+    delta = 8
+    moved_address = writable[3] + delta
+    assert moved_address % 4096 != writable[2] % 4096
+    assert moved_address % bss[8] == 0
+    raw = bytearray(original)
+    struct.pack_into("<Q", raw, writable_at + 16, moved_address)
+    struct.pack_into("<Q", raw, writable_at + 24, writable[4] + delta)
+    struct.pack_into("<Q", raw, writable_at + 48, 1)
+    struct.pack_into("<Q", raw, bss_at + 16, bss[3] + delta)
+    changed = bytes(raw)
+    with pytest.raises(case.checker.ContractError) as failure:
+        case.checker.verify_compiled_helper(changed, expected_elf_sha256=digest(changed))
+    assert failure.value.code == "containment_task_guard_elf_load"
+
+
+def test_containment_task_guard_prerequisite_schema_replacement_never_reaches_reference_resolution(
+        containment_task_guard_case, tmp_path, monkeypatch):
+    import urllib.request
+    case = containment_task_guard_case
+    _containment_task_guard_source_tree(case, tmp_path)
+    changed = tmp_path / case.checker.prior.SCHEMA_REL
+    original = changed.read_bytes()
+    malicious = json.loads(original)
+    malicious["$defs"]["plan"]["$ref"] = "https://must-not-fetch.invalid/prerequisite-schema.json"
+    replacement = encoded(malicious)
+    requests, observations = [], []
+    validate = case.checker._validate
+    prerequisite = case.checker._verify_prerequisite
+    def forbidden_urlopen(*args, **kwargs):
+        requests.append((args, kwargs))
+        pytest.fail("changed prerequisite schema triggered external reference resolution")
+    def validate_then_replace_prior_schema(schema, definition, value):
+        result = validate(schema, definition, value)
+        observations.append(definition)
+        if definition == "contract":
+            changed.write_bytes(replacement)
+        return result
+    def verify_pinned_prerequisite(sources, inputs):
+        assert sources[case.checker.prior.SCHEMA_REL] == original
+        assert changed.read_bytes() == replacement
+        result = prerequisite(sources, inputs)
+        observations.append("prerequisite_returned")
+        return result
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden_urlopen)
+    monkeypatch.setattr(case.checker, "ROOT", tmp_path)
+    monkeypatch.setattr(case.checker.prior, "ROOT", tmp_path)
+    monkeypatch.setattr(case.checker, "_validate", validate_then_replace_prior_schema)
+    monkeypatch.setattr(case.checker, "_verify_prerequisite", verify_pinned_prerequisite)
+    with pytest.raises(case.checker.ContractError) as failure:
+        _containment_task_guard_check(case)
+    assert observations == ["contract", "prerequisite_returned", "report"]
+    assert failure.value.code == "containment_task_guard_reviewed_source_changed"
+    assert requests == [] and changed.read_bytes() == replacement
+
+
+def test_containment_task_guard_legacy_validator_accepts_the_closed_source_contract(
+        containment_task_guard_case, monkeypatch):
+    case = containment_task_guard_case
+    monkeypatch.setattr(case.checker, "Registry", None)
+    report = _containment_task_guard_check(case)
+    assert report["record_status"] == "verified_source_contract"
+    assert report["contract"] == bound(case.raw)
+    assert report["boundary"]["startup_source_contract_verified"] is True
+    assert report["boundary"]["host_environment_qualified"] is False
+    assert report["boundary"]["execution_authorized"] is False
+
+
+def test_containment_task_guard_legacy_validator_unresolved_local_reference_is_a_stable_error(
+        containment_task_guard_case, monkeypatch):
+    import urllib.request
+    case = containment_task_guard_case
+    schema = {"$schema": "https://json-schema.org/draft/2020-12/schema",
+              "$id": case.checker.SCHEMA_ID, "$defs": {"report": {}},
+              "oneOf": [{"$ref": "#/$defs/contract"}, {"$ref": "#/$defs/report"}]}
+    requests = []
+    def forbidden_urlopen(*args, **kwargs):
+        requests.append((args, kwargs))
+        pytest.fail("legacy local-reference failure attempted retrieval")
+    monkeypatch.setattr(case.checker, "Registry", None)
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden_urlopen)
+    with pytest.raises(case.checker.ContractError) as failure:
+        case.checker._validate(schema, "contract", {})
+    assert failure.value.code == "containment_task_guard_schema_reference"
+    assert requests == []
+
+
+def test_containment_task_guard_legacy_resolver_refuses_remote_retrieval_directly(
+        containment_task_guard_case, monkeypatch):
+    import urllib.request
+    case = containment_task_guard_case
+    original_validator = case.checker.jsonschema.Draft202012Validator
+    resolvers, requests = [], []
+    # Match the supported legacy constructor: it has no registry keyword.
+    def legacy_validator(schema, *, resolver):
+        resolvers.append(resolver)
+        return original_validator(schema, resolver=resolver)
+    def forbidden_urlopen(*args, **kwargs):
+        requests.append((args, kwargs))
+        pytest.fail("legacy resolver attempted remote retrieval")
+    monkeypatch.setattr(case.checker, "Registry", None)
+    monkeypatch.setattr(case.checker.jsonschema, "Draft202012Validator", legacy_validator)
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden_urlopen)
+    validator = case.checker._closed_validator({"type": "object"})
+    validator.validate({})
+    assert len(resolvers) == 1
+    with pytest.raises(case.checker.ContractError) as failure:
+        resolvers[0].resolve_remote("https://must-not-fetch.invalid/legacy-schema.json")
+    assert failure.value.code == "containment_task_guard_schema_reference"
+    assert requests == []

@@ -6,9 +6,16 @@ The immutable proposal recorded by
 [PR #3060](https://github.com/HKati/pulse-release-gates-0.1/pull/3060) specifies
 the exact input inventory and acceptance conditions for the next bounded B2
 observation. **Data-only plan checking is now implemented** by a closed schema,
-an independent checker and appended regressions. The current implementation base
+an independent checker and appended regressions. The plan-checking implementation base
 is `e4c2c755b84b89ee0e02c3738c6dfbcf6ecb69e5`.
 The original proposal and source-inventory JSON bytes remain unchanged.
+
+The following [startup-helper and task-guard source unit](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_STARTUP_v0.md)
+uses merged #3061 at `92886ff5c6e86729d5a2837c18710d4c274c8fd7`.
+It implements the fixed helper source, the new guard policy and independent
+source-contract checking. Native qualification and the original observation
+collector remain pending; compile-only and synthetic policy checks supply no
+execution readiness.
 
 The new checker reconstructs design relationships from original preserved bytes.
 It supplies no collector, executable policy or workflow. No native probe,
@@ -37,6 +44,7 @@ boundaries.
 | Previous original-loader observation | Preserved prerequisite; no new replay or acquisition claimed here. |
 | Minimal containment-entry request | Concrete proposed argv, view, role graph, evidence and terminal contract. |
 | Data-only plan checking | Implemented; original-byte reconstruction and closed policy checks. |
+| Startup helper and task guard | Source, exact BPF policy and independent source-contract checking implemented; native qualification pending. |
 | New observation and host qualification | Not implemented, not performed, not authorized. |
 | Static-entry instructions | Zero execution in the proposed terminal profile. |
 | Real selected CPython capsule | Still requires new original inputs and selection. |
@@ -611,13 +619,16 @@ cover these paired obligations with tests that distinguish failure from success:
 ## Implementation inventory and CI integration
 
 All 29 paths remain explicitly listed in the immutable plan JSON, grouped by
-their originally proposed units. The two plan-checking paths are now implemented
-as described above; the startup, observation and hosted paths remain proposed:
+their originally proposed units. The plan-checking paths are implemented as
+described above. The startup helper, guard core, independent source-contract
+checker and schema now have their own [complete implementation inventory](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_STARTUP_v0.md#complete-change-inventory).
+The native qualifier, original observation and hosted paths remain proposed:
 
 | Next implementation unit | Files and responsibility |
 | --- | --- |
 | Data-only plan checking | Implemented `required_gate_idempotence_containment_entry_plan_v0` schema and independent `check_...` tool; original-byte reconstruction and fixed reviewed policy. |
-| Startup and qualification | New `containment_startup_v0.c`, fixed `containment_task_probe_v0.c`, separate task guard, qualifier, independent qualifier checker and schema. Bind helper source/build/environment and actual same-host capabilities. |
+| Startup and guard source contract | Implemented freestanding `containment_startup_v0.c`, pure task-guard policy, independent data-only source-contract checker and closed schema; no subject execution. |
+| Native qualification | Still requires a fixed `containment_task_probe_v0.c`, native qualifier and actual same-host observations. Bind the executed helper/build/environment and qualify the complete task graph; source-contract success is insufficient. |
 | Original observation | New entry core, preparation tool, collector, independent checker and capture schema. No change to old single-tracee meanings. |
 | Hosted route, after implementation review | New workflow, hosted controller/checker/schema, exact environment JSON, Dockerfile, lock, build and run helpers; separate acquisition and offline verification roles. |
 | Regression and carrier integration | Append meaningful cases to the already registered containment test module; update the normative inventory classifier and its mutation coverage when the new workflow is actually introduced. |

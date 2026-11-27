@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Implement the bounded [B2 containment startup helper and task-guard source contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_STARTUP_v0.md).
+  Add the freestanding fixed-FD helper, exact sealed-input hashing, parent-loss
+  checks, bounded release barrier and fixed original-launcher exec route.
+  Select a separate 34-instruction guard for the two reviewed clone shapes;
+  preserve the observer's role/order/count and dynamic-pointer obligations.
+  Independently verify the closed authored contract, current source closure and
+  unchanged original-byte plan; inspect compiled ELF/filter bytes without
+  executing the helper. Append bounded data-only and compile-only regressions.
+  Native qualification, the new observation collector, executed-helper build
+  admission and hosted route remain pending. B2 and #2879 stay open,
+  `metric_pass=null` and `authority_effect=none`.
+
 - Implement the closed schema and independent data-only checker for the
   [B2 containment-entry plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md#implemented-data-only-plan-checking).
   Preserve the exact 34-file historical baseline and reconstruct selected
