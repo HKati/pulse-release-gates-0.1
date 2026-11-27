@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Record the source-bound [B2 containment-entry plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md)
+  after the completed original-loader observation. Preserve the exact Debian
+  bubblewrap source carriers and declare a new minimal readonly view, three
+  subject roles, separate reaper/payload filter evidence, a static-entry exec
+  stop and complete owned cleanup. Specify fresh host qualification, independent
+  checking and negative cases before implementation. Keep actual selected
+  CPython admission and later bootstrap/worker integration explicit; this
+  design-only unit performs no execution or dispatch, with B2 and #2879 open,
+  `metric_pass=null` and `authority_effect=none`.
+
 - Preserve the completed [original-loader observation 45881405789/1](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#completed-hosted-observation-458814057891)
   at its exact source and policy identity. Retain the complete unique raw
   capture, nine consumer/provider returns, terminal entry stop, four equal

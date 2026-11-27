@@ -532,6 +532,13 @@ condition and failure behavior before implementing another acquisition profile.
 The present one-tracee/task-guard profile and entry-stop acknowledgement do not
 authorize continuation beyond entry or establish namespace containment.
 
+The follow-on [containment-entry plan](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md)
+now records the source-bound proposal: a new minimal readonly view, three owned
+task roles, separate reaper/payload filter evidence, a terminal static-entry exec
+stop and complete cleanup. Its helper, qualification, collector and independent
+checker remain unimplemented; actual selected-runtime/bootstrap admission is
+separate. The plan supplies no new execution or authorization.
+
 No old capture is a live process prefix. Any later native acquisition requires
 its own reviewed contract and separate owner authorization. This preservation
 update performs no dispatch. Both earlier original-loader failures remain

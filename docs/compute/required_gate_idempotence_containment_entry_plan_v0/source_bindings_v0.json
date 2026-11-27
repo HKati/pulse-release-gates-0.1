@@ -1,0 +1,550 @@
+{
+  "authority_effect": "none",
+  "b2_complete": false,
+  "baseline_commit": "aa7ca551a06cf553c5dc13f052693706f1227bbf",
+  "baseline_files": [
+    {
+      "path": "ci/pytest-tests.list",
+      "sha256": "f3d032e96e751cc0b5dfa8657c52c2be8dfea3f56709bf986ca2e69b60ea4cc7",
+      "size_bytes": 2044
+    },
+    {
+      "path": "ci/tools-tests.list",
+      "sha256": "4ca6ae37463948b0f825b09f6ccb45b19eb5b6e825315e6550e45fdfb3d9b3e2",
+      "size_bytes": 10531
+    },
+    {
+      "path": "docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md",
+      "sha256": "dec0e3c15071dee6d79d2049e46478a3d416134cd661b06c82526542581b230b",
+      "size_bytes": 170603
+    },
+    {
+      "path": "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md",
+      "sha256": "ddbb26e3f5c55f0d6e523c3585b2a630328cc8bda537f9d34417564f73c1b1e4",
+      "size_bytes": 14414
+    },
+    {
+      "path": "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md",
+      "sha256": "417ed90969b6d9e8f972e8cfd7f5b1e4f09e299fa7578873f5b77bbdde274243",
+      "size_bytes": 16113
+    },
+    {
+      "path": "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md",
+      "sha256": "25e587dee4e8668102a22bc8b24a17e4021895c492b6097fa6259dbfe470b517",
+      "size_bytes": 27536
+    },
+    {
+      "path": "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md",
+      "sha256": "b58ed8b9b0e34b662e9be9ee32c5651dd437935fb036b39332a73714288b4d4f",
+      "size_bytes": 34514
+    },
+    {
+      "path": "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md",
+      "sha256": "66c4328d93341c39e0553e3c881aa077eafdcbcb1118c9f80277a26addb363e2",
+      "size_bytes": 11209
+    },
+    {
+      "path": "docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md",
+      "sha256": "215eb8f8e9e91dc5e99f1baf9065551fd1ea3c35ce4ca5de503d13ecc144beef",
+      "size_bytes": 14709
+    },
+    {
+      "path": "schemas/required_gate_idempotence_bootstrap_v0.schema.json",
+      "sha256": "8dff32af9d769ee0f7e60b3942ce0b7cd908b61a4393cc5a3a1682b4b9599b7a",
+      "size_bytes": 3041
+    },
+    {
+      "path": "schemas/required_gate_idempotence_containment_v0.schema.json",
+      "sha256": "c22eddba2c3dbef425557aa2f6df4c27e499caac44e8710984494927ce5c7bd2",
+      "size_bytes": 4127
+    },
+    {
+      "path": "schemas/required_gate_idempotence_runtime_v0.schema.json",
+      "sha256": "fa5b046ebd66f0003becaa040cdae8d6df1d10f8e4fbe16544cff4cc7623f83e",
+      "size_bytes": 8838
+    },
+    {
+      "path": "scripts/build_normative_shadow_inventory_v0.py",
+      "sha256": "997c554953e9c83445222524b9e48b7a8901e123d5269a047476224032bc8d92",
+      "size_bytes": 68617
+    },
+    {
+      "path": "scripts/check_markdown_links.py",
+      "sha256": "484ed82f04bcc15c355a380e888ebb8e93e7b4b91b1cedba613598879dfee700",
+      "size_bytes": 7544
+    },
+    {
+      "path": "tests/test_build_normative_shadow_inventory_v0.py",
+      "sha256": "153cf756f99979a7c2174c1dd5f333a9bbf7ed71aed53ba2558523c2efdc402b",
+      "size_bytes": 56224
+    },
+    {
+      "path": "tests/test_required_gate_idempotence_containment_v0.py",
+      "sha256": "59c2c556e473bb10d55ee469a097b0a83a89636810c463208187b00741381fe6",
+      "size_bytes": 1294995
+    },
+    {
+      "path": "tools/acquire_required_gate_idempotence_v0.py",
+      "sha256": "be8798c2f5db10dd2ee275177e4dbc7ac6e6630e1f601157e2723b715c5241f8",
+      "size_bytes": 32464
+    },
+    {
+      "path": "tools/check_required_gate_idempotence_containment_v0.py",
+      "sha256": "29f32971aa0a4b3d13ed850579f5eb2970dca9a0da9b07bf124fbbda9ef85af5",
+      "size_bytes": 14903
+    },
+    {
+      "path": "tools/check_required_gate_idempotence_entry_task_guard_v0.py",
+      "sha256": "25fa48cc1824c0641fe0ba9265fbe3c698a3f36b19cb29adf212ffa8b049b58e",
+      "size_bytes": 24395
+    },
+    {
+      "path": "tools/check_required_gate_idempotence_loader_rebuild_acceptance_v0.py",
+      "sha256": "45fe95db190c8c29a42baacfe8d5dcab8709e58b5c9b9862e9d5cd8c7ea32623",
+      "size_bytes": 21457
+    },
+    {
+      "path": "tools/check_required_gate_idempotence_loader_resolution_v0.py",
+      "sha256": "520e9ad09eb568a0698822c564cf104dc1df084e105590dee99e9c13d3b7f43c",
+      "size_bytes": 32770
+    },
+    {
+      "path": "tools/required_gate_idempotence_bootstrap_probe_v0.py",
+      "sha256": "e4e410d6cac1142b0e75f1186fbc24abb759e0f6e3f02ab453cbdb9309bf6bde",
+      "size_bytes": 21002
+    },
+    {
+      "path": "tools/required_gate_idempotence_bootstrap_v0.py",
+      "sha256": "839c87f15c8e56392113f042a79d45a8453000581eaa98778c36283fb30c4c6c",
+      "size_bytes": 26767
+    },
+    {
+      "path": "tools/required_gate_idempotence_containment_entry_v0.c",
+      "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+      "size_bytes": 4598
+    },
+    {
+      "path": "tools/required_gate_idempotence_containment_policy_v0.py",
+      "sha256": "105c72f436d4c13d21da160eb185fa3fc17663a8e904b43b7c30f88691573a03",
+      "size_bytes": 3823
+    },
+    {
+      "path": "tools/required_gate_idempotence_containment_v0.py",
+      "sha256": "b6ec187c154b9cf5419f72208e6dccd391bd9f53600379b3b8ed8e759dc6bfbb",
+      "size_bytes": 27964
+    },
+    {
+      "path": "tools/required_gate_idempotence_entry_task_guard_v0.py",
+      "sha256": "7d739ea58aa248c6d1785882847ee1d45b9e32925514cc7b0cf510558fbdf83d",
+      "size_bytes": 23130
+    },
+    {
+      "path": "tools/required_gate_idempotence_loader_rebuild_acceptance_v0.py",
+      "sha256": "9fa78e0754357bbdeabdfaa9e57a747bb6126fd3945862e54b78150a81bd982a",
+      "size_bytes": 30681
+    },
+    {
+      "path": "tools/required_gate_idempotence_loader_resolution_hosted_v0/Dockerfile",
+      "sha256": "8d3b679546341488e00d3c72d6a979c51eb1f1c12d414da83ddab81478bed6f6",
+      "size_bytes": 868
+    },
+    {
+      "path": "tools/required_gate_idempotence_loader_resolution_hosted_v0/environment.json",
+      "sha256": "677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b",
+      "size_bytes": 25705
+    },
+    {
+      "path": "tools/required_gate_idempotence_loader_resolution_v0.py",
+      "sha256": "153228659283d45b24b2f55aa014f95b68b734534d6081e4188bbe5a9e926bc8",
+      "size_bytes": 27846
+    },
+    {
+      "path": "tools/required_gate_idempotence_process_v0.py",
+      "sha256": "fc682fef2753fe4d65a2f0f839b696f77bc27b468ff0191b508df5e1887bd09a",
+      "size_bytes": 18107
+    },
+    {
+      "path": "tools/required_gate_idempotence_runtime_v0.py",
+      "sha256": "760ea1c13f58d2ec83fef29b9d346a937b3f03c57013fe3320c473e58ac43d8b",
+      "size_bytes": 34677
+    },
+    {
+      "path": "tools/required_gate_idempotence_worker_v0.py",
+      "sha256": "cce14b088f8519e24c4c19879a4cb78d0e59025e4c6da1010a321c1ea7437bd2",
+      "size_bytes": 12250
+    }
+  ],
+  "baseline_repository": "HKati/pulse-release-gates-0.1",
+  "bubblewrap_source": {
+    "build_selection": {
+      "assume_kernel": "5.10.0",
+      "hardening": "+pie,+bindnow",
+      "source_format": "3.0 (quilt)"
+    },
+    "joined_compressed_source_index": {
+      "sha256": "6002f81f463a2d976d84b34170367cc16da2d60bd0ba9ab9d868d6e1c1a935d9",
+      "size_bytes": 10540436
+    },
+    "matched_stanza": {
+      "directory": "pool/main/b/bubblewrap",
+      "exact_bytes_without_blank_separator": {
+        "sha256": "d8e175fe8cf6fb37ed15273c14df41b6101767b5d72fdbfa9448cf2d7c93b039",
+        "size_bytes": 1536
+      },
+      "package": "bubblewrap",
+      "version": "0.12.0-1~deb13u1"
+    },
+    "new_source_files": [
+      {
+        "matched_preserved_sources_stanza": true,
+        "path": "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0-1~deb13u1.debian.tar.xz",
+        "retrieval_url": "https://deb.debian.org/debian/pool/main/b/bubblewrap/bubblewrap_0.12.0-1~deb13u1.debian.tar.xz",
+        "sha256": "7b54f121aebf5d4b38360ea728274c26fa471582bc3e6658379b679ecd8b5a2f",
+        "size_bytes": 13728
+      },
+      {
+        "matched_preserved_sources_stanza": true,
+        "path": "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0-1~deb13u1.dsc",
+        "retrieval_url": "https://deb.debian.org/debian/pool/main/b/bubblewrap/bubblewrap_0.12.0-1~deb13u1.dsc",
+        "sha256": "1abef77e6c35ce6c48c8969d31bffcc7a589bfd8e8fea9284fd8d77750f01d39",
+        "size_bytes": 2362
+      },
+      {
+        "matched_preserved_sources_stanza": true,
+        "path": "preservation/required_gate_idempotence_containment_entry_plan_v0/raw/bubblewrap_0.12.0.orig.tar.xz",
+        "retrieval_url": "https://deb.debian.org/debian/pool/main/b/bubblewrap/bubblewrap_0.12.0.orig.tar.xz",
+        "sha256": "9760d007363e3abba7c747489910f9f82d9fca53ba3bd3282e396fa3c97a3314",
+        "size_bytes": 126452
+      }
+    ],
+    "patch_scope": "Only the clone EPERM diagnostic text changes; no reviewed process, namespace, seccomp or descriptor operation changes.",
+    "patch_series": [
+      "debian/Change-EPERM-error-message-to-show-Debian-specific-inform.patch"
+    ],
+    "pre_5_6_openat_fallback_compiled_out_by_declared_build_selection": true,
+    "required_openat2_resolution": [
+      "RESOLVE_IN_ROOT",
+      "RESOLVE_NO_MAGICLINKS"
+    ],
+    "reviewed_debian_members": [
+      {
+        "member": "debian/patches/series",
+        "sha256": "409749282d0ae668c26a8c8b72ecd0d1f463a96a7906053d5bcfea587d6ab492",
+        "size_bytes": 71
+      },
+      {
+        "member": "debian/patches/debian/Change-EPERM-error-message-to-show-Debian-specific-inform.patch",
+        "sha256": "e86a163263e90d0020f40604a85f6525f23c8f8f66fc0ff9ee4c623ef1ed78ea",
+        "size_bytes": 1063
+      },
+      {
+        "member": "debian/rules",
+        "sha256": "2e15a6db8bc7c8be3ee19456ac3121b19743208c8244ec4bd2c27631d60245ff",
+        "size_bytes": 730
+      },
+      {
+        "member": "debian/source/format",
+        "sha256": "1be7080d72e6b566df3e236ce2c55efdfbbb8fa1c972d825e5b672ff8773be1a",
+        "size_bytes": 12
+      },
+      {
+        "member": "debian/control",
+        "sha256": "8b5a7586efeb4f3436a744e21b99208b39c440345174f91ac10b59b27c1ac0e1",
+        "size_bytes": 1367
+      },
+      {
+        "member": "debian/copyright",
+        "sha256": "a259c729f78b980b76624f923dad96707754cc7bef5e5e37659466d77da33170",
+        "size_bytes": 1897
+      }
+    ],
+    "reviewed_original_members": [
+      {
+        "member": "bubblewrap-0.12.0/bubblewrap.c",
+        "sha256": "3f17ee26057cae9d660801ca8d9ba84722f1bafdcd072d5151ee1c64eeeb15f4",
+        "size_bytes": 113001
+      },
+      {
+        "member": "bubblewrap-0.12.0/utils.c",
+        "sha256": "b53c73465e0188259a8438396e25531f6b6ae7e2fb88d37bf13cee29acedd222",
+        "size_bytes": 21976
+      },
+      {
+        "member": "bubblewrap-0.12.0/safe_openat.c",
+        "sha256": "0338ec8e8fbc08caf20c6a3480506f60f510e7e43abacbd40d17cd6d562970d2",
+        "size_bytes": 9274
+      },
+      {
+        "member": "bubblewrap-0.12.0/bwrap.xml",
+        "sha256": "02a822fe5e3d74da236863cd2157a8dc950e280b50886eac359cb056a7142a48",
+        "size_bytes": 33172
+      },
+      {
+        "member": "bubblewrap-0.12.0/meson.build",
+        "sha256": "6909022047bcc8c36e1fa07d8b7642f6db39d86df2e62d34be2685fd0e6099ba",
+        "size_bytes": 4743
+      },
+      {
+        "member": "bubblewrap-0.12.0/COPYING",
+        "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+        "size_bytes": 26530
+      }
+    ],
+    "source_index_parts": [
+      {
+        "path": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/Sources.xz.part001",
+        "sha256": "3dd4790f65540cb7004b5b13cc98d60b706fa62ec347da24f34629c18d1bc724",
+        "size_bytes": 8000000
+      },
+      {
+        "path": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/Sources.xz.part002",
+        "sha256": "4a2df0061f07a5aabc5a976cd4c5c80faa1a25f9455b67780fd87e7d2c5270cf",
+        "size_bytes": 2540436
+      }
+    ]
+  },
+  "existing_containment_policy": {
+    "derived_classic_bpf": {
+      "encoding": "x86_64-little-endian-sock_filter",
+      "installed_in_this_unit": false,
+      "instruction_count": 145,
+      "sha256": "9f3570a87b1fde59299d69d242496cbd9d2f1b1631a40dbc5ed8e4976edfa6ab",
+      "size_bytes": 1160
+    },
+    "source": {
+      "path": "tools/required_gate_idempotence_containment_policy_v0.py",
+      "sha256": "105c72f436d4c13d21da160eb185fa3fc17663a8e904b43b7c30f88691573a03",
+      "size_bytes": 3823
+    }
+  },
+  "glibc_source": {
+    "debian_carrier": {
+      "path": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41-12+deb13u4.debian.tar.xz",
+      "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+      "size_bytes": 499524
+    },
+    "joined_original_archive": {
+      "sha256": "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998",
+      "size_bytes": 20323540
+    },
+    "original_parts": [
+      {
+        "path": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41.orig.tar.xz.part001",
+        "sha256": "4790b9cafe4425b2776884b87f345591accb35232f6db5d891d869d20626fde4",
+        "size_bytes": 8000000
+      },
+      {
+        "path": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41.orig.tar.xz.part002",
+        "sha256": "89c780719196bcbdce8ba0290918ea5468a681525b5836d24cbf2d788c9e5f75",
+        "size_bytes": 8000000
+      },
+      {
+        "path": "preservation/required_gate_idempotence_loader_binary_binding_v0/raw/glibc_2.41.orig.tar.xz.part003",
+        "sha256": "875cb7ed49f8f386a6ba4948dad2eeb4da80494ece0c49d566a93271870997ba",
+        "size_bytes": 4323540
+      }
+    ],
+    "patches_touching_reviewed_members": [
+      {
+        "member": "debian/patches/git-updates.diff",
+        "sha256": "c3c28ea3a3a9ae8478ff7c051202bafefe165e60e11f707389751e7c850956de",
+        "size_bytes": 623020,
+        "touches_reviewed_members": [
+          "posix/fork.c"
+        ]
+      }
+    ],
+    "review_scope": "The selected fork patch updates local NSS bookkeeping; the reviewed _Fork/arch_fork clone and wait/waitpid/wait4 chain is unchanged. This is source review, not executed build provenance.",
+    "reviewed_original_members": [
+      {
+        "member": "glibc-2.41/posix/fork.c",
+        "sha256": "00baa38eeb752064ece368d891130297988564601f17ac0bceead9775180f7e2",
+        "size_bytes": 4474
+      },
+      {
+        "member": "glibc-2.41/sysdeps/nptl/_Fork.c",
+        "sha256": "5f01c75b06211489040fe196811bd350b17ed6ffdfc159bd6aaae9e9236132de",
+        "size_bytes": 2350
+      },
+      {
+        "member": "glibc-2.41/sysdeps/unix/sysv/linux/arch-fork.h",
+        "sha256": "34fd5da5e26f2c0d732e993a66882224db97b18da3c808786f2f42a9fc16e2f6",
+        "size_bytes": 2124
+      },
+      {
+        "member": "glibc-2.41/sysdeps/unix/sysv/linux/kernel-features.h",
+        "sha256": "ce148eed2743d0085a80217f2c0d01e002b37c35ed2d32bdad351981ddb66dc1",
+        "size_bytes": 9368
+      },
+      {
+        "member": "glibc-2.41/sysdeps/unix/sysv/linux/x86_64/kernel-features.h",
+        "sha256": "ba3b7f8f95a106dc1001dd1b32ae2e9d3e1b7c85ddf6645f708eb6183e882070",
+        "size_bytes": 1111
+      },
+      {
+        "member": "glibc-2.41/posix/wait.c",
+        "sha256": "010e249f36c8b3445307227ea9bc13981b3de9e30ddb1b9c1b8fe14553c678af",
+        "size_bytes": 1056
+      },
+      {
+        "member": "glibc-2.41/posix/waitpid.c",
+        "sha256": "51dbddcfc3873e5dfa064c409bae2863af2d9735117a0ad0b54f56fd987b5f2f",
+        "size_bytes": 1683
+      },
+      {
+        "member": "glibc-2.41/sysdeps/unix/sysv/linux/wait4.c",
+        "sha256": "2d82bfd0292d16c2dcf2d56866ba64faaa656d83d1428808b40e0c356b8fce60",
+        "size_bytes": 3570
+      }
+    ]
+  },
+  "historical_example_runtime": {
+    "can_be_promoted_to_selected_by_relabelling": false,
+    "capsule": {
+      "member": "capsule/authored-runtime-capsule.zip",
+      "sha256": "c5c85a7c2b19b6e2c8be18f743cecea056d8e639ae88fdf4f4fbd2d71fa38ec9",
+      "size_bytes": 219962
+    },
+    "carrier": {
+      "path": "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip",
+      "sha256": "70b57f9a40cb375e267e215b3704be21c9f6d8987cadc13d92dfcc8db56d9c8a",
+      "size_bytes": 24816167
+    },
+    "python": {
+      "member": "payload/python/bin/python3.11",
+      "sha256": "a21685417aaa2029ae4ddb67e0c0f88d8c8e42ff03b949de1cfc1c613c991609",
+      "size_bytes": 1056
+    },
+    "records": [
+      {
+        "member": "controls/runtime-selection.json",
+        "record_status": "example",
+        "sha256": "029c4742f7a900b54a7896a8135b7ae5f64ad78766d0dd4ed172a8937289bec6",
+        "size_bytes": 26110
+      },
+      {
+        "member": "controls/operator-selection.json",
+        "record_status": "example",
+        "sha256": "17334a9237b3a2c7063f04af5cf54048a2fa24ba88bda73193e9ac5b89cce3c3",
+        "size_bytes": 4149
+      },
+      {
+        "member": "controls/bootstrap-selection.json",
+        "record_status": "example",
+        "sha256": "39ad34794078aeb1cb2c561dbb9c41670dc7ed9fa17fe9f76ea1cd082ac41a61",
+        "size_bytes": 804
+      },
+      {
+        "member": "controls/containment-selection.json",
+        "record_status": "example",
+        "sha256": "7b95676d06b84d396423a66629f48eb0f177986ed56d2a00b02ea8905fe9b62c",
+        "size_bytes": 1057
+      }
+    ]
+  },
+  "historical_loader_observation": {
+    "attempt": 1,
+    "control_carrier": {
+      "path": "preservation/required_gate_idempotence_loader_resolution_v0/run_45881405789_attempt_1/control_evidence_v0.zip",
+      "sha256": "7f67a1f6dc816ae382d140d91e9f95b754d766cee6645d8607a4b2398ce1ad9c",
+      "size_bytes": 5994163
+    },
+    "fresh_replay_in_this_design_unit": false,
+    "live_prefix_available": false,
+    "preservation_record": {
+      "path": "preservation/required_gate_idempotence_loader_resolution_v0/run_45881405789_attempt_1/verification_record_v0.json",
+      "sha256": "60578dd84f76cb89630267699c290f42c41dc90b7285ae9f535e8594bab3bfef",
+      "size_bytes": 440911
+    },
+    "run_id": 45881405789,
+    "run_number": 3,
+    "source_commit": "f2854184ebb069ed6407874a68a4aaa1c84fea5c"
+  },
+  "inventory_is_complete_future_execution_closure": false,
+  "metric_pass": null,
+  "original_native_inputs": {
+    "carrier": {
+      "path": "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip",
+      "sha256": "70b57f9a40cb375e267e215b3704be21c9f6d8987cadc13d92dfcc8db56d9c8a",
+      "size_bytes": 24816167
+    },
+    "members": [
+      {
+        "member": "native/bwrap",
+        "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+        "size_bytes": 80248
+      },
+      {
+        "member": "native/ld-linux-x86-64.so.2",
+        "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+        "size_bytes": 225672
+      },
+      {
+        "member": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      {
+        "member": "native/libcap.so.2",
+        "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+        "size_bytes": 47288
+      },
+      {
+        "member": "native/libpcre2-8.so.0",
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216
+      },
+      {
+        "member": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      }
+    ],
+    "selected_package": {
+      "architecture": "amd64",
+      "name": "bubblewrap",
+      "sha256": "70aca4fa8daeacb677ec00e8063eb586f08ae3d94b1f11e684370b5524c43431",
+      "size_bytes": 56876,
+      "version": "0.12.0-1~deb13u1"
+    }
+  },
+  "record_status": "authored_design_inventory",
+  "record_type": "required_gate_idempotence_containment_entry_plan_source_inventory_v0",
+  "static_entry": {
+    "attempt": 1,
+    "build_carrier": {
+      "path": "preservation/required_gate_idempotence_entry_build_v0/run_43854478248_attempt_1/required-gate-idempotence-entry-build-43854478248-1.zip",
+      "sha256": "1ad3f84009ff7446e204ab18cb61bd5494a6d1182878833de017a438a3f36855",
+      "size_bytes": 64298
+    },
+    "members": [
+      {
+        "member": "evidence/build-1/entry",
+        "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+        "size_bytes": 9568
+      },
+      {
+        "member": "evidence/build-2/entry",
+        "sha256": "7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab",
+        "size_bytes": 9568
+      }
+    ],
+    "run_id": 43854478248,
+    "source": {
+      "path": "tools/required_gate_idempotence_containment_entry_v0.c",
+      "sha256": "0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f",
+      "size_bytes": 4598
+    },
+    "source_binary_semantic_equivalence_claimed": false,
+    "source_commit": "f290aee20cd610e4fdb358dbf34d054ec351d390"
+  },
+  "trust_limits": {
+    "fresh_attestation_signature_verification": false,
+    "fresh_distribution_signature_verification": false,
+    "future_host_admitted": false,
+    "native_build_performed": false,
+    "patches_applied": false,
+    "source_binary_equivalence_verified": false,
+    "source_bytes_matched_preserved_index": true
+  }
+}
