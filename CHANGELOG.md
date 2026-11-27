@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Implement the first [B2 containment task-guard qualification component](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_QUALIFICATION_v0.md).
+  Add a fixed 21-case freestanding probe, bounded native observation command,
+  closed evidence schema and independent raw-record reconstruction. Admit the
+  exact guard submission, both selected clone shapes, inherited denials and
+  owned cleanup through a shared pre-resume state machine. Preserve unordered
+  birth joins, bound SIGCHLD forwarding and kernel restart handling, reserve
+  cleanup evidence space and retain unresolved ownership on fatal prefixes.
+  Append data-only, substituted-backend and compile-only regressions; keep the
+  prior startup-helper source contract unchanged. No native probe or original
+  execution is performed by this development unit. Executed-helper build
+  admission, complete host qualification and the original observation remain
+  pending; B2 and #2879 stay open, `metric_pass=null`, `authority_effect=none`.
+
 - Implement the bounded [B2 containment startup helper and task-guard source contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_STARTUP_v0.md).
   Add the freestanding fixed-FD helper, exact sealed-input hashing, parent-loss
   checks, bounded release barrier and fixed original-launcher exec route.

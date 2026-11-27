@@ -24787,3 +24787,1564 @@ def test_containment_task_guard_legacy_resolver_refuses_remote_retrieval_directl
         resolvers[0].resolve_remote("https://must-not-fetch.invalid/legacy-schema.json")
     assert failure.value.code == "containment_task_guard_schema_reference"
     assert requests == []
+
+
+# Native task-guard qualifier regressions. Journals below are authored test data;
+# no C probe, startup helper, original launcher or native backend executes here.
+CONTAINMENT_GUARD_QUALIFIER_REL = "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py"
+CONTAINMENT_GUARD_QUALIFIER_CHECKER_REL = "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py"
+CONTAINMENT_GUARD_PROBE_REL = "tools/required_gate_idempotence_containment_task_probe_v0.c"
+CONTAINMENT_GUARD_QUALIFIER_MARKER = 0x50554C5345515630
+
+
+def containment_guard_qualification_checker():
+    return module("check_required_gate_idempotence_containment_task_guard_qualification_v0",
+                  CONTAINMENT_GUARD_QUALIFIER_CHECKER_REL)
+
+
+def containment_guard_qualification_producer():
+    return module("qualify_required_gate_idempotence_containment_task_guard_v0",
+                  CONTAINMENT_GUARD_QUALIFIER_REL)
+
+
+@pytest.fixture(scope="module")
+def containment_guard_qualification_probe(tmp_path_factory):
+    compiler = shutil.which("gcc")
+    assert compiler is not None, "gcc is required for compile-only guard probe regression"
+    output = tmp_path_factory.mktemp("containment-task-guard-probe") / "never-executed"
+    result = subprocess.run([compiler, *CONTAINMENT_TASK_GUARD_CC_FLAGS,
+        str(ROOT / CONTAINMENT_GUARD_PROBE_REL), "-o", str(output)],
+        capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert result.stdout == result.stderr == b""
+    return output.read_bytes()
+
+
+def test_containment_guard_qualification_probe_has_the_exact_readonly_guard(
+        containment_guard_qualification_probe, containment_task_guard_core):
+    raw = containment_guard_qualification_probe
+    layout = _containment_task_guard_elf_layout(raw)
+    _offset, section = layout.named[".pulse_task_guard"]
+    assert section[1] == 1 and section[2] == 2 and section[5] == 272
+    assert raw[section[4]:section[4] + section[5]] == containment_task_guard_core.guard_program()
+    assert sum(row[0] == 1 and row[1] == 4 and row[3] <= section[3]
+               and section[3] + section[5] <= row[3] + row[5]
+               for _at, row in layout.program_headers) == 1
+
+
+def test_containment_guard_qualification_probe_static_shape_does_not_authorize_execution(
+        containment_guard_qualification_probe, monkeypatch):
+    import ctypes
+    import socket
+    checker = module("check_required_gate_idempotence_containment_task_guard_v0",
+                     "tools/check_required_gate_idempotence_containment_task_guard_v0.py")
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("compile-only probe inspection attempted execution or dynamic loading")
+    for owner, name in ((subprocess, "Popen"), (subprocess, "run"), (os, "execve"),
+                        (os, "fork"), (ctypes, "CDLL"), (socket, "socket")):
+        monkeypatch.setattr(owner, name, forbidden)
+    raw = containment_guard_qualification_probe
+    report = checker.verify_compiled_helper(raw, expected_elf_sha256=digest(raw))
+    assert report["helper_elf"] == bound(raw)
+    assert report["guard_section_bytes_verified"] is True
+    assert report["static_shape_verified"] is True
+    for name in ("source_binary_equivalence_verified", "authenticated_build_provenance",
+                 "host_environment_qualified", "native_execution_performed", "execution_authorized"):
+        assert report[name] is False
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+
+
+def _containment_guard_qualification_stat(pid, parent, *, start=100, state="t"):
+    # Linux proc stat fields 3 onward. In particular fields20/22 bind the one
+    # task and starttime; the parent is the observer-visible PID, not NSpid[-1].
+    fields = [state, str(parent)] + ["0"] * 50
+    fields[17] = "1"
+    fields[19] = str(start)
+    return (str(pid) + " (guard probe) " + " ".join(fields) + "\n").encode("ascii")
+
+
+def _containment_guard_qualification_status(pid, parent, observer, *, filters=1,
+        nnp=0, ns_pids=None, capabilities=0, uid=1000, state="t"):
+    namespace = [pid] if ns_pids is None else list(ns_pids)
+    values = {
+        "Name": "guard-probe", "State": state + " (tracing stop)",
+        "Tgid": str(pid), "Pid": str(pid), "PPid": str(parent),
+        "TracerPid": str(observer), "Uid": "\t".join([str(uid)] * 4),
+        "Gid": "1000\t1000\t1000\t1000", "Threads": "1",
+        "NStgid": "\t".join(map(str, namespace)),
+        "NSpid": "\t".join(map(str, namespace)),
+        "CapInh": "0000000000000000", "CapPrm": format(capabilities, "016x"),
+        "CapEff": format(capabilities, "016x"), "CapBnd": "0000000000000000",
+        "CapAmb": "0000000000000000", "NoNewPrivs": str(nnp),
+        "Seccomp": "2", "Seccomp_filters": str(filters),
+    }
+    return "".join(key + ":\t" + value + "\n" for key, value in values.items()).encode("ascii")
+
+
+def _containment_guard_qualification_regs(number=39, args=(0, 0, 0, 0, 0, 0), *,
+        result=-38, ip=0x401100, sp=0x7FFFFFFFE000, arch=0xC000003E):
+    registers = [0] * 27
+    registers[10] = result & ((1 << 64) - 1)
+    registers[15], registers[16], registers[17] = number, ip, 0x33
+    registers[18], registers[19], registers[20] = 0x246, sp, 0x2B
+    positions = (14, 13, 12, 7, 9, 8) if arch == 0xC000003E else (5, 11, 12, 13, 14, 4)
+    for index, value in zip(positions, args):
+        registers[index] = value
+    return struct.pack("<27Q", *registers)
+
+
+def _containment_guard_qualification_syscall_info(number, args=(0, 0, 0, 0, 0, 0), *,
+        result=None, arch=0xC000003E, ip=0x401100, sp=0x7FFFFFFFE000):
+    header = struct.pack("<B3xIQQ", 1 if result is None else 2, arch, ip, sp)
+    if result is None:
+        return header + struct.pack("<7Q", number, *args)
+    return header + struct.pack("<qB", result, int(-4095 <= result < 0))
+
+
+class _ContainmentGuardQualificationJournal:
+    """Independent synthetic raw-byte transcript builder; never an executor."""
+    def __init__(self, case_id, probe):
+        self.case_id, self.probe = case_id, probe
+        self.observer = 100
+        self.events, self.tasks = [], {}
+        self.root = 200 + case_id * 3
+        self.child_tid = 0x600100
+        self.guard_header = 0x7FFFFFFFDD00
+        _section_offset, guard_section = _containment_task_guard_elf_layout(probe).named[".pulse_task_guard"]
+        self.guard_address = guard_section[3]
+        self.guard_bytes = bytes.fromhex(
+            "20000000040000001500001f3e0000c0200000000000000045001d0000000040"
+            "15001c003900000015001b003a00000015001a00a901000015001900aa010000"
+            "15001800ab01000015001700b301000015000015380000002000000014000000"
+            "150000140000000020000000180000001500001200000000200000001c000000"
+            "1500001000000000200000001000000015000d001100027e1500000d11002001"
+            "20000000200000001500000b0000000020000000240000001500000900000000"
+            "2000000030000000150000070000000020000000340000001500000500000000"
+            "20000000280000001500000200000000200000002c0000001500010000000000"
+            "060000000000ff7f0600000000000080")
+        self.names = (
+            "native_getpid", "fork", "vfork", "clone3", "io_uring_setup", "io_uring_enter",
+            "io_uring_register", "x32_getpid", "compat_getpid", "clone_unselected",
+            "clone_l_upper", "clone_l_stack", "clone_r_null_tid", "clone_r_parent_tid",
+            "clone_r_tls", "clone_r_stack", "clone_r_upper", "clone_r_unselected",
+            "exec_denial", "graph_inheritance", "graph_cancel")
+
+    def add(self, operation, **values):
+        event = {"seq": len(self.events), "t_ns": 1000000 + len(self.events) * 1000,
+                 "op": operation, **values}
+        self.events.append(event)
+        return event
+
+    def identity(self, pid, *, traced=True):
+        task = self.tasks[pid]
+        return {
+            "stat": _containment_guard_qualification_stat(pid, task["parent"],
+                start=1000 + pid).hex(),
+            "status": _containment_guard_qualification_status(pid, task["parent"],
+                self.observer if traced else 0, filters=task["filters"], nnp=task["nnp"],
+                ns_pids=[pid] if task["role"] == 0 else [pid, task["role"]],
+                capabilities=0 if task["role"] == 0 else 0x1FFFFFFFFFF).hex(),
+        }
+
+    def acquire(self, role):
+        pid = self.root + role
+        self.tasks[pid] = {"role": role, "parent": self.observer if role == 0 else pid - 1,
+            "pidfd": 10 + role, "stopped": False, "filters": 1 if role == 0 else 2,
+            "nnp": 0 if role == 0 else 1}
+        raw = self.identity(pid, traced=role != 0)
+        raw["pidfd_info"] = ("pos:\t0\nflags:\t02000002\nmnt_id:\t5\nino:\t" +
+            str(3000 + pid) + "\nPid:\t" + str(pid) + "\nNSpid:\t" + str(pid) + "\n").encode().hex()
+        self.add("spawn" if role == 0 else "acquire", pid=pid, pidfd=10 + role, raw=raw)
+        return pid
+
+    def resume(self, pid, request="syscall"):
+        assert self.tasks[pid]["stopped"]
+        self.add("resume", pid=pid, request=request, signal=0)
+        self.tasks[pid]["stopped"] = False
+
+    def wait(self, pid, status, *, raw=None, memory=None):
+        if status & 0xff == 0x7f:
+            assert not self.tasks[pid]["stopped"]
+            self.tasks[pid]["stopped"] = True
+        else:
+            self.tasks[pid]["stopped"] = False
+        return self.add("wait", pid=pid, status=status, raw={} if raw is None else raw,
+                        memory=[] if memory is None else memory)
+
+    def stop(self, pid, event=128, *, number=39, args=(0,)*6, result=-38, child=None):
+        raw = self.identity(pid)
+        raw["regs"] = _containment_guard_qualification_regs(number, args, result=result).hex()
+        if child is not None:
+            raw["event_message"] = struct.pack("<Q", child).hex()
+        return self.wait(pid, (event << 16) | 0x57F, raw=raw)
+
+    def enter(self, pid, number, args=(0,)*6, *, arch=0xC000003E, memory=None, maps=False):
+        if self.tasks[pid]["stopped"]:
+            self.resume(pid)
+        raw = self.identity(pid)
+        raw["regs"] = _containment_guard_qualification_regs(number, args, arch=arch).hex()
+        raw["syscall_info"] = _containment_guard_qualification_syscall_info(number, args, arch=arch).hex()
+        if maps:
+            raw["maps"] = (b"00400000-00402000 r-xp 00000000 00:01 100 /memfd:probe (deleted)\n"
+                b"00402000-00404000 r--p 00002000 00:01 100 /memfd:probe (deleted)\n"
+                b"00600000-00601000 rw-p 00000000 00:00 0\n"
+                b"7fffffff0000-800000000000 rw-p 00000000 00:00 0 [stack]\n").hex()
+        return self.wait(pid, 0x857F, raw=raw, memory=memory)
+
+    def leave(self, pid, number, args=(0,)*6, *, result=0, arch=0xC000003E, memory=None, maps=False):
+        if self.tasks[pid]["stopped"]:
+            self.resume(pid)
+        raw = self.identity(pid)
+        raw["regs"] = _containment_guard_qualification_regs(number, args, result=result, arch=arch).hex()
+        raw["syscall_info"] = _containment_guard_qualification_syscall_info(number, args,
+            result=result, arch=arch).hex()
+        if maps:
+            raw["maps"] = (b"00400000-00402000 r-xp 00000000 00:01 100 /memfd:probe (deleted)\n"
+                b"00402000-00404000 r--p 00002000 00:01 100 /memfd:probe (deleted)\n"
+                b"00600000-00601000 rw-p 00000000 00:00 0\n"
+                b"7fffffff0000-800000000000 rw-p 00000000 00:00 0 [stack]\n").hex()
+        return self.wait(pid, 0x857F, raw=raw, memory=memory)
+
+    def call(self, pid, number, args=(0,)*6, *, result=0, memory=None, maps=False):
+        self.enter(pid, number, args, memory=memory, maps=maps)
+        self.leave(pid, number, args, result=result, memory=memory)
+
+    def marker(self, pid, stage, value0=0, value1=0, *, hold=False, memory=None, maps=False):
+        args = (CONTAINMENT_GUARD_QUALIFIER_MARKER, self.case_id, stage,
+                self.tasks[pid]["role"], value0, value1)
+        self.enter(pid, 39, args, memory=memory, maps=maps)
+        if not hold:
+            self.leave(pid, 39, args, result=pid if self.tasks[pid]["role"] == 0 else self.tasks[pid]["role"])
+
+    def exec_stop(self, pid, *, initial=False):
+        if self.tasks[pid]["stopped"]:
+            self.resume(pid, "cont" if initial else "syscall")
+        raw = self.identity(pid)
+        entry = struct.unpack_from("<Q", self.probe, 24)[0]
+        raw.update(regs=_containment_guard_qualification_regs(59 if initial else 322,
+                result=0, ip=entry).hex(),
+            event_message=struct.pack("<Q", pid).hex(), exe=self.probe.hex(),
+            cmdline=("\0".join(("pulsemech-containment-task-probe-v0", self.names[self.case_id-1],
+                str(self.observer), "initial" if initial else "after-exec")) + "\0").encode().hex(),
+            environ=b"LC_ALL=C\0TZ=UTC\0".hex())
+        self.wait(pid, 0x4057F, raw=raw)
+        # The exec event precedes the successful exec syscall-exit stop.
+        self.leave(pid, 59 if initial else 322, result=0)
+
+    def initial(self):
+        pid = self.acquire(0)
+        self.add("seize", pid=pid, options=0x0010001F)
+        self.add("interrupt", pid=pid)
+        self.stop(pid)
+        self.add("release", pid=pid)
+        self.exec_stop(pid, initial=True)
+        self.marker(pid, 1)
+        self.call(pid, 110, result=self.observer)
+        self.call(pid, 157, (1,9,0,0,0,0))
+        self.call(pid, 157, (2,0x600200,0,0,0,0))
+        self.call(pid, 110, result=self.observer)
+        for number in (102,104,107,108):
+            self.call(pid, number, result=1000)
+        self.call(pid, 125, (0x600300,0x600320,0,0,0,0))
+        for descriptor in range(4):
+            self.call(pid, 5, (descriptor,0x600400 + descriptor*144,0,0,0,0))
+            self.call(pid, 72, (descriptor,1,0,0,0,0))
+            self.call(pid, 72, (descriptor,3,0,0,0,0), result=0 if descriptor in (0,3) else 2049)
+            if descriptor in (0,3):
+                self.call(pid, 72, (descriptor,1034,0,0,0,0), result=15)
+        args = (38,1,0,0,0,0)
+        self.enter(pid, 157, args)
+        self.tasks[pid]["nnp"] = 1
+        self.leave(pid, 157, args)
+        self.call(pid, 157, (39,0,0,0,0,0), result=1)
+        memory = [{"address": self.guard_header, "hex": struct.pack("<H6xQ",34,self.guard_address).hex()},
+                  {"address": self.guard_address, "hex": self.guard_bytes.hex()}]
+        args = (22,2,self.guard_header,0,0,0)
+        self.enter(pid, 157, args, memory=memory, maps=True)
+        self.tasks[pid]["filters"] = 2
+        self.leave(pid, 157, args, memory=memory, maps=True)
+        self.call(pid, 157, (21,0,0,0,0,0), result=2)
+        self.call(pid, 157, (39,0,0,0,0,0), result=1)
+        self.call(pid, 110, result=self.observer)
+        self.marker(pid, 2)
+        return self
+
+    def after_exec(self, pid):
+        self.call(pid, 72, (3,2,1,0,0,0))
+        self.call(pid, 72, (3,1,0,0,0,0), result=1)
+        self.enter(pid, 322, (3,0x402100,0x600500,0x600600,4096,0),
+            memory=[{"address":0x402100,"hex":"00"}])
+        self.exec_stop(pid)
+        self.call(pid, 157, (39,0,0,0,0,0), result=1)
+        self.call(pid, 157, (21,0,0,0,0,0), result=2)
+        self.marker(pid, 5)
+        self.call(pid, 39, result=pid if self.tasks[pid]["role"] == 0 else self.tasks[pid]["role"])
+
+    def negative_args(self):
+        simple = {2:57,3:58,4:435,5:425,6:426,7:427,8:0x40000027,9:20}
+        if self.case_id in simple:
+            return simple[self.case_id], (0,)*6, 0x40000003 if self.case_id == 9 else 0xC000003E
+        selected = {
+            10:(17,0,0,0,0,0), 11:(0x17E020011,0,0xA2,0xA3,0xA4,0xA5),
+            12:(0x7E020011,1<<32,0xA2,0xA3,0xA4,0xA5),
+            13:(0x01200011,0,0,0,0,0xA5), 14:(0x01200011,0,1<<32,self.child_tid,0,0xA5),
+            15:(0x01200011,0,0,self.child_tid,1<<32,0xA5),
+            16:(0x01200011,1<<32,0,self.child_tid,0,0xA5),
+            17:(0x101200011,0,0,self.child_tid,0,0xA5),
+            18:(0x01200111,0,0,self.child_tid,0,0xA5),
+        }
+        return 56, selected[self.case_id], 0xC000003E
+
+    def killed(self, pid, *, number=57, args=(0,)*6, arch=0xC000003E):
+        self.enter(pid, number, args, arch=arch)
+        self.resume(pid)
+        self.wait(pid, 31 | 128)
+
+    def birth(self, parent, role):
+        args = ((0x7E020011,0,0xA2,0xA3,0xA4,0xA5) if role == 1 else
+                (0x01200011,0,0,self.child_tid,0,0xA5))
+        memory = None if role == 1 else [{"address":self.child_tid,"hex":"00000000"}]
+        self.enter(parent, 56, args, memory=memory, maps=role == 2)
+        self.resume(parent)
+        child = self.acquire(role)
+        self.stop(parent, 1, number=56, args=args, child=child)
+        self.stop(child, number=56, args=args, result=0)
+        self.leave(parent, 56, args, result=child if role == 1 else role)
+        self.leave(child, 56, args, result=0)
+        if role == 1:
+            self.marker(child, 3)
+        else:
+            memory = [{"address":self.child_tid,"hex":struct.pack("<I",2).hex()}]
+            self.call(child, 39, result=2)
+            self.marker(child, 4, self.child_tid, 2, memory=memory, maps=True)
+        return child
+
+    def cleanup(self):
+        self.add("cleanup_begin", reason="normal")
+        if self.case_id == 21:
+            for pid in sorted(self.tasks, reverse=True):
+                self.add("pidfd_signal", pid=pid, pidfd=self.tasks[pid]["pidfd"],
+                         signal=9, result=0, errno=0)
+            # Deliberately drain in an order other than signaling order.
+            for pid in (self.root + 1,self.root + 2,self.root):
+                self.wait(pid, 9)
+        for pid, task in self.tasks.items():
+            self.add("pidfd_poll", pid=pid, pidfd=task["pidfd"], revents=17)
+        self.add("wait_drained", errno=10)
+        return self
+
+    def complete(self):
+        self.initial()
+        root = self.root
+        if self.case_id == 1:
+            self.call(root, 39, result=root)
+            self.marker(root, 8)
+            self.enter(root, 60)
+            self.resume(root)
+            self.wait(root, 0)
+        elif self.case_id < 19:
+            number, args, arch = self.negative_args()
+            self.killed(root, number=number, args=args, arch=arch)
+        elif self.case_id == 19:
+            self.after_exec(root)
+            self.killed(root)
+        else:
+            reaper = self.birth(root, 1)
+            if self.case_id == 21:
+                self.marker(root, 6, hold=True)
+            else:
+                self.enter(root, 61, (reaper,0x600700,0,0,0,0))
+                self.resume(root)
+            terminal = self.birth(reaper, 2)
+            if self.case_id == 21:
+                self.marker(reaper, 6, hold=True)
+            else:
+                self.enter(reaper, 61, (2,0x600700,0,0,0,0))
+                self.resume(reaper)
+            self.after_exec(terminal)
+            if self.case_id == 21:
+                self.marker(terminal, 6, hold=True)
+            else:
+                self.killed(terminal)
+                self.leave(reaper, 61, (2,0x600700,0,0,0,0), result=2)
+                self.marker(reaper, 7, 2, 159)
+                self.killed(reaper)
+                self.leave(root, 61, (reaper,0x600700,0,0,0,0), result=reaper)
+                self.marker(root, 7, reaper, 159)
+                self.killed(root)
+        return self.cleanup()
+
+
+def _containment_guard_qualification_replay(journal, events=None):
+    checker = containment_guard_qualification_checker()
+    state = checker.TraceState(journal.case_id, journal.observer, journal.probe)
+    for event in journal.events if events is None else events:
+        state.consume(event)
+    return state
+
+
+@pytest.mark.parametrize("case_id", range(1,22))
+def test_containment_guard_qualification_authored_case_journals_reconstruct(
+        containment_guard_qualification_probe, case_id):
+    journal = _ContainmentGuardQualificationJournal(case_id, containment_guard_qualification_probe).complete()
+    state = _containment_guard_qualification_replay(journal)
+    assert state.finished and state.terminal_ready and state.drained
+    assert len(state.tasks) == (3 if case_id in (20,21) else 1)
+
+
+def _containment_guard_qualification_resequence(events):
+    for index, event in enumerate(events):
+        event["seq"], event["t_ns"] = index, 1000000 + index * 1000
+    return events
+
+
+def _containment_guard_qualification_entry(event, number=None, *, marker=None):
+    if event.get("op") != "wait" or "syscall_info" not in event.get("raw", {}):
+        return False
+    raw = bytes.fromhex(event["raw"]["syscall_info"])
+    if len(raw) != 80 or raw[0] != 1:
+        return False
+    values = struct.unpack_from("<7Q", raw, 24)
+    if number is not None and values[0] != number:
+        return False
+    return marker is None or values[1:4] == (CONTAINMENT_GUARD_QUALIFIER_MARKER, marker[0], marker[1])
+
+
+def _containment_guard_qualification_change_call(event, *, number=None, arguments=None, arch=None):
+    old = bytes.fromhex(event["raw"]["syscall_info"])
+    old_arch = struct.unpack_from("<I", old, 4)[0]
+    old_number, *old_args = struct.unpack_from("<7Q", old, 24)
+    number = old_number if number is None else number
+    arguments = tuple(old_args) if arguments is None else tuple(arguments)
+    arch = old_arch if arch is None else arch
+    event["raw"]["syscall_info"] = _containment_guard_qualification_syscall_info(
+        number, arguments, arch=arch).hex()
+    event["raw"]["regs"] = _containment_guard_qualification_regs(number, arguments, arch=arch).hex()
+
+
+@pytest.mark.parametrize("role", [1,2])
+@pytest.mark.parametrize("order", ["parent_first", "child_wait_before_acquire", "child_acquired_and_stopped_first"])
+def test_containment_guard_qualification_birth_notifications_join_in_both_orders(
+        containment_guard_qualification_probe, role, order):
+    journal = _ContainmentGuardQualificationJournal(20, containment_guard_qualification_probe).complete()
+    events = copy.deepcopy(journal.events)
+    child = journal.root + role
+    acquire_index = next(i for i, event in enumerate(events)
+                         if event["op"] == "acquire" and event["pid"] == child)
+    acquire, parent_wait, child_wait = events[acquire_index:acquire_index+3]
+    assert parent_wait["status"] >> 16 == 1 and child_wait["status"] >> 16 == 128
+    if order == "child_wait_before_acquire":
+        events[acquire_index:acquire_index+3] = [child_wait, acquire, parent_wait]
+    elif order == "child_acquired_and_stopped_first":
+        events[acquire_index:acquire_index+3] = [acquire, child_wait, parent_wait]
+    state = _containment_guard_qualification_replay(journal,
+        _containment_guard_qualification_resequence(events))
+    assert state.finished and len(state.tasks) == 3 and not state.pending
+
+
+@pytest.mark.parametrize("role", [1,2])
+def test_containment_guard_qualification_parent_and_child_wait_for_the_stopped_birth_join(
+        containment_guard_qualification_probe, role):
+    journal = _ContainmentGuardQualificationJournal(20, containment_guard_qualification_probe).complete()
+    child = journal.root + role
+    at = next(i for i,event in enumerate(journal.events)
+              if event["op"] == "wait" and event["status"] >> 16 == 1
+              and int.from_bytes(bytes.fromhex(event["raw"]["event_message"]), "little") == child)
+    state = _containment_guard_qualification_replay(journal, journal.events[:at+1])
+    assert not state.can_resume(child)
+    assert not state.can_resume(child-1)
+    state.consume(journal.events[at+1])
+    assert state.can_resume(child) and state.can_resume(child-1)
+
+
+@pytest.mark.parametrize("fault", [
+    "guard_header_length", "guard_program_entry", "guard_program_exit", "guard_return",
+    "nnp_argument", "nnp_state", "duplicate_install", "root_uid_zero", "root_unequal_ids",
+    "root_capabilities", "wrong_tracer", "reused_starttime", "wrong_parent",
+    "missing_raw_status", "status_as_stat", "stat_as_status", "wrong_executable",
+    "wrong_exec_vector", "exec_step_flag", "unexpected_syscall", "wrong_negative_abi",
+    "wrong_negative_number", "negative_signal", "negative_returned", "extra_event_field",
+    "nonmonotonic_time", "duplicate_sequence", "false_bool_pid"])
+def test_containment_guard_qualification_rehashed_raw_transcript_changes_are_rejected(
+        containment_guard_qualification_probe, fault):
+    checker = containment_guard_qualification_checker()
+    journal = _ContainmentGuardQualificationJournal(2, containment_guard_qualification_probe).complete()
+    events = copy.deepcopy(journal.events)
+    install_at = next(i for i,e in enumerate(events) if _containment_guard_qualification_entry(e,157)
+        and struct.unpack_from("<Q", bytes.fromhex(e["raw"]["syscall_info"]), 32)[0] == 22)
+    install, install_exit = events[install_at], events[install_at+2]
+    preinstall = next(e for e in events if _containment_guard_qualification_entry(e,39,marker=(2,1)))
+    negative_at = next(i for i,e in enumerate(events) if _containment_guard_qualification_entry(e,57))
+    negative = events[negative_at]
+    if fault == "guard_header_length":
+        memory = bytearray.fromhex(install["memory"][0]["hex"])
+        struct.pack_into("<H",memory,0,35)
+        install["memory"][0]["hex"] = memory.hex()
+    elif fault in ("guard_program_entry","guard_program_exit"):
+        target = install if fault.endswith("entry") else install_exit
+        raw = bytearray.fromhex(target["memory"][1]["hex"])
+        raw[-1] ^= 1
+        target["memory"][1]["hex"] = raw.hex()
+    elif fault == "guard_return":
+        install_exit["raw"]["regs"] = _containment_guard_qualification_regs(157,
+            (22,2,journal.guard_header,0,0,0),result=-1).hex()
+        install_exit["raw"]["syscall_info"] = _containment_guard_qualification_syscall_info(
+            157,result=-1).hex()
+    elif fault == "nnp_argument":
+        target = next(e for e in events if _containment_guard_qualification_entry(e,157)
+            and struct.unpack_from("<Q",bytes.fromhex(e["raw"]["syscall_info"]),32)[0] == 38)
+        _containment_guard_qualification_change_call(target,arguments=(38,0,0,0,0,0))
+    elif fault == "nnp_state":
+        target = next(e for e in events if _containment_guard_qualification_entry(e,39,marker=(2,2)))
+        target["raw"]["status"] = bytes.fromhex(target["raw"]["status"]).replace(b"NoNewPrivs:\t1",b"NoNewPrivs:\t0").hex()
+    elif fault == "duplicate_install":
+        events[install_at+3:install_at+3] = copy.deepcopy(events[install_at-1:install_at+3])
+        _containment_guard_qualification_resequence(events)
+    elif fault in ("root_uid_zero","root_unequal_ids","root_capabilities"):
+        raw = bytes.fromhex(preinstall["raw"]["status"])
+        if fault == "root_uid_zero": raw = raw.replace(b"Uid:\t1000\t1000\t1000\t1000",b"Uid:\t0\t0\t0\t0")
+        if fault == "root_unequal_ids": raw = raw.replace(b"Uid:\t1000\t1000\t1000\t1000",b"Uid:\t1000\t1001\t1000\t1000")
+        if fault == "root_capabilities": raw = raw.replace(b"CapEff:\t0000000000000000",b"CapEff:\t0000000000000001")
+        preinstall["raw"]["status"] = raw.hex()
+    elif fault == "wrong_tracer":
+        preinstall["raw"]["status"] = bytes.fromhex(preinstall["raw"]["status"]).replace(b"TracerPid:\t100",b"TracerPid:\t101").hex()
+    elif fault == "reused_starttime":
+        preinstall["raw"]["stat"] = _containment_guard_qualification_stat(journal.root,journal.observer,start=99999).hex()
+    elif fault == "wrong_parent":
+        preinstall["raw"]["stat"] = _containment_guard_qualification_stat(journal.root,journal.observer+1,start=1000+journal.root).hex()
+        preinstall["raw"]["status"] = bytes.fromhex(preinstall["raw"]["status"]).replace(b"PPid:\t100",b"PPid:\t101").hex()
+    elif fault == "missing_raw_status":
+        del preinstall["raw"]["status"]
+    elif fault == "status_as_stat": preinstall["raw"]["stat"] = preinstall["raw"]["status"]
+    elif fault == "stat_as_status": preinstall["raw"]["status"] = preinstall["raw"]["stat"]
+    elif fault in ("wrong_executable","wrong_exec_vector","exec_step_flag"):
+        target = next(e for e in events if e["op"] == "wait" and e["status"] >> 16 == 4)
+        if fault == "wrong_executable": target["raw"]["exe"] = b"not-the-selected-ELF".hex()
+        elif fault == "wrong_exec_vector": target["raw"]["environ"] = b"LC_ALL=C\0TZ=UTC\0LD_PRELOAD=evil\0".hex()
+        else:
+            registers = bytearray.fromhex(target["raw"]["regs"])
+            flags = struct.unpack_from("<Q",registers,18*8)[0]
+            struct.pack_into("<Q",registers,18*8,flags | 0x100)
+            target["raw"]["regs"] = registers.hex()
+    elif fault == "unexpected_syscall": _containment_guard_qualification_change_call(negative,number=62)
+    elif fault == "wrong_negative_abi": _containment_guard_qualification_change_call(negative,arch=0x40000003)
+    elif fault == "wrong_negative_number": _containment_guard_qualification_change_call(negative,number=58)
+    elif fault == "negative_signal": events[negative_at+2]["status"] = 9
+    elif fault == "negative_returned":
+        target = events[negative_at+2]
+        target["status"] = 0x857F
+        target["raw"] = journal.identity(journal.root)
+        target["raw"]["regs"] = _containment_guard_qualification_regs(57,result=-1).hex()
+        target["raw"]["syscall_info"] = _containment_guard_qualification_syscall_info(57,result=-1).hex()
+    elif fault == "extra_event_field": preinstall["trusted"] = True
+    elif fault == "nonmonotonic_time": preinstall["t_ns"] = 0
+    elif fault == "duplicate_sequence": preinstall["seq"] = 0
+    elif fault == "false_bool_pid": events[0]["pid"] = True
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,events)
+
+
+@pytest.mark.parametrize("fault", ["l_flags", "l_stack", "second_before_first", "r_null_tid",
+    "r_readonly_tid", "r_nonzero_tid", "t_wrong_pointer", "t_wrong_kernel_value",
+    "t_wrong_namespace_pid", "missing_newborn_stop", "birth_duplicate", "extra_birth",
+    "inherited_filter_count", "inherited_nnp", "allowed_clone_errno"])
+def test_containment_guard_qualification_graph_relations_reject_incomplete_or_wrong_evidence(
+        containment_guard_qualification_probe, fault):
+    checker = containment_guard_qualification_checker()
+    journal = _ContainmentGuardQualificationJournal(20,containment_guard_qualification_probe).complete()
+    events = copy.deepcopy(journal.events)
+    clones = [e for e in events if _containment_guard_qualification_entry(e,56)]
+    left,right = clones
+    if fault in ("l_flags","l_stack","second_before_first"):
+        args = (0x7E020011,0,0xA2,0xA3,0xA4,0xA5)
+        if fault == "l_flags": args = (args[0] ^ 0x20000,*args[1:])
+        if fault == "l_stack": args = (args[0],1,*args[2:])
+        if fault == "second_before_first": args = (0x01200011,0,0,journal.child_tid,0,0xA5)
+        _containment_guard_qualification_change_call(left,arguments=args)
+    elif fault == "r_null_tid": _containment_guard_qualification_change_call(right,arguments=(0x01200011,0,0,0,0,0xA5))
+    elif fault == "r_readonly_tid": right["raw"]["maps"] = bytes.fromhex(right["raw"]["maps"]).replace(b"00600000-00601000 rw-p",b"00600000-00601000 r--p").hex()
+    elif fault == "r_nonzero_tid": right["memory"][0]["hex"] = "01000000"
+    elif fault.startswith("t_wrong"):
+        target = next(e for e in events if _containment_guard_qualification_entry(e,39,marker=(20,4)))
+        if fault == "t_wrong_pointer": _containment_guard_qualification_change_call(target,arguments=(CONTAINMENT_GUARD_QUALIFIER_MARKER,20,4,2,journal.child_tid+4,2))
+        if fault == "t_wrong_kernel_value": target["memory"][0]["hex"] = "03000000"
+        if fault == "t_wrong_namespace_pid": target["raw"]["status"] = bytes.fromhex(target["raw"]["status"]).replace(("NSpid:\t"+str(journal.root+2)+"\t2").encode(),("NSpid:\t"+str(journal.root+2)+"\t3").encode()).hex()
+    elif fault == "missing_newborn_stop":
+        at = next(i for i,e in enumerate(events) if e["op"] == "wait" and e["pid"] == journal.root+1 and e["status"]>>16 == 128)
+        del events[at]
+        _containment_guard_qualification_resequence(events)
+    elif fault in ("birth_duplicate","extra_birth"):
+        target = next(e for e in events if e["op"] == "wait" and e["status"]>>16 == 1)
+        target["raw"]["event_message"] = struct.pack("<Q",journal.root if fault=="birth_duplicate" else 999999).hex()
+    elif fault in ("inherited_filter_count","inherited_nnp"):
+        target = next(e for e in events if _containment_guard_qualification_entry(e,39,marker=(20,3)))
+        raw = bytes.fromhex(target["raw"]["status"])
+        target["raw"]["status"] = raw.replace(b"Seccomp_filters:\t2",b"Seccomp_filters:\t1").hex() if fault.endswith("count") else raw.replace(b"NoNewPrivs:\t1",b"NoNewPrivs:\t0").hex()
+    elif fault == "allowed_clone_errno":
+        at = events.index(left)
+        target = copy.deepcopy(events[at])
+        target["raw"]["regs"] = _containment_guard_qualification_regs(56,result=-1).hex()
+        target["raw"]["syscall_info"] = _containment_guard_qualification_syscall_info(56,result=-1).hex()
+        target["memory"] = []
+        events = events[:at+2] + [target]
+        _containment_guard_qualification_resequence(events)
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,events)
+
+
+@pytest.mark.parametrize("fault", ["readable_zombie_only", "missing_final_drain", "wrong_pidfd",
+    "early_hangup", "wrong_drain_errno", "wrong_signal", "numeric_pid_substitution",
+    "signal_retry", "forward_signal_order", "resume_parked_terminal", "post_cleanup_resume",
+    "failed_signal_then_removal"])
+def test_containment_guard_qualification_cleanup_requires_complete_owned_removal(
+        containment_guard_qualification_probe, fault):
+    checker = containment_guard_qualification_checker()
+    journal = _ContainmentGuardQualificationJournal(21,containment_guard_qualification_probe).complete()
+    events = copy.deepcopy(journal.events)
+    cleanup_at = next(i for i,e in enumerate(events) if e["op"] == "cleanup_begin")
+    poll = next(e for e in events if e["op"] == "pidfd_poll")
+    signals = [e for e in events if e["op"] == "pidfd_signal"]
+    if fault == "readable_zombie_only":
+        for e in events:
+            if e["op"] == "pidfd_poll": e["revents"] = 1
+    elif fault == "missing_final_drain":
+        state = _containment_guard_qualification_replay(journal,events[:-1])
+        assert not state.finished and not state.drained
+        return
+    elif fault == "wrong_pidfd": poll["pidfd"] += 100
+    elif fault == "early_hangup":
+        events.remove(poll)
+        events.insert(cleanup_at+1,poll)
+        _containment_guard_qualification_resequence(events)
+    elif fault == "wrong_drain_errno": events[-1]["errno"] = 3
+    elif fault == "wrong_signal": signals[0]["signal"] = 15
+    elif fault == "numeric_pid_substitution": signals[0]["pidfd"] = signals[0]["pid"]
+    elif fault == "signal_retry":
+        events.insert(cleanup_at+2,copy.deepcopy(signals[0]))
+        _containment_guard_qualification_resequence(events)
+    elif fault == "forward_signal_order":
+        events[cleanup_at+1:cleanup_at+4] = list(reversed(events[cleanup_at+1:cleanup_at+4]))
+        _containment_guard_qualification_resequence(events)
+    elif fault in ("resume_parked_terminal","post_cleanup_resume"):
+        events.insert(cleanup_at if fault == "resume_parked_terminal" else cleanup_at+1,
+            {"seq":0,"t_ns":0,"op":"resume","pid":journal.root+2,"request":"syscall","signal":0})
+        _containment_guard_qualification_resequence(events)
+    elif fault == "failed_signal_then_removal":
+        signals[0]["result"],signals[0]["errno"] = -1,3
+        state = _containment_guard_qualification_replay(journal,events)
+        assert state.failure and not state.finished
+        return
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,events)
+
+
+def test_containment_guard_qualification_multiple_terminal_notifications_are_not_exactly_three_waits(
+        containment_guard_qualification_probe):
+    journal = _ContainmentGuardQualificationJournal(21,containment_guard_qualification_probe).complete()
+    events = copy.deepcopy(journal.events)
+    final = next(i for i,e in enumerate(events) if e["op"] == "pidfd_poll")
+    events.insert(final,{"seq":0,"t_ns":0,"op":"wait","pid":journal.root+2,
+                        "status":9,"raw":{},"memory":[]})
+    state = _containment_guard_qualification_replay(journal,
+        _containment_guard_qualification_resequence(events))
+    assert state.finished and sum(len(task["terminal"]) for task in state.tasks.values()) == 4
+
+
+def _containment_guard_qualification_environment():
+    names = ("cgroup","ipc","mnt","net","pid","pid_for_children","time","time_for_children","user","uts")
+    namespaces = {name:name.removesuffix("_for_children")+": [123]" for name in names}
+    namespaces = {name:value.replace(": ",":") for name,value in namespaces.items()}
+    return {"uname":{"sysname":"Linux","release":"6.12.0-fixture","version":"authored test data","machine":"x86_64"},
+        "boot_id":"12345678-1234-1234-1234-123456789abc","observer_executable":bound(b"authored observer bytes"),
+        "python_version":[3,12,14],"ids":{"uid":1000,"euid":1000,"gid":1000,"egid":1000},
+        "security":{"NoNewPrivs":0,"Seccomp":2,"Seccomp_filters":1,
+            **{name:"0000000000000000" for name in ("CapEff","CapPrm","CapInh","CapBnd","CapAmb")}},
+        "lsm_label_hex":b"authored-test-label\n".hex(),"namespaces":namespaces}
+
+
+def _containment_guard_qualification_observer():
+    return {"pid":100,"stat_hex":_containment_guard_qualification_stat(100,1,start=500,state="R").hex(),
+        "status_hex":_containment_guard_qualification_status(100,1,0,state="R").hex(),
+        "sigaction_hex":bytes(152).hex(),"subreaper_before":0,"subreaper_after":1,"subreaper_restored":0}
+
+
+@pytest.fixture(scope="module")
+def containment_guard_qualification_record(containment_guard_qualification_probe):
+    checker = containment_guard_qualification_checker()
+    source_inputs = {path:(ROOT/path).read_bytes() for path in checker.SOURCE_PATHS}
+    inventory = checker.source_inventory(inputs=source_inputs)
+    probe = containment_guard_qualification_probe
+    cases = []
+    for case_id in range(1,22):
+        journal = _ContainmentGuardQualificationJournal(case_id,probe).complete()
+        offset = case_id * 1_000_000_000
+        events = copy.deepcopy(journal.events)
+        for event in events:
+            event["t_ns"] += offset
+        cases.append({"case_id":case_id,"started_ns":events[0]["t_ns"]-1000,
+            "finished_ns":events[-1]["t_ns"]+1000,"failure":None,"cleanup_failures":[],
+            "stdout_hex":"","stderr_hex":"","unresolved_tasks":[],"events":events})
+    environment = _containment_guard_qualification_environment()
+    record = {"record_type":checker.RECORD_TYPE,"profile":checker.PROFILE,
+        "evidence_origin":"scripted_test_backend","attempt_id":"1"*32,"status":"completed",
+        "failure":None,"cleanup_failures":[],"probe":{**bound(probe),"hex":probe.hex()},
+        "environment":environment,"environment_after":copy.deepcopy(environment),
+        "observer":_containment_guard_qualification_observer(),"sources":inventory,"sources_after":copy.deepcopy(inventory),
+        "limits":copy.deepcopy(checker.LIMITS),"boundary":copy.deepcopy(checker.BOUNDARY),
+        "timing":{"started_ns":1000,"finished_ns":cases[-1]["finished_ns"]+1000},"cases":cases}
+    return SimpleNamespace(checker=checker,record=record,raw=encoded(record),source_inputs=source_inputs,
+        probe=probe,environment_sha=digest(encoded(environment)))
+
+
+def _containment_guard_qualification_check(case, record=None, **overrides):
+    raw = case.raw if record is None else encoded(record)
+    values = {"record_bytes":raw,"expected_record_sha256":digest(raw),
+        "expected_probe_sha256":digest(case.probe),"expected_environment_sha256":case.environment_sha,
+        "source_inputs":case.source_inputs}
+    values.update(overrides)
+    return case.checker.verify_record(**values)
+
+
+def test_containment_guard_qualification_complete_scripted_record_has_no_native_authority(
+        containment_guard_qualification_record, monkeypatch):
+    import ctypes
+    import socket
+    case = containment_guard_qualification_record
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("data-only record verification attempted execution or networking")
+    for owner,name in ((subprocess,"Popen"),(subprocess,"run"),(os,"fork"),(os,"execve"),
+                       (ctypes,"CDLL"),(socket,"socket")):
+        monkeypatch.setattr(owner,name,forbidden)
+    report = _containment_guard_qualification_check(case)
+    assert report["status"] == "accepted_scripted_guard_probe_record"
+    assert report["complete_guard_probe_sequence_verified"] is True
+    assert report["prerequisite_source_contract_verified"] is True
+    assert report["native_guard_probe_record_verified"] is False
+    assert report["case_count"] == 21 and report["record"] == bound(case.raw)
+    for name,value in case.checker.BOUNDARY.items():
+        assert report[name] == value
+
+
+@pytest.mark.parametrize("field", ["expected_record_sha256","expected_probe_sha256","expected_environment_sha256"])
+def test_containment_guard_qualification_external_expected_bindings_are_required(
+        containment_guard_qualification_record, field):
+    case = containment_guard_qualification_record
+    with pytest.raises(case.checker.QualificationError):
+        _containment_guard_qualification_check(case,**{field:"0"*64})
+
+
+@pytest.mark.parametrize("fault", ["missing_case","case_order","case_failure","cleanup_failure","nonempty_stdout",
+    "nonempty_stderr","changed_environment","root_environment","changed_sources","missing_source",
+    "changed_frozen_source","source_input_extra","boundary_promotion","limits_growth","unknown_origin",
+    "observer_threads","observer_subreaper","observer_sigchld_ignore","observer_no_cld_wait",
+    "observer_uid_mismatch","case_deadline","suite_deadline","changed_guard_elf"])
+def test_containment_guard_qualification_record_relations_cannot_be_rehashed_away(
+        containment_guard_qualification_record, fault):
+    case = containment_guard_qualification_record
+    record = copy.deepcopy(case.record)
+    inputs = dict(case.source_inputs)
+    if fault == "missing_case": record["cases"].pop()
+    elif fault == "case_order": record["cases"][0]["case_id"] = 2
+    elif fault == "case_failure": record["cases"][0]["failure"] = "authored_failure"
+    elif fault == "cleanup_failure": record["cases"][0]["cleanup_failures"] = ["authored_cleanup_failure"]
+    elif fault == "nonempty_stdout": record["cases"][0]["stdout_hex"] = "61"
+    elif fault == "nonempty_stderr": record["cases"][0]["stderr_hex"] = "61"
+    elif fault == "changed_environment": record["environment_after"]["uname"]["release"] += "-changed"
+    elif fault == "root_environment": record["environment"]["ids"]["uid"] = 0
+    elif fault == "changed_sources": record["sources_after"][0]["sha256"] = "0"*64
+    elif fault == "missing_source": record["sources"].pop()
+    elif fault == "changed_frozen_source": inputs[next(iter(case.checker.FROZEN_SOURCES))] += b"\n"
+    elif fault == "source_input_extra": inputs["tools/unreviewed_extra.py"] = b"pass\n"
+    elif fault == "boundary_promotion": record["boundary"]["b2_complete"] = True
+    elif fault == "limits_growth": record["limits"]["case_seconds"] += 1
+    elif fault == "unknown_origin": record["evidence_origin"] = "trusted_native"
+    elif fault == "observer_threads": record["observer"]["status_hex"] = bytes.fromhex(record["observer"]["status_hex"]).replace(b"Threads:\t1",b"Threads:\t2").hex()
+    elif fault == "observer_subreaper": record["observer"]["subreaper_restored"] = 1
+    elif fault in ("observer_sigchld_ignore","observer_no_cld_wait"):
+        action = bytearray(152)
+        struct.pack_into("<Q" if fault.endswith("ignore") else "<I",action,0 if fault.endswith("ignore") else 136,1 if fault.endswith("ignore") else 2)
+        record["observer"]["sigaction_hex"] = action.hex()
+    elif fault == "observer_uid_mismatch": record["observer"]["status_hex"] = bytes.fromhex(record["observer"]["status_hex"]).replace(b"1000",b"1001").hex()
+    elif fault == "case_deadline":
+        first = record["cases"][0]
+        first["finished_ns"] = first["started_ns"]+11_000_000_000
+    elif fault == "suite_deadline": record["timing"]["finished_ns"] += 300_000_000_000
+    elif fault == "changed_guard_elf":
+        raw = bytearray(case.probe)
+        location = raw.index(case.checker.GUARD_BYTES)
+        raw[location] ^= 1
+        changed = bytes(raw)
+        record["probe"] = {**bound(changed),"hex":changed.hex()}
+        with pytest.raises(case.checker.QualificationError):
+            _containment_guard_qualification_check(case,record,source_inputs=inputs,expected_probe_sha256=digest(changed))
+        return
+    with pytest.raises(case.checker.QualificationError):
+        _containment_guard_qualification_check(case,record,source_inputs=inputs)
+
+
+@pytest.mark.parametrize("raw", [b'{"a":1,"a":2}\n',b'{"a":1.0}\n',b'{"a":NaN}\n',
+    b'{"a":Infinity}\n',b'{"a":-Infinity}\n',b'{"a": 1}\n',b'{"a":1}',b'\xef\xbb\xbf{}\n',
+    b'{"a":18446744073709551616}\n',b'[]\n\n',b'{"a":"\xff"}\n',b''])
+def test_containment_guard_qualification_strict_json_rejects_ambiguous_or_unbounded_input(raw):
+    checker = containment_guard_qualification_checker()
+    with pytest.raises(checker.QualificationError):
+        checker.parse(raw)
+
+
+@pytest.mark.parametrize("created", [0,1,2,3])
+def test_containment_guard_qualification_incomplete_prefix_never_claims_native_success(
+        containment_guard_qualification_record, created):
+    case = containment_guard_qualification_record
+    record = copy.deepcopy(case.record)
+    record["status"],record["failure"] = "incomplete","authored_interrupted_prefix"
+    record["environment_after"],record["sources_after"] = None,None
+    if created == 0:
+        record["cases"] = []
+    else:
+        record["cases"] = copy.deepcopy(case.record["cases"][:20])
+        last = record["cases"][-1]
+        own = [i for i,e in enumerate(last["events"]) if e["op"] in ("spawn","acquire")]
+        last["events"] = last["events"][:own[created-1]+1]
+        last["failure"],last["cleanup_failures"] = "authored_interrupted_prefix",["authored_unproven_removal"]
+    report = _containment_guard_qualification_check(case,record)
+    assert report["status"] == "preserved_incomplete"
+    assert report["complete_guard_probe_sequence_verified"] is False
+    assert report["native_guard_probe_record_verified"] is False
+    assert report["b2_complete"] is False and report["authority_effect"] == "none"
+
+
+class _ScriptedContainmentGuardQualificationBackend:
+    """Feed authored raw events through the real controller, without native I/O."""
+    evidence_origin = "native_owned_probe"  # Deliberately untrusted backend claim.
+    observer_pid = 100
+    def __init__(self, probe):
+        self.probe, self.now, self.events, self.emit = probe,1000,[],None
+        self.prepared, self.restored = 0,0
+        self.begun = []
+
+    def clock(self):
+        self.now += 1000
+        return self.now
+
+    def source_inventory(self):
+        return containment_guard_qualification_checker().source_inventory()
+
+    def context(self):
+        return _containment_guard_qualification_environment()
+
+    def prepare_observer(self):
+        self.prepared += 1
+        value = _containment_guard_qualification_observer()
+        value["subreaper_restored"] = None
+        return value
+
+    def restore_observer(self):
+        self.restored += 1
+        return 0
+
+    def _emit_next(self):
+        event = self.events.pop(0)
+        self.emit({key:value for key,value in event.items() if key not in ("seq","t_ns")})
+        return event
+
+    def begin_case(self, case_id, probe_bytes, emit, deadline):
+        assert probe_bytes == self.probe
+        self.begun.append(case_id)
+        journal = _ContainmentGuardQualificationJournal(case_id,self.probe).complete()
+        self.events = copy.deepcopy(journal.events)
+        self.emit = emit
+        for operation in ("spawn","seize","interrupt"):
+            assert self.events[0]["op"] == operation
+            self._emit_next()
+        return journal.root
+
+    def stopped(self):
+        if self.events and self.events[0]["op"] == "release":
+            return [(self.events[0]["pid"],"cont")]
+        if self.events and self.events[0]["op"] == "resume":
+            return [(self.events[0]["pid"],self.events[0]["request"])]
+        return []
+
+    def release(self,pid):
+        assert self.events[0]["op"] == "release" and self.events[0]["pid"] == pid
+        self._emit_next()
+
+    def resume(self,pid,request):
+        assert self.events[0]["op"] == "resume" and self.events[0]["pid"] == pid
+        assert self.events[0]["request"] == request
+        self._emit_next()
+
+    def poll_wait(self,*,cleanup=False):
+        assert not cleanup
+        while self.events and self.events[0]["op"] == "acquire":
+            self._emit_next()
+        if self.events and self.events[0]["op"] in ("resume","release"):
+            return None
+        assert self.events[0]["op"] == "wait", self.events[0]
+        return self._emit_next()
+
+    def cleanup(self,reason,emit,deadline):
+        assert reason == "normal"
+        assert self.events[0]["op"] == "cleanup_begin"
+        while self.events:
+            self._emit_next()
+        return []
+
+    def unresolved_tasks(self):
+        return []
+
+    def finish_case(self):
+        assert self.events == []
+        return {"stdout_hex":"","stderr_hex":"","unresolved_tasks":[]},[]
+
+
+@pytest.mark.parametrize("case_id",range(1,22))
+def test_containment_guard_qualification_real_controller_consumes_scripted_raw_cases(
+        containment_guard_qualification_probe, case_id):
+    producer = containment_guard_qualification_producer()
+    backend = _ScriptedContainmentGuardQualificationBackend(containment_guard_qualification_probe)
+    row = producer.collect_case(backend,case_id,containment_guard_qualification_probe,10**12)
+    assert row["failure"] is None and row["cleanup_failures"] == []
+    assert row["stdout_hex"] == row["stderr_hex"] == ""
+    state = producer.checker.TraceState(case_id,backend.observer_pid,containment_guard_qualification_probe)
+    for event in row["events"]:
+        state.consume(event)
+    assert state.finished and state.drained
+
+
+@pytest.mark.parametrize("explicit_native_instance",[False,True])
+def test_containment_guard_qualification_explicit_backend_never_selects_native_origin(
+        containment_guard_qualification_probe, monkeypatch, explicit_native_instance):
+    producer = containment_guard_qualification_producer()
+    scripted = _ScriptedContainmentGuardQualificationBackend(containment_guard_qualification_probe)
+    backend = scripted
+    if explicit_native_instance:
+        backend = producer.NativeBackend()
+        backend.observer_pid = 100
+        for name in ("clock","source_inventory","context","prepare_observer","restore_observer",
+                     "begin_case","stopped","release","resume","poll_wait","cleanup","finish_case","unresolved_tasks"):
+            monkeypatch.setattr(backend,name,getattr(scripted,name))
+    def forbidden(*_args,**_kwargs):
+        pytest.fail("explicit scripted qualification attempted native execution")
+    monkeypatch.setattr(os,"fork",forbidden)
+    import ctypes
+    monkeypatch.setattr(ctypes,"CDLL",forbidden)
+    probe = containment_guard_qualification_probe
+    result = producer.qualify(probe_bytes=probe,expected_probe_sha256=digest(probe),
+        expected_environment_sha256=digest(encoded(scripted.context())),
+        acknowledgement=producer.ACKNOWLEDGEMENT,backend=backend)
+    assert result["status"] == "completed", result["failure"]
+    assert result["evidence_origin"] == "scripted_test_backend"
+    assert scripted.prepared == scripted.restored == 1 and scripted.begun == list(range(1,22))
+    raw = encoded(result)
+    report = producer.checker.verify_record(record_bytes=raw,expected_record_sha256=digest(raw),
+        expected_probe_sha256=digest(probe),expected_environment_sha256=digest(encoded(scripted.context())))
+    assert report["native_guard_probe_record_verified"] is False
+    assert report["complete_guard_probe_sequence_verified"] is True
+
+
+@pytest.mark.parametrize("field",["stat","status","maps","cmdline","environ","exe"])
+def test_containment_guard_qualification_native_proc_dispatch_uses_exact_field(
+        monkeypatch,field):
+    producer = containment_guard_qualification_producer()
+    backend = producer.NativeBackend()
+    backend.tasks[1234] = {"procfd":42}
+    calls = []
+    def read(path,maximum,**options):
+        calls.append((path,maximum,options))
+        return ("raw:"+path).encode()
+    monkeypatch.setattr(backend,"_read_path",read)
+    result = backend.read_task(1234,field)
+    assert result == ("raw:"+field).encode()
+    assert calls == [(field,producer.ELF_LIMIT if field=="exe" else
+        4096 if field in ("cmdline","environ") else producer.PROC_LIMIT,
+        {"directory":42,"follow":field=="exe"})]
+
+
+@pytest.mark.parametrize("field",["child.stat","child.status","status.setup","../status","fd/3",""])
+def test_containment_guard_qualification_native_proc_dispatch_refuses_aliases(monkeypatch,field):
+    producer = containment_guard_qualification_producer()
+    backend = producer.NativeBackend()
+    backend.tasks[1234] = {"procfd":42}
+    def forbidden(*_args,**_kwargs):
+        pytest.fail("unselected proc field reached I/O")
+    monkeypatch.setattr(backend,"_read_path",forbidden)
+    with pytest.raises(producer.QualificationError):
+        backend.read_task(1234,field)
+
+
+@pytest.mark.parametrize("ptrace_request",[0,3,4,5,6,8,9,13,16,17,0x4204,0x4205,0x4208])
+def test_containment_guard_qualification_native_ptrace_rejects_unselected_controls_before_loading_libc(
+        monkeypatch,ptrace_request):
+    producer = containment_guard_qualification_producer()
+    backend = producer.NativeBackend()
+    backend.tasks[1234] = {}
+    def forbidden(*_args,**_kwargs):
+        pytest.fail("forbidden ptrace operation reached libc")
+    monkeypatch.setattr(backend,"_load_libc",forbidden)
+    with pytest.raises(producer.QualificationError):
+        backend._ptrace(ptrace_request,1234)
+
+
+@pytest.mark.parametrize("created",[0,1,2,3])
+def test_containment_guard_qualification_native_cleanup_signals_owned_pidfds_and_drains_globally(
+        monkeypatch,created):
+    import signal
+    producer = containment_guard_qualification_producer()
+    backend = producer.NativeBackend()
+    calls,events = [],[]
+    for role in range(created):
+        backend.tasks[200+role] = {"order":role,"pidfd":10+role,"terminal":False}
+    order = list(reversed(list(backend.tasks)))
+    if created == 3:
+        order = [201,202,200,202]  # A separate tracing/adoption/final-reaping notification.
+    waits = list(order)
+    done = []
+    def poll_wait(*,cleanup=False):
+        assert cleanup
+        if waits:
+            pid = waits.pop(0)
+            backend.tasks[pid]["terminal"] = True
+            done.append(pid)
+            return {"op":"wait","pid":pid,"status":9}
+        return "drained"
+    class Poll:
+        def register(self,descriptor,mask): self.descriptor=descriptor
+        def poll(self,timeout):
+            assert timeout == 0
+            return [(self.descriptor,17 if not waits else 1)]
+    def send(descriptor,sig,info,flags): calls.append((descriptor,sig,info,flags))
+    def forbidden(*_args,**_kwargs): pytest.fail("cleanup attempted numeric-PID signal or ptrace resume")
+    monkeypatch.setattr(backend,"_deadline",lambda *args:None)
+    monkeypatch.setattr(backend,"_close_barrier",lambda:None)
+    monkeypatch.setattr(backend,"poll_wait",poll_wait)
+    monkeypatch.setattr(producer.select,"poll",Poll)
+    monkeypatch.setattr(producer.time,"sleep",lambda *_args:None)
+    monkeypatch.setattr(signal,"pidfd_send_signal",send)
+    monkeypatch.setattr(os,"kill",forbidden)
+    monkeypatch.setattr(backend,"_ptrace",forbidden)
+    errors = backend.cleanup("failure",events.append,10**12)
+    assert errors == []
+    assert calls == [(10+role,9,None,0) for role in reversed(range(created))]
+    assert done == order
+    assert events[-1] == {"op":"wait_drained","errno":10}
+    assert sum(event["op"]=="pidfd_signal" for event in events) == created
+
+
+def test_containment_guard_qualification_native_cleanup_missing_pidfd_never_falls_back_to_pid(
+        monkeypatch):
+    import signal
+    producer = containment_guard_qualification_producer()
+    backend = producer.NativeBackend()
+    backend.tasks[1234] = {"order":0,"pidfd":None,"terminal":False}
+    turns = []
+    def deadline(*args):
+        if len(turns)>2: raise producer.QualificationError("authored_cleanup_deadline")
+    def poll_wait(*,cleanup=False):
+        turns.append(1)
+        backend.tasks[1234]["terminal"] = True
+        return "drained"
+    def forbidden(*args,**kwargs): pytest.fail("missing-pidfd cleanup attempted a signal fallback")
+    monkeypatch.setattr(backend,"_deadline",deadline)
+    monkeypatch.setattr(backend,"_close_barrier",lambda:None)
+    monkeypatch.setattr(backend,"poll_wait",poll_wait)
+    monkeypatch.setattr(producer.time,"sleep",lambda *_args:None)
+    monkeypatch.setattr(os,"kill",forbidden)
+    monkeypatch.setattr(signal,"pidfd_send_signal",forbidden)
+    errors = backend.cleanup("failure",lambda event:None,10**12)
+    assert "task_guard_native_cleanup_pidfd_missing" in errors
+    assert "task_guard_native_cleanup_incomplete" in errors
+
+
+def test_containment_guard_qualification_primary_and_cleanup_failures_are_preserved_separately(
+        containment_guard_qualification_probe):
+    producer = containment_guard_qualification_producer()
+    class Broken:
+        observer_pid=100
+        now=0
+        def clock(self): self.now+=1; return self.now
+        def begin_case(self,*args): raise producer.QualificationError("authored_primary_failure")
+        def cleanup(self,reason,emit,deadline):
+            assert reason=="failure"
+            emit({"op":"cleanup_begin","reason":"failure"})
+            return ["authored_cleanup_failure"]
+        def finish_case(self): return {"stdout_hex":"","stderr_hex":"","unresolved_tasks":[]},["authored_close_failure"]
+        def unresolved_tasks(self): return []
+    result = producer.collect_case(Broken(),1,containment_guard_qualification_probe,10**12)
+    assert result["failure"] == "authored_primary_failure"
+    assert result["cleanup_failures"] == ["authored_cleanup_failure","authored_close_failure"]
+    assert result["events"][0]["op"] == "cleanup_begin"
+
+
+def _containment_guard_qualification_sigchld(journal, events, role, *, before_child_terminal=False):
+    parent, child = journal.root+role,journal.root+role+1
+    child_pid = child if role==0 else 2
+    raw = journal.identity(parent)
+    info = bytearray(128)
+    struct.pack_into("<iii",info,0,17,0,3)
+    struct.pack_into("<iIi",info,16,child_pid,1000,31)
+    raw.update(regs=_containment_guard_qualification_regs(61,result=-512).hex(),siginfo=info.hex())
+    wait = {"seq":0,"t_ns":0,"op":"wait","pid":parent,"status":0x117F,"raw":raw,"memory":[]}
+    resume = {"seq":0,"t_ns":0,"op":"resume","pid":parent,"request":"syscall","signal":17}
+    terminal_at = next(i for i,event in enumerate(events) if event["op"]=="wait"
+                       and event["pid"]==child and event["status"]==159)
+    if before_child_terminal:
+        events.insert(terminal_at,wait)
+        events.insert(terminal_at+2,resume)
+    else:
+        events.insert(terminal_at+1,wait)
+        events.insert(terminal_at+2,resume)
+    return _containment_guard_qualification_resequence(events)
+
+
+@pytest.mark.parametrize("role",[0,1])
+@pytest.mark.parametrize("before_child_terminal",[False,True])
+def test_containment_guard_qualification_sigchld_is_joined_and_forwarded_unchanged(
+        containment_guard_qualification_probe, role, before_child_terminal):
+    journal = _ContainmentGuardQualificationJournal(20,containment_guard_qualification_probe).complete()
+    events = _containment_guard_qualification_sigchld(journal,copy.deepcopy(journal.events),role,
+        before_child_terminal=before_child_terminal)
+    state = _containment_guard_qualification_replay(journal,events)
+    assert state.finished
+    assert state.tasks[journal.root+role]["sigchld_seen"]
+
+
+@pytest.mark.parametrize("fault",["wrong_pid","wrong_signal","wrong_status","wrong_code",
+    "missing_info","short_info","suppressed_signal","changed_signal","duplicate_delivery"])
+def test_containment_guard_qualification_sigchld_cannot_be_suppressed_or_fabricated(
+        containment_guard_qualification_probe, fault):
+    checker = containment_guard_qualification_checker()
+    journal = _ContainmentGuardQualificationJournal(20,containment_guard_qualification_probe).complete()
+    events = _containment_guard_qualification_sigchld(journal,copy.deepcopy(journal.events),1)
+    at = next(i for i,e in enumerate(events) if e["op"]=="wait" and e["status"]==0x117F)
+    event = events[at]
+    if fault.startswith("wrong_"):
+        raw = bytearray.fromhex(event["raw"]["siginfo"])
+        offset,value = {"wrong_pid":(16,999),"wrong_signal":(0,15),"wrong_status":(24,9),"wrong_code":(8,1)}[fault]
+        struct.pack_into("<i",raw,offset,value)
+        event["raw"]["siginfo"] = raw.hex()
+    elif fault == "missing_info": del event["raw"]["siginfo"]
+    elif fault == "short_info": event["raw"]["siginfo"] = bytes(127).hex()
+    elif fault == "suppressed_signal": events[at+1]["signal"] = 0
+    elif fault == "changed_signal": events[at+1]["signal"] = 9
+    elif fault == "duplicate_delivery":
+        events[at+2:at+2] = copy.deepcopy(events[at:at+2])
+        _containment_guard_qualification_resequence(events)
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,events)
+
+
+def test_containment_guard_qualification_cleanup_accepts_owned_queued_stops_without_reading_dead_tasks(
+        containment_guard_qualification_probe):
+    journal = _ContainmentGuardQualificationJournal(21,containment_guard_qualification_probe).complete()
+    events = copy.deepcopy(journal.events)
+    at = next(i for i,e in enumerate(events) if e["op"]=="cleanup_begin")+4
+    events.insert(at,{"seq":0,"t_ns":0,"op":"wait","pid":journal.root+2,
+                      "status":0x80057F,"raw":{},"memory":[]})
+    state = _containment_guard_qualification_replay(journal,
+        _containment_guard_qualification_resequence(events))
+    assert state.finished
+
+
+@pytest.mark.parametrize("completed",[False,True])
+def test_containment_guard_qualification_finish_retains_every_unresolved_task_handle(
+        monkeypatch,completed):
+    producer = containment_guard_qualification_producer()
+    backend = producer.NativeBackend()
+    backend.tasks[1234] = {"pidfd":10,"procfd":11,"terminal":completed,"hangup":completed}
+    backend.opened = {10,11,12}
+    closed = []
+    monkeypatch.setattr(os,"close",closed.append)
+    output,errors = backend.finish_case()
+    assert output["stdout_hex"]==output["stderr_hex"]==""
+    if completed:
+        assert closed == [12,11,10] and backend.opened==set() and backend.tasks=={}
+        assert errors==[]
+    else:
+        assert closed == [12] and backend.opened=={10,11} and 1234 in backend.tasks
+        assert errors==["task_guard_native_requires_observer_exit"]
+        assert backend.unresolved_tasks()==[{"pid":1234,"pidfd":10,"terminal":False,"hangup":False}]
+
+
+def test_containment_guard_qualification_cleanup_continues_when_evidence_publication_fails(monkeypatch):
+    import signal
+    producer = containment_guard_qualification_producer()
+    backend = producer.NativeBackend()
+    for role in range(3):
+        backend.tasks[200+role]={"order":role,"pidfd":10+role,"terminal":False}
+    calls,emissions=[],[]
+    def emit(event):
+        emissions.append(event)
+        if event["op"]=="cleanup_begin":
+            raise producer.QualificationError("authored_cleanup_record_failure")
+    def poll_wait(*,cleanup=False):
+        assert cleanup
+        for task in backend.tasks.values(): task["terminal"]=True
+        return "drained"
+    class Poll:
+        def register(self,fd,mask): self.fd=fd
+        def poll(self,timeout): return [(self.fd,17)]
+    monkeypatch.setattr(backend,"_deadline",lambda *args:None)
+    monkeypatch.setattr(backend,"_close_barrier",lambda:None)
+    monkeypatch.setattr(backend,"poll_wait",poll_wait)
+    monkeypatch.setattr(producer.select,"poll",Poll)
+    monkeypatch.setattr(signal,"pidfd_send_signal",lambda fd,sig,info,flags:calls.append((fd,sig)))
+    errors=backend.cleanup("failure",emit,10**12)
+    assert "authored_cleanup_record_failure" in errors
+    assert calls==[(12,9),(11,9),(10,9)]
+    assert backend.unresolved_tasks()==[]
+    assert emissions[-1]=={"op":"wait_drained","errno":10}
+
+
+def test_containment_guard_qualification_shared_journal_budget_cannot_reset_between_cases():
+    producer=containment_guard_qualification_producer()
+    backend=SimpleNamespace(clock=lambda:1)
+    state=SimpleNamespace(consume=lambda event:None)
+    budget={"bytes":0,"events":65535}
+    first,second=[],[]
+    producer.Journal(backend,state,first,budget).emit({"op":"failure","code":"authored","errno":0})
+    with pytest.raises(producer.QualificationError):
+        producer.Journal(backend,state,second,budget).emit({"op":"failure","code":"authored","errno":0})
+    assert len(first)==1 and second==[] and budget["events"]==65536
+
+
+def test_containment_guard_qualification_journal_reserves_space_for_cleanup():
+    producer=containment_guard_qualification_producer()
+    backend=SimpleNamespace(clock=lambda:1)
+    state=SimpleNamespace(consume=lambda event:None)
+    events=[{}]*8064
+    budget={"bytes":0,"events":8064}
+    journal=producer.Journal(backend,state,events,budget)
+    with pytest.raises(producer.QualificationError):
+        journal.emit({"op":"failure","code":"authored","errno":0})
+    assert len(events)==8064
+    journal.emit({"op":"cleanup_begin","reason":"failure"})
+    assert len(events)==8065 and events[-1]["op"]=="cleanup_begin"
+
+
+@pytest.mark.parametrize("explicit_backend",[False,True])
+def test_containment_guard_qualification_unresolved_native_subject_requires_observer_exit(
+        containment_guard_qualification_probe,monkeypatch,explicit_backend):
+    producer=containment_guard_qualification_producer()
+    class Unresolved(_ScriptedContainmentGuardQualificationBackend):
+        def begin_case(self,*args): raise producer.QualificationError("authored_creation_failure")
+        def cleanup(self,reason,emit,deadline): return ["authored_cleanup_incomplete"]
+        def finish_case(self): return {"stdout_hex":"","stderr_hex":""},[]
+        def unresolved_tasks(self): return [{"pid":1234,"pidfd":10,"terminal":False,"hangup":False}]
+        def restore_observer(self): pytest.fail("unresolved owned graph must retain its subreaper boundary")
+    backend=Unresolved(containment_guard_qualification_probe)
+    monkeypatch.setattr(producer,"NativeBackend",lambda:backend)
+    args={"probe_bytes":containment_guard_qualification_probe,
+        "expected_probe_sha256":digest(containment_guard_qualification_probe),
+        "expected_environment_sha256":digest(encoded(backend.context())),
+        "acknowledgement":producer.ACKNOWLEDGEMENT}
+    if explicit_backend:
+        record=producer.qualify(**args,backend=backend)
+    else:
+        with pytest.raises(producer.ObserverExitRequired) as failure:
+            producer.qualify(**args)
+        record=failure.value.record
+    assert record["status"]=="incomplete"
+    assert "task_guard_native_requires_observer_exit" in record["cleanup_failures"]
+    assert record["observer"]["subreaper_restored"] is None
+
+
+@pytest.mark.parametrize("case_id",[2,9,19,20])
+def test_containment_guard_qualification_sigsys_requires_resuming_the_selected_denial(
+        containment_guard_qualification_probe,case_id):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(case_id,containment_guard_qualification_probe).complete()
+    events=copy.deepcopy(journal.events)
+    at=next(i for i,e in enumerate(events) if e["op"]=="wait" and e["status"]==159)
+    assert events[at-1]["op"]=="resume"
+    del events[at-1]
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,_containment_guard_qualification_resequence(events))
+
+
+def test_containment_guard_qualification_control_marker_cannot_replace_the_actual_exit_syscall(
+        containment_guard_qualification_probe):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(1,containment_guard_qualification_probe).complete()
+    at=next(i for i,e in enumerate(journal.events) if _containment_guard_qualification_entry(e,60))
+    events=copy.deepcopy(journal.events[:at])
+    assert events[-1]["op"]=="resume"
+    events.append({"seq":0,"t_ns":0,"op":"wait","pid":journal.root,"status":0,"raw":{},"memory":[]})
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,_containment_guard_qualification_resequence(events))
+
+
+@pytest.mark.parametrize("parent_role",[0,1])
+def test_containment_guard_qualification_clone_return_binds_the_acquired_child_identity_immediately(
+        containment_guard_qualification_probe,parent_role):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(20,containment_guard_qualification_probe).complete()
+    parent=journal.root+parent_role
+    at=next(i for i,e in enumerate(journal.events) if e["op"]=="wait" and e["pid"]==parent
+        and "syscall_info" in e["raw"] and bytes.fromhex(e["raw"]["syscall_info"])[0]==2
+        and struct.unpack_from("<Q",bytes.fromhex(e["raw"]["regs"]),15*8)[0]==56)
+    events=copy.deepcopy(journal.events[:at+1])
+    target=events[-1]
+    result=999999
+    raw=bytearray.fromhex(target["raw"]["regs"])
+    struct.pack_into("<Q",raw,10*8,result)
+    target["raw"]["regs"]=raw.hex()
+    target["raw"]["syscall_info"]=_containment_guard_qualification_syscall_info(56,result=result).hex()
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,events)
+
+
+def test_containment_guard_qualification_no_evidence_operation_may_follow_final_wait_drain(
+        containment_guard_qualification_probe):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(1,containment_guard_qualification_probe).complete()
+    events=copy.deepcopy(journal.events)
+    events.append({"seq":0,"t_ns":0,"op":"pidfd_poll","pid":journal.root,"pidfd":10,"revents":17})
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,_containment_guard_qualification_resequence(events))
+
+
+@pytest.mark.parametrize("phase",["before_guard","after_guard","after_exec"])
+def test_containment_guard_qualification_nnp_readback_cannot_be_inferred_from_a_later_snapshot(
+        containment_guard_qualification_probe,phase):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(19,containment_guard_qualification_probe).complete()
+    entries=[i for i,e in enumerate(journal.events) if _containment_guard_qualification_entry(e,157)
+        and struct.unpack_from("<Q",bytes.fromhex(e["raw"]["syscall_info"]),32)[0]==39]
+    at=entries[{"before_guard":0,"after_guard":1,"after_exec":2}[phase]]
+    events=copy.deepcopy(journal.events)
+    assert events[at-1]["op"]=="resume" and events[at+2]["op"]=="wait"
+    del events[at-1:at+3]
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,_containment_guard_qualification_resequence(events))
+
+
+@pytest.mark.parametrize("child_first",[False,True])
+def test_containment_guard_qualification_native_birth_dispatch_preserves_both_wait_orders(
+        monkeypatch,child_first):
+    producer=containment_guard_qualification_producer()
+    backend=producer.NativeBackend()
+    backend.observer_pid=100
+    parent,child=200,201
+    backend._new_task(parent).update(pidfd=10,procfd=40,execs=1)
+    output=[]
+    backend.emit=output.append
+    waits=[(child,0x80057F),(parent,0x1057F)] if child_first else [(parent,0x1057F),(child,0x80057F)]
+    monkeypatch.setattr(os,"waitpid",lambda *args:waits.pop(0))
+    monkeypatch.setattr(os,"open",lambda *args,**kwargs:41)
+    monkeypatch.setattr(backend,"_deadline",lambda *args:None)
+    monkeypatch.setattr(backend,"_registers",lambda pid:_containment_guard_qualification_regs(56))
+    monkeypatch.setattr(backend,"_event_message",lambda pid:struct.pack("<Q",child))
+    def read_task(pid,field):
+        if field=="stat": return _containment_guard_qualification_stat(pid,100 if pid==parent else parent,start=1000+pid)
+        assert field=="status"
+        return _containment_guard_qualification_status(pid,100 if pid==parent else parent,100,filters=2,nnp=1)
+    monkeypatch.setattr(backend,"read_task",read_task)
+    def acquire(pid,operation):
+        backend._new_task(pid).update(pidfd=11,procfd=41)
+        output.append({"op":operation,"pid":pid})
+    monkeypatch.setattr(backend,"_acquire",acquire)
+    backend.poll_wait()
+    backend.poll_wait()
+    assert [(e["op"],e["pid"]) for e in output]==(
+        [("wait",child),("acquire",child),("wait",parent)] if child_first else
+        [("acquire",child),("wait",parent),("wait",child)])
+
+
+@pytest.mark.parametrize("failure_stage",["pidfd","procfd"])
+def test_containment_guard_qualification_native_acquisition_failure_retains_the_owned_ledger(
+        monkeypatch,failure_stage):
+    producer=containment_guard_qualification_producer()
+    backend=producer.NativeBackend()
+    def fail(*args,**kwargs): raise OSError(errno.EMFILE,"authored limit")
+    monkeypatch.setattr(os,"pidfd_open",fail if failure_stage=="pidfd" else lambda *args:10)
+    monkeypatch.setattr(os,"open",fail)
+    with pytest.raises(OSError): backend._acquire(1234,"acquire")
+    assert 1234 in backend.tasks
+    assert backend.tasks[1234]["pidfd"]==(None if failure_stage=="pidfd" else 10)
+    assert backend.opened==(set() if failure_stage=="pidfd" else {10})
+
+
+@pytest.mark.parametrize("omit_all",[False,True])
+def test_containment_guard_qualification_cancel_termination_requires_the_owned_signal_submission(
+        containment_guard_qualification_probe,omit_all):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(21,containment_guard_qualification_probe).complete()
+    events=copy.deepcopy(journal.events)
+    if omit_all:
+        events=[event for event in events if event["op"]!="pidfd_signal"]
+    else:
+        at=next(i for i,event in enumerate(events) if event["op"]=="pidfd_signal" and event["pid"]==journal.root)
+        del events[at]
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,_containment_guard_qualification_resequence(events))
+
+
+def _containment_guard_qualification_wait_restart(journal, role):
+    events=copy.deepcopy(journal.events)
+    parent,child=journal.root+role,journal.root+role+1
+    child_pid=child if role==0 else 2
+    args=(child_pid,0x600700,0,0,0,0)
+    at=next(i for i,e in enumerate(events) if e["op"]=="wait" and e["pid"]==parent
+        and "syscall_info" in e["raw"] and bytes.fromhex(e["raw"]["syscall_info"])[0]==2
+        and struct.unpack_from("<Q",bytes.fromhex(e["raw"]["regs"]),15*8)[0]==61)
+    exit_raw=journal.identity(parent)
+    exit_raw.update(regs=_containment_guard_qualification_regs(61,args,result=-512).hex(),
+        syscall_info=_containment_guard_qualification_syscall_info(61,args,result=-512).hex())
+    siginfo=bytearray(128)
+    struct.pack_into("<iii",siginfo,0,17,0,3)
+    struct.pack_into("<iIi",siginfo,16,child_pid,1000,31)
+    signal_raw=journal.identity(parent)
+    signal_raw.update(regs=_containment_guard_qualification_regs(61,args,result=-512).hex(),siginfo=siginfo.hex())
+    entry_raw=journal.identity(parent)
+    entry_raw.update(regs=_containment_guard_qualification_regs(61,args).hex(),
+        syscall_info=_containment_guard_qualification_syscall_info(61,args).hex())
+    inserted=[
+        {"seq":0,"t_ns":0,"op":"wait","pid":parent,"status":0x857F,"raw":exit_raw,"memory":[]},
+        {"seq":0,"t_ns":0,"op":"resume","pid":parent,"request":"syscall","signal":0},
+        {"seq":0,"t_ns":0,"op":"wait","pid":parent,"status":0x117F,"raw":signal_raw,"memory":[]},
+        {"seq":0,"t_ns":0,"op":"resume","pid":parent,"request":"syscall","signal":17},
+        {"seq":0,"t_ns":0,"op":"wait","pid":parent,"status":0x857F,"raw":entry_raw,"memory":[]},
+        {"seq":0,"t_ns":0,"op":"resume","pid":parent,"request":"syscall","signal":0},
+    ]
+    events[at:at]=inserted
+    return _containment_guard_qualification_resequence(events),at
+
+
+@pytest.mark.parametrize("parent_role",[0,1])
+def test_containment_guard_qualification_one_kernel_wait_restart_preserves_the_same_call(
+        containment_guard_qualification_probe,parent_role):
+    journal=_ContainmentGuardQualificationJournal(20,containment_guard_qualification_probe).complete()
+    events,_at=_containment_guard_qualification_wait_restart(journal,parent_role)
+    state=_containment_guard_qualification_replay(journal,events)
+    assert state.finished
+
+
+@pytest.mark.parametrize("fault",["eintr","other_restart_code","changed_pointer","changed_child",
+    "missing_delivery","suppressed_delivery","second_restart","different_syscall"])
+def test_containment_guard_qualification_wait_restart_is_not_a_general_retry_permission(
+        containment_guard_qualification_probe,fault):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(20,containment_guard_qualification_probe).complete()
+    events,at=_containment_guard_qualification_wait_restart(journal,1)
+    if fault in ("eintr","other_restart_code"):
+        result=-4 if fault=="eintr" else -513
+        events[at]["raw"]["regs"]=_containment_guard_qualification_regs(61,result=result).hex()
+        events[at]["raw"]["syscall_info"]=_containment_guard_qualification_syscall_info(61,result=result).hex()
+    elif fault in ("changed_pointer","changed_child"):
+        args=(2,0x600704,0,0,0,0) if fault=="changed_pointer" else (3,0x600700,0,0,0,0)
+        _containment_guard_qualification_change_call(events[at+4],arguments=args)
+    elif fault=="missing_delivery":
+        del events[at+2:at+4]
+        _containment_guard_qualification_resequence(events)
+    elif fault=="suppressed_delivery": events[at+3]["signal"]=0
+    elif fault=="second_restart":
+        events[at+6]["raw"]["regs"]=_containment_guard_qualification_regs(61,result=-512).hex()
+        events[at+6]["raw"]["syscall_info"]=_containment_guard_qualification_syscall_info(61,result=-512).hex()
+    elif fault=="different_syscall": _containment_guard_qualification_change_call(events[at+4],number=39,arguments=(0,)*6)
+    with pytest.raises(checker.QualificationError):
+        _containment_guard_qualification_replay(journal,events)
+
+
+@pytest.mark.parametrize("register_value,accepted",[(1,False),(1<<32,True)])
+def test_containment_guard_qualification_compat_arguments_match_the_low_32_bit_register_abi(
+        containment_guard_qualification_probe,register_value,accepted):
+    checker=containment_guard_qualification_checker()
+    journal=_ContainmentGuardQualificationJournal(9,containment_guard_qualification_probe).complete()
+    events=copy.deepcopy(journal.events)
+    target=next(e for e in events if _containment_guard_qualification_entry(e,20))
+    regs=bytearray.fromhex(target["raw"]["regs"])
+    struct.pack_into("<Q",regs,5*8,register_value)
+    target["raw"]["regs"]=regs.hex()
+    if accepted:
+        assert _containment_guard_qualification_replay(journal,events).finished
+    else:
+        with pytest.raises(checker.QualificationError):
+            _containment_guard_qualification_replay(journal,events)
+
+
+def _containment_guard_qualification_cli_arguments(producer,probe,output):
+    return ["--probe",str(probe),"--expected-probe-sha256",digest(probe.read_bytes()),
+        "--expected-environment-sha256","0"*64,"--acknowledgement",producer.ACKNOWLEDGEMENT,
+        "--out",str(output)]
+
+
+@pytest.mark.parametrize("kind",["existing","symlink_leaf","symlink_parent"])
+def test_containment_guard_qualification_cli_reserves_new_nofollow_output_before_acquisition(
+        containment_guard_qualification_probe,tmp_path,monkeypatch,kind):
+    producer=containment_guard_qualification_producer()
+    probe=tmp_path/"inert-probe"
+    probe.write_bytes(containment_guard_qualification_probe)
+    existing=tmp_path/"existing.json"
+    existing.write_bytes(b"caller-owned\n")
+    if kind=="existing": output=existing
+    elif kind=="symlink_leaf":
+        output=tmp_path/"alias.json"
+        output.symlink_to(existing)
+    else:
+        real=tmp_path/"real"
+        real.mkdir()
+        alias=tmp_path/"alias"
+        alias.symlink_to(real,target_is_directory=True)
+        output=alias/"new.json"
+    def forbidden(**_kwargs): pytest.fail("invalid output destination reached acquisition")
+    monkeypatch.setattr(producer,"qualify",forbidden)
+    with pytest.raises((OSError,producer.QualificationError)):
+        producer.main(_containment_guard_qualification_cli_arguments(producer,probe,output))
+    assert existing.read_bytes()==b"caller-owned\n"
+
+
+def test_containment_guard_qualification_cli_owns_empty_output_before_calling_qualifier(
+        containment_guard_qualification_probe,tmp_path,monkeypatch):
+    producer=containment_guard_qualification_producer()
+    probe,output=tmp_path/"inert-probe",tmp_path/"new.json"
+    probe.write_bytes(containment_guard_qualification_probe)
+    calls=[]
+    def scripted(**kwargs):
+        assert output.is_file() and output.read_bytes()==b""
+        assert stat.S_IMODE(output.stat().st_mode)==0o600
+        calls.append(kwargs)
+        return {"status":"completed","fixture_only":True}
+    monkeypatch.setattr(producer,"qualify",scripted)
+    assert producer.main(_containment_guard_qualification_cli_arguments(producer,probe,output))==0
+    assert len(calls)==1 and calls[0]["probe_bytes"]==containment_guard_qualification_probe
+    assert output.read_bytes()==encoded({"status":"completed","fixture_only":True})
+
+
+def test_containment_guard_qualification_output_replacement_is_rejected_and_never_deleted(
+        tmp_path,monkeypatch):
+    producer=containment_guard_qualification_producer()
+    output=tmp_path/"record.json"
+    destination=producer.ReservedOutput(output)
+    original_write=os.write
+    replacements=[]
+    def replace_after_write(fd,data):
+        count=original_write(fd,data)
+        if not replacements:
+            output.unlink()
+            output.write_bytes(b"caller replacement\n")
+            replacements.append(True)
+        return count
+    monkeypatch.setattr(os,"write",replace_after_write)
+    try:
+        with pytest.raises(producer.QualificationError): destination.publish(b'{"status":"incomplete"}\n')
+    finally:
+        destination.close()
+    assert replacements==[True] and output.read_bytes()==b"caller replacement\n"
+
+
+def test_containment_guard_qualification_cli_publishes_incomplete_prefix_before_required_observer_exit(
+        containment_guard_qualification_probe,tmp_path,monkeypatch):
+    producer=containment_guard_qualification_producer()
+    probe,output=tmp_path/"inert-probe",tmp_path/"prefix.json"
+    probe.write_bytes(containment_guard_qualification_probe)
+    record={"status":"incomplete","failure":"authored_cleanup_incomplete"}
+    class AuthoredExit(Exception): pass
+    def scripted(**kwargs): raise producer.ObserverExitRequired(record)
+    def record_exit(code):
+        assert code==1 and output.read_bytes()==encoded(record)
+        raise AuthoredExit()
+    monkeypatch.setattr(producer,"qualify",scripted)
+    monkeypatch.setattr(os,"_exit",record_exit)
+    with pytest.raises(AuthoredExit):
+        producer.main(_containment_guard_qualification_cli_arguments(producer,probe,output))

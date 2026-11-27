@@ -1,0 +1,2954 @@
+{
+  "$defs": {
+    "record": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cases": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "case_id": {
+                      "maximum": 21,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "cleanup_failures": {
+                      "items": {
+                        "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "type": "array"
+                    },
+                    "events": {
+                      "items": {
+                        "oneOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "spawn"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "pidfd": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 3,
+                                "type": "integer"
+                              },
+                              "raw": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "pidfd_info": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "stat": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "stat",
+                                  "status",
+                                  "pidfd_info"
+                                ],
+                                "type": "object"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid",
+                              "pidfd",
+                              "raw"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "acquire"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "pidfd": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 3,
+                                "type": "integer"
+                              },
+                              "raw": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "pidfd_info": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "stat": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "stat",
+                                  "status",
+                                  "pidfd_info"
+                                ],
+                                "type": "object"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid",
+                              "pidfd",
+                              "raw"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "seize"
+                              },
+                              "options": {
+                                "const": 1048607
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid",
+                              "options"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "interrupt"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "release"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "memory": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "address": {
+                                      "maximum": 18446744073709551615,
+                                      "minimum": 1,
+                                      "type": "integer"
+                                    },
+                                    "hex": {
+                                      "maxLength": 131072,
+                                      "pattern": "^(?:[0-9a-f]{2})*$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "address",
+                                    "hex"
+                                  ],
+                                  "type": "object"
+                                },
+                                "maxItems": 16,
+                                "type": "array"
+                              },
+                              "op": {
+                                "const": "wait"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "raw": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "cmdline": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "environ": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "event_message": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "exe": {
+                                    "maxLength": 524288,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "maps": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "regs": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "siginfo": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "stat": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  },
+                                  "syscall_info": {
+                                    "maxLength": 131072,
+                                    "pattern": "^(?:[0-9a-f]{2})*$",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "status": {
+                                "maximum": 4294967295,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid",
+                              "status",
+                              "raw",
+                              "memory"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "resume"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "request": {
+                                "enum": [
+                                  "cont",
+                                  "syscall"
+                                ]
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "signal": {
+                                "enum": [
+                                  0,
+                                  17
+                                ]
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid",
+                              "request",
+                              "signal"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "cleanup_begin"
+                              },
+                              "reason": {
+                                "enum": [
+                                  "normal",
+                                  "failure"
+                                ]
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "reason"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "errno": {
+                                "maximum": 4095,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "op": {
+                                "const": "pidfd_signal"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "pidfd": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 3,
+                                "type": "integer"
+                              },
+                              "result": {
+                                "enum": [
+                                  -1,
+                                  0
+                                ]
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "signal": {
+                                "const": 9
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid",
+                              "pidfd",
+                              "signal",
+                              "result",
+                              "errno"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "op": {
+                                "const": "pidfd_poll"
+                              },
+                              "pid": {
+                                "maximum": 2147483647,
+                                "minimum": 2,
+                                "type": "integer"
+                              },
+                              "pidfd": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 3,
+                                "type": "integer"
+                              },
+                              "revents": {
+                                "maximum": 65535,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "pid",
+                              "pidfd",
+                              "revents"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "errno": {
+                                "const": 10
+                              },
+                              "op": {
+                                "const": "wait_drained"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "errno"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "code": {
+                                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                                "type": "string"
+                              },
+                              "errno": {
+                                "maximum": 4095,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "op": {
+                                "const": "failure"
+                              },
+                              "seq": {
+                                "maximum": 8191,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "t_ns": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "seq",
+                              "t_ns",
+                              "op",
+                              "code",
+                              "errno"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "maxItems": 8192,
+                      "type": "array"
+                    },
+                    "failure": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "finished_ns": {
+                      "maximum": 18446744073709551615,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "started_ns": {
+                      "maximum": 18446744073709551615,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "stderr_hex": {
+                      "maxLength": 8192,
+                      "pattern": "^(?:[0-9a-f]{2})*$",
+                      "type": "string"
+                    },
+                    "stdout_hex": {
+                      "maxLength": 8192,
+                      "pattern": "^(?:[0-9a-f]{2})*$",
+                      "type": "string"
+                    },
+                    "unresolved_tasks": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "hangup": {
+                            "type": "boolean"
+                          },
+                          "pid": {
+                            "maximum": 2147483647,
+                            "minimum": 2,
+                            "type": "integer"
+                          },
+                          "pidfd": {
+                            "anyOf": [
+                              {
+                                "maximum": 18446744073709551615,
+                                "minimum": 3,
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "terminal": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "pid",
+                          "pidfd",
+                          "terminal",
+                          "hangup"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 4,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "case_id",
+                    "started_ns",
+                    "finished_ns",
+                    "failure",
+                    "cleanup_failures",
+                    "unresolved_tasks",
+                    "stdout_hex",
+                    "stderr_hex",
+                    "events"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 21,
+                "minItems": 21,
+                "type": "array"
+              },
+              "cleanup_failures": {
+                "const": []
+              },
+              "environment": {
+                "additionalProperties": false,
+                "properties": {
+                  "boot_id": {
+                    "pattern": "^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$",
+                    "type": "string"
+                  },
+                  "ids": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "egid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "euid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "gid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "uid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "uid",
+                      "euid",
+                      "gid",
+                      "egid"
+                    ],
+                    "type": "object"
+                  },
+                  "lsm_label_hex": {
+                    "maxLength": 131072,
+                    "pattern": "^(?:[0-9a-f]{2})*$",
+                    "type": "string"
+                  },
+                  "namespaces": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cgroup": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "ipc": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "mnt": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "net": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "pid": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "pid_for_children": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "time": {
+                        "anyOf": [
+                          {
+                            "maxLength": 128,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "time_for_children": {
+                        "anyOf": [
+                          {
+                            "maxLength": 128,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "user": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "uts": {
+                        "maxLength": 128,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "cgroup",
+                      "ipc",
+                      "mnt",
+                      "net",
+                      "pid",
+                      "pid_for_children",
+                      "time",
+                      "time_for_children",
+                      "user",
+                      "uts"
+                    ],
+                    "type": "object"
+                  },
+                  "observer_executable": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "sha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "maximum": 18446744073709551615,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  "python_version": {
+                    "items": {
+                      "maximum": 100,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "type": "array"
+                  },
+                  "security": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "CapAmb": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapBnd": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapEff": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapInh": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapPrm": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "NoNewPrivs": {
+                        "maximum": 65535,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "Seccomp": {
+                        "maximum": 65535,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "Seccomp_filters": {
+                        "maximum": 65535,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "NoNewPrivs",
+                      "Seccomp",
+                      "Seccomp_filters",
+                      "CapEff",
+                      "CapPrm",
+                      "CapInh",
+                      "CapBnd",
+                      "CapAmb"
+                    ],
+                    "type": "object"
+                  },
+                  "uname": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "machine": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "release": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "sysname": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "version": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "sysname",
+                      "release",
+                      "version",
+                      "machine"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "uname",
+                  "boot_id",
+                  "observer_executable",
+                  "python_version",
+                  "ids",
+                  "security",
+                  "lsm_label_hex",
+                  "namespaces"
+                ],
+                "type": "object"
+              },
+              "environment_after": {
+                "additionalProperties": false,
+                "properties": {
+                  "boot_id": {
+                    "pattern": "^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$",
+                    "type": "string"
+                  },
+                  "ids": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "egid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "euid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "gid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "uid": {
+                        "maximum": 4294967295,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "uid",
+                      "euid",
+                      "gid",
+                      "egid"
+                    ],
+                    "type": "object"
+                  },
+                  "lsm_label_hex": {
+                    "maxLength": 131072,
+                    "pattern": "^(?:[0-9a-f]{2})*$",
+                    "type": "string"
+                  },
+                  "namespaces": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cgroup": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "ipc": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "mnt": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "net": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "pid": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "pid_for_children": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "time": {
+                        "anyOf": [
+                          {
+                            "maxLength": 128,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "time_for_children": {
+                        "anyOf": [
+                          {
+                            "maxLength": 128,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "user": {
+                        "maxLength": 128,
+                        "type": "string"
+                      },
+                      "uts": {
+                        "maxLength": 128,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "cgroup",
+                      "ipc",
+                      "mnt",
+                      "net",
+                      "pid",
+                      "pid_for_children",
+                      "time",
+                      "time_for_children",
+                      "user",
+                      "uts"
+                    ],
+                    "type": "object"
+                  },
+                  "observer_executable": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "sha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "maximum": 18446744073709551615,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  "python_version": {
+                    "items": {
+                      "maximum": 100,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "type": "array"
+                  },
+                  "security": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "CapAmb": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapBnd": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapEff": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapInh": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "CapPrm": {
+                        "pattern": "^[0-9a-f]{16}$",
+                        "type": "string"
+                      },
+                      "NoNewPrivs": {
+                        "maximum": 65535,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "Seccomp": {
+                        "maximum": 65535,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "Seccomp_filters": {
+                        "maximum": 65535,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "NoNewPrivs",
+                      "Seccomp",
+                      "Seccomp_filters",
+                      "CapEff",
+                      "CapPrm",
+                      "CapInh",
+                      "CapBnd",
+                      "CapAmb"
+                    ],
+                    "type": "object"
+                  },
+                  "uname": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "machine": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "release": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "sysname": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "version": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "sysname",
+                      "release",
+                      "version",
+                      "machine"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "uname",
+                  "boot_id",
+                  "observer_executable",
+                  "python_version",
+                  "ids",
+                  "security",
+                  "lsm_label_hex",
+                  "namespaces"
+                ],
+                "type": "object"
+              },
+              "failure": {
+                "type": "null"
+              },
+              "observer": {
+                "additionalProperties": false,
+                "properties": {
+                  "pid": {
+                    "maximum": 2147483647,
+                    "minimum": 2,
+                    "type": "integer"
+                  },
+                  "sigaction_hex": {
+                    "maxLength": 304,
+                    "minLength": 304,
+                    "pattern": "^(?:[0-9a-f]{2})*$",
+                    "type": "string"
+                  },
+                  "stat_hex": {
+                    "maxLength": 131072,
+                    "pattern": "^(?:[0-9a-f]{2})*$",
+                    "type": "string"
+                  },
+                  "status_hex": {
+                    "maxLength": 131072,
+                    "pattern": "^(?:[0-9a-f]{2})*$",
+                    "type": "string"
+                  },
+                  "subreaper_after": {
+                    "const": 1
+                  },
+                  "subreaper_before": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  "subreaper_restored": {
+                    "enum": [
+                      null,
+                      0,
+                      1
+                    ]
+                  }
+                },
+                "required": [
+                  "pid",
+                  "stat_hex",
+                  "status_hex",
+                  "sigaction_hex",
+                  "subreaper_before",
+                  "subreaper_after",
+                  "subreaper_restored"
+                ],
+                "type": "object"
+              },
+              "sources_after": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "enum": [
+                        "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                        "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                        "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                        "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                        "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                        "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                        "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                        "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                        "tools/required_gate_idempotence_containment_startup_v0.c",
+                        "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                        "tools/required_gate_idempotence_containment_task_probe_v0.c"
+                      ]
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 18446744073709551615,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "size_bytes",
+                    "sha256",
+                    "path"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 11,
+                "type": "array"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "attempt_id": {
+          "pattern": "^[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "boundary": {
+          "const": {
+            "authority_effect": "none",
+            "b2_complete": false,
+            "containment_observed": false,
+            "diagnostic_only": true,
+            "executed_helper_build_admitted": false,
+            "execution_authorized": false,
+            "full_host_qualification_completed": false,
+            "metric_pass": null,
+            "original_native_acquisition_performed": false,
+            "physical_execution_authenticated": false,
+            "privileged_filter_readback": false,
+            "source_binary_equivalence_verified": false,
+            "startup_helper_execution_observed": false
+          }
+        },
+        "cases": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "case_id": {
+                "maximum": 21,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "cleanup_failures": {
+                "items": {
+                  "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              "events": {
+                "items": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "spawn"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "pidfd": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 3,
+                          "type": "integer"
+                        },
+                        "raw": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "pidfd_info": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "stat": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "status": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "stat",
+                            "status",
+                            "pidfd_info"
+                          ],
+                          "type": "object"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid",
+                        "pidfd",
+                        "raw"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "acquire"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "pidfd": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 3,
+                          "type": "integer"
+                        },
+                        "raw": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "pidfd_info": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "stat": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "status": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "stat",
+                            "status",
+                            "pidfd_info"
+                          ],
+                          "type": "object"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid",
+                        "pidfd",
+                        "raw"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "seize"
+                        },
+                        "options": {
+                          "const": 1048607
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid",
+                        "options"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "interrupt"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "release"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "memory": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "address": {
+                                "maximum": 18446744073709551615,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "hex": {
+                                "maxLength": 131072,
+                                "pattern": "^(?:[0-9a-f]{2})*$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "hex"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 16,
+                          "type": "array"
+                        },
+                        "op": {
+                          "const": "wait"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "raw": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "cmdline": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "environ": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "event_message": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "exe": {
+                              "maxLength": 524288,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "maps": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "regs": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "siginfo": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "stat": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "status": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            },
+                            "syscall_info": {
+                              "maxLength": 131072,
+                              "pattern": "^(?:[0-9a-f]{2})*$",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "maximum": 4294967295,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid",
+                        "status",
+                        "raw",
+                        "memory"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "resume"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "request": {
+                          "enum": [
+                            "cont",
+                            "syscall"
+                          ]
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "signal": {
+                          "enum": [
+                            0,
+                            17
+                          ]
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid",
+                        "request",
+                        "signal"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "cleanup_begin"
+                        },
+                        "reason": {
+                          "enum": [
+                            "normal",
+                            "failure"
+                          ]
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "reason"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "errno": {
+                          "maximum": 4095,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "op": {
+                          "const": "pidfd_signal"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "pidfd": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 3,
+                          "type": "integer"
+                        },
+                        "result": {
+                          "enum": [
+                            -1,
+                            0
+                          ]
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "signal": {
+                          "const": 9
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid",
+                        "pidfd",
+                        "signal",
+                        "result",
+                        "errno"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "op": {
+                          "const": "pidfd_poll"
+                        },
+                        "pid": {
+                          "maximum": 2147483647,
+                          "minimum": 2,
+                          "type": "integer"
+                        },
+                        "pidfd": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 3,
+                          "type": "integer"
+                        },
+                        "revents": {
+                          "maximum": 65535,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "pid",
+                        "pidfd",
+                        "revents"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "errno": {
+                          "const": 10
+                        },
+                        "op": {
+                          "const": "wait_drained"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "errno"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                          "type": "string"
+                        },
+                        "errno": {
+                          "maximum": 4095,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "op": {
+                          "const": "failure"
+                        },
+                        "seq": {
+                          "maximum": 8191,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "t_ns": {
+                          "maximum": 18446744073709551615,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "seq",
+                        "t_ns",
+                        "op",
+                        "code",
+                        "errno"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "maxItems": 8192,
+                "type": "array"
+              },
+              "failure": {
+                "anyOf": [
+                  {
+                    "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "finished_ns": {
+                "maximum": 18446744073709551615,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "started_ns": {
+                "maximum": 18446744073709551615,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "stderr_hex": {
+                "maxLength": 8192,
+                "pattern": "^(?:[0-9a-f]{2})*$",
+                "type": "string"
+              },
+              "stdout_hex": {
+                "maxLength": 8192,
+                "pattern": "^(?:[0-9a-f]{2})*$",
+                "type": "string"
+              },
+              "unresolved_tasks": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "hangup": {
+                      "type": "boolean"
+                    },
+                    "pid": {
+                      "maximum": 2147483647,
+                      "minimum": 2,
+                      "type": "integer"
+                    },
+                    "pidfd": {
+                      "anyOf": [
+                        {
+                          "maximum": 18446744073709551615,
+                          "minimum": 3,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "terminal": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "pid",
+                    "pidfd",
+                    "terminal",
+                    "hangup"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 4,
+                "type": "array"
+              }
+            },
+            "required": [
+              "case_id",
+              "started_ns",
+              "finished_ns",
+              "failure",
+              "cleanup_failures",
+              "unresolved_tasks",
+              "stdout_hex",
+              "stderr_hex",
+              "events"
+            ],
+            "type": "object"
+          },
+          "maxItems": 21,
+          "type": "array"
+        },
+        "cleanup_failures": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "boot_id": {
+                  "pattern": "^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "ids": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "egid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "euid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "gid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "uid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "uid",
+                    "euid",
+                    "gid",
+                    "egid"
+                  ],
+                  "type": "object"
+                },
+                "lsm_label_hex": {
+                  "maxLength": 131072,
+                  "pattern": "^(?:[0-9a-f]{2})*$",
+                  "type": "string"
+                },
+                "namespaces": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cgroup": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "ipc": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "mnt": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "net": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "pid": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "pid_for_children": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "time": {
+                      "anyOf": [
+                        {
+                          "maxLength": 128,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "time_for_children": {
+                      "anyOf": [
+                        {
+                          "maxLength": 128,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "user": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "uts": {
+                      "maxLength": 128,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cgroup",
+                    "ipc",
+                    "mnt",
+                    "net",
+                    "pid",
+                    "pid_for_children",
+                    "time",
+                    "time_for_children",
+                    "user",
+                    "uts"
+                  ],
+                  "type": "object"
+                },
+                "observer_executable": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 18446744073709551615,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                "python_version": {
+                  "items": {
+                    "maximum": 100,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                "security": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "CapAmb": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapBnd": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapEff": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapInh": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapPrm": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "NoNewPrivs": {
+                      "maximum": 65535,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "Seccomp": {
+                      "maximum": 65535,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "Seccomp_filters": {
+                      "maximum": 65535,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "NoNewPrivs",
+                    "Seccomp",
+                    "Seccomp_filters",
+                    "CapEff",
+                    "CapPrm",
+                    "CapInh",
+                    "CapBnd",
+                    "CapAmb"
+                  ],
+                  "type": "object"
+                },
+                "uname": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "machine": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "release": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "sysname": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "version": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sysname",
+                    "release",
+                    "version",
+                    "machine"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "uname",
+                "boot_id",
+                "observer_executable",
+                "python_version",
+                "ids",
+                "security",
+                "lsm_label_hex",
+                "namespaces"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environment_after": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "boot_id": {
+                  "pattern": "^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$",
+                  "type": "string"
+                },
+                "ids": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "egid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "euid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "gid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "uid": {
+                      "maximum": 4294967295,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "uid",
+                    "euid",
+                    "gid",
+                    "egid"
+                  ],
+                  "type": "object"
+                },
+                "lsm_label_hex": {
+                  "maxLength": 131072,
+                  "pattern": "^(?:[0-9a-f]{2})*$",
+                  "type": "string"
+                },
+                "namespaces": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cgroup": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "ipc": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "mnt": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "net": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "pid": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "pid_for_children": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "time": {
+                      "anyOf": [
+                        {
+                          "maxLength": 128,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "time_for_children": {
+                      "anyOf": [
+                        {
+                          "maxLength": 128,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "user": {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    "uts": {
+                      "maxLength": 128,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cgroup",
+                    "ipc",
+                    "mnt",
+                    "net",
+                    "pid",
+                    "pid_for_children",
+                    "time",
+                    "time_for_children",
+                    "user",
+                    "uts"
+                  ],
+                  "type": "object"
+                },
+                "observer_executable": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 18446744073709551615,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                "python_version": {
+                  "items": {
+                    "maximum": 100,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                "security": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "CapAmb": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapBnd": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapEff": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapInh": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "CapPrm": {
+                      "pattern": "^[0-9a-f]{16}$",
+                      "type": "string"
+                    },
+                    "NoNewPrivs": {
+                      "maximum": 65535,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "Seccomp": {
+                      "maximum": 65535,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "Seccomp_filters": {
+                      "maximum": 65535,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "NoNewPrivs",
+                    "Seccomp",
+                    "Seccomp_filters",
+                    "CapEff",
+                    "CapPrm",
+                    "CapInh",
+                    "CapBnd",
+                    "CapAmb"
+                  ],
+                  "type": "object"
+                },
+                "uname": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "machine": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "release": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "sysname": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "version": {
+                      "maxLength": 256,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sysname",
+                    "release",
+                    "version",
+                    "machine"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "uname",
+                "boot_id",
+                "observer_executable",
+                "python_version",
+                "ids",
+                "security",
+                "lsm_label_hex",
+                "namespaces"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_origin": {
+          "enum": [
+            "native_owned_probe",
+            "scripted_test_backend"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limits": {
+          "const": {
+            "attempts": 1,
+            "case_seconds": 5,
+            "cases": 21,
+            "cleanup_seconds": 5,
+            "events_per_case": 8192,
+            "events_total": 65536,
+            "memory_bytes_per_stop": 1048576,
+            "observation_seconds": 120,
+            "probe_bytes": 262144,
+            "raw_read_bytes": 65536,
+            "record_bytes": 33554432,
+            "retries": 0,
+            "stderr_bytes": 4096,
+            "stdout_bytes": 4096,
+            "tasks_per_case": 3
+          }
+        },
+        "observer": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "pid": {
+                  "maximum": 2147483647,
+                  "minimum": 2,
+                  "type": "integer"
+                },
+                "sigaction_hex": {
+                  "maxLength": 304,
+                  "minLength": 304,
+                  "pattern": "^(?:[0-9a-f]{2})*$",
+                  "type": "string"
+                },
+                "stat_hex": {
+                  "maxLength": 131072,
+                  "pattern": "^(?:[0-9a-f]{2})*$",
+                  "type": "string"
+                },
+                "status_hex": {
+                  "maxLength": 131072,
+                  "pattern": "^(?:[0-9a-f]{2})*$",
+                  "type": "string"
+                },
+                "subreaper_after": {
+                  "const": 1
+                },
+                "subreaper_before": {
+                  "enum": [
+                    0,
+                    1
+                  ]
+                },
+                "subreaper_restored": {
+                  "enum": [
+                    null,
+                    0,
+                    1
+                  ]
+                }
+              },
+              "required": [
+                "pid",
+                "stat_hex",
+                "status_hex",
+                "sigaction_hex",
+                "subreaper_before",
+                "subreaper_after",
+                "subreaper_restored"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "probe": {
+          "additionalProperties": false,
+          "properties": {
+            "hex": {
+              "maxLength": 524288,
+              "pattern": "^(?:[0-9a-f]{2})*$",
+              "type": "string"
+            },
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 18446744073709551615,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256",
+            "hex"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "linux_x86_64_containment_task_guard_probe_qualification_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_guard_qualification_v0"
+        },
+        "sources": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "enum": [
+                  "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                  "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                  "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                  "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                  "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                  "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                  "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                  "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                  "tools/required_gate_idempotence_containment_startup_v0.c",
+                  "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                  "tools/required_gate_idempotence_containment_task_probe_v0.c"
+                ]
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "size_bytes": {
+                "maximum": 18446744073709551615,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "size_bytes",
+              "sha256",
+              "path"
+            ],
+            "type": "object"
+          },
+          "maxItems": 11,
+          "type": "array"
+        },
+        "sources_after": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "enum": [
+                      "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                      "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                      "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                      "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                      "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                      "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                      "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                      "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                      "tools/required_gate_idempotence_containment_startup_v0.c",
+                      "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                      "tools/required_gate_idempotence_containment_task_probe_v0.c"
+                    ]
+                  },
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "maximum": 18446744073709551615,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "size_bytes",
+                  "sha256",
+                  "path"
+                ],
+                "type": "object"
+              },
+              "maxItems": 11,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "incomplete"
+          ]
+        },
+        "timing": {
+          "additionalProperties": false,
+          "properties": {
+            "finished_ns": {
+              "maximum": 18446744073709551615,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "started_ns": {
+              "maximum": 18446744073709551615,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "started_ns",
+            "finished_ns"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "evidence_origin",
+        "attempt_id",
+        "status",
+        "failure",
+        "cleanup_failures",
+        "probe",
+        "environment",
+        "environment_after",
+        "observer",
+        "sources",
+        "sources_after",
+        "limits",
+        "boundary",
+        "timing",
+        "cases"
+      ],
+      "type": "object"
+    },
+    "report": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "b2_complete": {
+          "const": false
+        },
+        "case_count": {
+          "maximum": 21,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "complete_guard_probe_sequence_verified": {
+          "type": "boolean"
+        },
+        "containment_observed": {
+          "const": false
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "environment_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "evidence_basis": {
+          "const": "source_bound_probe_and_reconstructed_raw_observer_transcript"
+        },
+        "executed_helper_build_admitted": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "full_host_qualification_completed": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "native_guard_probe_record_verified": {
+          "type": "boolean"
+        },
+        "observed_guard_program": {
+          "const": {
+            "sha256": "cc75cb083fb0f6b235eb429384dfb5aaffdd4653891eb2010cd0fd5b6939a51f",
+            "size_bytes": 272
+          }
+        },
+        "original_native_acquisition_performed": {
+          "const": false
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "prerequisite_source_contract_verified": {
+          "type": "boolean"
+        },
+        "privileged_filter_readback": {
+          "const": false
+        },
+        "probe": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 18446744073709551615,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "linux_x86_64_containment_task_guard_probe_qualification_v0"
+        },
+        "record": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 18446744073709551615,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_guard_qualification_verification_v0"
+        },
+        "source_binary_equivalence_verified": {
+          "const": false
+        },
+        "sources": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "enum": [
+                  "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                  "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                  "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                  "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                  "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                  "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                  "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                  "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                  "tools/required_gate_idempotence_containment_startup_v0.c",
+                  "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                  "tools/required_gate_idempotence_containment_task_probe_v0.c"
+                ]
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "size_bytes": {
+                "maximum": 18446744073709551615,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "size_bytes",
+              "sha256",
+              "path"
+            ],
+            "type": "object"
+          },
+          "maxItems": 11,
+          "type": "array"
+        },
+        "startup_helper_execution_observed": {
+          "const": false
+        },
+        "status": {
+          "enum": [
+            "accepted_native_guard_probe_record",
+            "accepted_scripted_guard_probe_record",
+            "preserved_incomplete"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "status",
+        "record",
+        "probe",
+        "environment_sha256",
+        "sources",
+        "prerequisite_source_contract_verified",
+        "complete_guard_probe_sequence_verified",
+        "native_guard_probe_record_verified",
+        "case_count",
+        "observed_guard_program",
+        "evidence_basis",
+        "diagnostic_only",
+        "startup_helper_execution_observed",
+        "executed_helper_build_admitted",
+        "full_host_qualification_completed",
+        "original_native_acquisition_performed",
+        "containment_observed",
+        "source_binary_equivalence_verified",
+        "physical_execution_authenticated",
+        "privileged_filter_readback",
+        "execution_authorized",
+        "b2_complete",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:pulsemech:required-gate-idempotence-containment-task-guard-qualification:v0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Closed structural schema. The byte-only checker additionally reconstructs raw stop/syscall/guard/task/removal relations. No external reference retrieval is required.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/record"
+    },
+    {
+      "$ref": "#/$defs/report"
+    }
+  ],
+  "title": "Bounded authored task-guard probe evidence and independent verification"
+}

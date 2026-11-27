@@ -262,7 +262,14 @@ native helper execution, host qualification or completed containment result.
 
 ## Next acceptance boundary
 
-The next unit is the native qualification harness and its independently
+The first implementation component is now the separate
+[task-guard probe qualifier and independent raw-evidence checker](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_QUALIFICATION_v0.md).
+It supplies a fixed 21-case authored probe for the guard, permitted task births,
+inheritance and owned cleanup. Its development validation performs no native
+execution. It does not execute this startup helper or satisfy the remaining
+full-host obligations below; the source contract in this document stays unchanged.
+
+Complete native qualification still requires the full harness and independently
 reconstructible raw evidence. It must qualify the exact executed helper/build,
 observer, kernel, image and outer security configuration; both clone shapes and
 inherited guard denials; the owned barrier/parent-loss protocol; stopped task
