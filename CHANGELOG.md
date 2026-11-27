@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Implement the closed schema and independent data-only checker for the
+  [B2 containment-entry plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md#implemented-data-only-plan-checking).
+  Preserve the exact 34-file historical baseline and reconstruct selected
+  ELF, source-index, patch, BPF, argument and task-graph relationships from
+  independently pinned original carriers. Reject rehashed semantic changes,
+  ambiguous archives, example-runtime promotion and mutable filesystem inputs;
+  append targeted regressions without changing historical tests or CI manifests.
+  Keep the authored proposal immutable and report only verified design relations.
+  Native observation and qualification remain pending, B2 and #2879 stay open,
+  `metric_pass=null` and `authority_effect=none`.
+
 - Record the source-bound [B2 containment-entry plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md)
   after the completed original-loader observation. Preserve the exact Debian
   bubblewrap source carriers and declare a new minimal readonly view, three

@@ -23193,3 +23193,597 @@ def test_loader_resolution_hosted_passive_environment_preserves_fresh_cache_stat
         assert (output / 'loader-cache-state.json').read_bytes() == encoded(
             _loader_resolution_hosted_cache_state(phase))
     assert len(validated) == (1 if present else 2)
+
+
+# The containment-entry plan checker consumes original preserved bytes only.
+# These tests never qualify a host, instantiate the proposed task graph, or
+# execute an original launcher, entry, Python capsule or signature verifier.
+CONTAINMENT_ENTRY_PLAN_TOOL_REL = "tools/check_required_gate_idempotence_containment_entry_plan_v0.py"
+CONTAINMENT_ENTRY_PLAN_REL = "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json"
+CONTAINMENT_ENTRY_PLAN_SOURCES_REL = "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json"
+
+
+@pytest.fixture(scope="module")
+def containment_entry_plan_case():
+    checker = module("check_required_gate_idempotence_containment_entry_plan_v0",
+                     CONTAINMENT_ENTRY_PLAN_TOOL_REL)
+    raw = (ROOT / CONTAINMENT_ENTRY_PLAN_REL).read_bytes()
+    sources_raw = (ROOT / CONTAINMENT_ENTRY_PLAN_SOURCES_REL).read_bytes()
+    inputs = checker.load_inputs(ROOT)
+    assert type(inputs) is dict and len(inputs) == 14
+    assert all(type(name) is str and type(value) is bytes for name, value in inputs.items())
+    return SimpleNamespace(checker=checker, raw=raw, plan=json.loads(raw),
+        sources_raw=sources_raw, sources=json.loads(sources_raw), inputs=inputs)
+
+
+def containment_entry_plan_check(case, raw=None, sources_raw=None, inputs=None, **overrides):
+    raw = case.raw if raw is None else raw
+    sources_raw = case.sources_raw if sources_raw is None else sources_raw
+    arguments = dict(plan_bytes=raw, expected_plan_sha256=digest(raw),
+        source_inventory_bytes=sources_raw,
+        expected_source_inventory_sha256=digest(sources_raw),
+        inputs=case.inputs if inputs is None else inputs)
+    arguments.update(overrides)
+    return case.checker.verify_plan(**arguments)
+
+
+def _containment_entry_plan_with_sources(case, sources, plan=None):
+    """Refresh both caller-selected controls, not just the altered JSON hash."""
+    plan = copy.deepcopy(case.plan if plan is None else plan)
+    sources_raw = encoded(sources)
+    plan["source_inventory"].update(bound(sources_raw))
+    return encoded(plan), sources_raw
+
+
+def _containment_entry_plan_arguments_binding(plan):
+    arguments = b"".join(value.encode("ascii") + b"\0" for value in plan["launch"]["arguments"])
+    plan["launch"]["arguments_bytes"] = bound(arguments)
+
+
+def test_containment_entry_plan_reconstructs_design_without_acquisition_or_runtime_promotion(
+        containment_entry_plan_case):
+    case = containment_entry_plan_case
+    report = containment_entry_plan_check(case)
+    assert report["record_status"] == "verified_design"
+    assert report["plan"] == bound(case.raw)
+    assert report["source_inventory"] == bound(case.sources_raw)
+    boundary = report["boundary"]
+    for key in ("design_relationships_verified", "historical_baseline_bytes_verified",
+                "source_carrier_bytes_verified", "plan_schema_implemented",
+                "independent_plan_checker_implemented"):
+        assert boundary[key] is True, key
+    for key in ("execution_authorized", "execution_ready", "native_acquisition_performed",
+                "host_environment_qualified", "containment_observed",
+                "bootstrap_execution_observed", "selected_runtime_admitted", "b2_complete",
+                "historical_raw_capture_replayed", "fresh_signature_verification_performed",
+                "source_binary_equivalence_verified", "physical_execution_authenticated",
+                "complete_runtime_closure_verified", "production_gate_eligible"):
+        assert boundary[key] is False, key
+    assert boundary["metric_pass"] is None and boundary["authority_effect"] == "none"
+    assert boundary["whole_runtime_issue"] == {"number": 2879, "keep_open": True}
+    assert report["historical_baseline_commit"] == "aa7ca551a06cf553c5dc13f052693706f1227bbf"
+    # Canonical reformatting is valid only with the caller's new exact digest.
+    # Acceptance must derive relationships rather than pin the whole plan file.
+    reformatted = encoded(case.plan)
+    assert reformatted != case.raw
+    repeated = containment_entry_plan_check(case, reformatted)
+    assert repeated["plan"] == bound(reformatted)
+    assert repeated["boundary"]["design_relationships_verified"] is True
+    assert repeated["boundary"]["b2_complete"] is False
+
+
+def test_containment_entry_plan_original_entry_and_arguments_have_independent_byte_oracles(
+        containment_entry_plan_case):
+    import zipfile
+    case = containment_entry_plan_case
+    entry = case.sources["static_entry"]
+    with zipfile.ZipFile(io.BytesIO(case.inputs[entry["build_carrier"]["path"]])) as archive:
+        first = archive.read(entry["members"][0]["member"])
+        second = archive.read(entry["members"][1]["member"])
+    assert first == second and len(first) == 9568
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", first)
+    assert header[0][:6] == b"\x7fELF\x02\x01"
+    assert (header[1], header[2], header[4]) == (2, 62, 0x401000)
+    program_types = [struct.unpack_from("<I", first, header[5] + number * header[9])[0]
+                     for number in range(header[10])]
+    assert 3 not in program_types
+    terminal = case.plan["next_terminal_boundary"]
+    assert terminal["image_sha256"] == digest(first)
+    assert terminal["image_size_bytes"] == len(first)
+    arguments = b"".join(value.encode("ascii") + b"\0" for value in case.plan["launch"]["arguments"])
+    assert len(arguments) == 454 and case.plan["launch"]["arguments_bytes"] == bound(arguments)
+    assert case.plan["launch"]["expected_T_environment"] == {"LC_ALL":"C", "TZ":"UTC", "PWD":"/empty"}
+    assert case.plan["task_graph"]["creation_contracts"][0]["flags_hex"] == hex(
+        0x00020000 | 0x10000000 | 0x20000000 | 0x40000000 |
+        0x08000000 | 0x04000000 | 0x02000000 | 17)
+    assert int(case.plan["task_graph"]["creation_contracts"][1]["flags_hex"], 16) == (
+        0x01000000 | 0x00200000 | 17)
+
+
+def test_containment_entry_plan_schema_shape_cannot_replace_source_and_entry_relationships(
+        containment_entry_plan_case):
+    import jsonschema
+    case = containment_entry_plan_case
+    schema = json.loads((ROOT / case.checker.SCHEMA_REL).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    plan = copy.deepcopy(case.plan)
+    plan["next_terminal_boundary"]["image_sha256"] = "0" * 64
+    plan["launch"]["minimal_view"][-1]["sha256"] = "0" * 64
+    jsonschema.Draft202012Validator(schema).validate(plan)
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, encoded(plan))
+    sources = copy.deepcopy(case.sources)
+    sources["original_native_inputs"]["members"][0]["sha256"] = "0" * 64
+    raw, source_raw = _containment_entry_plan_with_sources(case, sources)
+    assert digest(raw) != digest(case.raw) and digest(source_raw) != digest(case.sources_raw)
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, raw, source_raw)
+
+
+@pytest.mark.parametrize("fault", [
+    "clone_namespace", "clone_parent", "birth_count", "entry_identity",
+    "readonly_mode", "phase", "argument_fd", "terminal_environment",
+    "terminal_fds", "filter_roles", "traceexit", "terminal_restart",
+    "cleanup", "setup_budget",
+])
+def test_containment_entry_plan_rehashed_semantic_changes_cannot_select_another_profile(
+        containment_entry_plan_case, fault):
+    case = containment_entry_plan_case
+    plan = copy.deepcopy(case.plan)
+    if fault == "clone_namespace":
+        plan["task_graph"]["creation_contracts"][0]["flags_hex"] = "0x7c020011"
+        plan["launch"]["arguments"].remove("--unshare-cgroup")
+    elif fault == "clone_parent": plan["task_graph"]["creation_contracts"][1]["parent"] = "L"
+    elif fault == "birth_count": plan["task_graph"]["bwrap_birth_count"] = 1
+    elif fault == "entry_identity":
+        plan["next_terminal_boundary"]["image_size_bytes"] += 1
+        plan["launch"]["minimal_view"][-1]["size_bytes"] += 1
+    elif fault == "readonly_mode":
+        plan["launch"]["minimal_view"][-1]["mode_octal"] = "0700"
+        plan["launch"]["arguments"][plan["launch"]["arguments"].index("0500")] = "0700"
+    elif fault == "phase": plan["launch"]["arguments"][-1] = "collector"
+    elif fault == "argument_fd": plan["launch"]["argv"][-1] = "8"
+    elif fault == "terminal_environment": plan["launch"]["expected_T_environment"]["PWD"] = "/"
+    elif fault == "terminal_fds": plan["launch"]["terminal_T_fd_numbers"].append(3)
+    elif fault == "filter_roles": plan["observation_contract"]["observed_seccomp_submission_roles"] = ["T"]
+    elif fault == "traceexit":
+        plan["observation_contract"]["ptrace_options"].append("PTRACE_O_TRACEEXIT")
+        plan["observation_contract"]["ptrace_options_hex"] = "0x0010005f"
+        plan["observation_contract"]["ptrace_traceexit_enabled"] = True
+    elif fault == "terminal_restart": plan["next_terminal_boundary"]["allowed_post_terminal_T_restarts"] = 1
+    elif fault == "cleanup": plan["observation_contract"]["cleanup"] = "Reap only L and count three wait results."
+    else: plan["proposed_budgets_not_observed_measurements"]["setup_wall_seconds"] = 300
+    _containment_entry_plan_arguments_binding(plan)
+    raw = encoded(plan)
+    assert raw != encoded(case.plan)
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, raw)
+
+
+@pytest.mark.parametrize("field", [
+    "execution_authorized", "execution_ready", "native_acquisition_performed",
+    "host_environment_qualified", "containment_observed", "bootstrap_execution_observed",
+    "selected_runtime_admitted", "entry_source_binary_equivalence_verified", "b2_complete",
+    "implemented", "plan_schema_implemented", "independent_plan_checker_implemented",
+])
+def test_containment_entry_plan_cannot_rewrite_historical_proposal_as_execution_or_implementation(
+        containment_entry_plan_case, field):
+    case = containment_entry_plan_case
+    plan = copy.deepcopy(case.plan)
+    assert plan[field] is False
+    plan[field] = True
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("fault", ["ready", "metric", "authority", "issue", "example"])
+def test_containment_entry_plan_keeps_open_gates_and_example_runtime_scope(
+        containment_entry_plan_case, fault):
+    case = containment_entry_plan_case
+    plan = copy.deepcopy(case.plan)
+    if fault == "ready": plan["readiness_gates"][0]["satisfied"] = True
+    elif fault == "metric": plan["metric_pass"] = True
+    elif fault == "authority": plan["authority_effect"] = "release"
+    elif fault == "issue": plan["whole_runtime_issue"]["keep_open"] = False
+    else: plan["selected_bootstrap_follow_on"]["current_example_capsule_accepted_as_real"] = True
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("field", ["expected_plan_sha256", "expected_source_inventory_sha256"])
+@pytest.mark.parametrize("expected", ["0" * 64, "a" * 63, "A" * 64, False])
+def test_containment_entry_plan_requires_both_external_exact_control_digests(
+        containment_entry_plan_case, field, expected):
+    case = containment_entry_plan_case
+    with pytest.raises(case.checker.PlanError) as failure:
+        containment_entry_plan_check(case, **{field: expected})
+    assert type(failure.value.code) is str and failure.value.code
+
+
+@pytest.mark.parametrize("which", ["plan", "inventory"])
+@pytest.mark.parametrize("fault", ["duplicate_top", "duplicate_nested", "float", "boolean_integer",
+                                   "nonfinite", "invalid_utf8", "array", "extra", "missing"])
+def test_containment_entry_plan_strict_json_and_closed_control_records(
+        containment_entry_plan_case, which, fault):
+    case = containment_entry_plan_case
+    data = copy.deepcopy(case.plan if which == "plan" else case.sources)
+    raw = encoded(data)
+    if fault == "duplicate_top": raw = b'{"record_type":"discarded",' + raw[1:]
+    elif fault == "duplicate_nested":
+        raw = raw.replace(b'"sha256":', b'"sha256":"' + b"0" * 64 + b'","sha256":', 1)
+    elif fault in ("float", "boolean_integer", "nonfinite"):
+        import re
+        literal = {"float": b"1.0", "boolean_integer": b"false", "nonfinite": b"NaN"}[fault]
+        raw, changes = re.subn(rb'("size_bytes":)[0-9]+', lambda m: m[1] + literal, raw, count=1)
+        assert changes == 1
+    elif fault == "invalid_utf8": raw += b"\xff"
+    elif fault == "array": raw = b"[]\n"
+    else:
+        if fault == "extra": data["accepted_by_caller"] = True
+        else: data.pop("record_status")
+        raw = encoded(data)
+    assert raw != encoded(case.plan if which == "plan" else case.sources)
+    with pytest.raises(case.checker.PlanError):
+        if which == "plan": containment_entry_plan_check(case, raw)
+        else:
+            plan = copy.deepcopy(case.plan)
+            plan["source_inventory"].update(bound(raw))
+            containment_entry_plan_check(case, encoded(plan), raw)
+
+
+@pytest.mark.parametrize("fault", ["baseline_file", "source_stanza", "entry", "policy", "example", "patch_count"])
+def test_containment_entry_plan_inventory_rehash_cannot_change_original_relationships(
+        containment_entry_plan_case, fault):
+    case = containment_entry_plan_case
+    sources = copy.deepcopy(case.sources)
+    if fault == "baseline_file": sources["baseline_files"][0]["sha256"] = "0" * 64
+    elif fault == "source_stanza": sources["bubblewrap_source"]["matched_stanza"]["version"] = "0.12.0-2"
+    elif fault == "entry": sources["static_entry"]["members"][0]["size_bytes"] += 1
+    elif fault == "policy": sources["existing_containment_policy"]["derived_classic_bpf"]["instruction_count"] += 1
+    elif fault == "example": sources["historical_example_runtime"]["records"][0]["record_status"] = "selected"
+    else: sources["bubblewrap_source"]["patch_series"].append("authored-extra.patch")
+    raw, sources_raw = _containment_entry_plan_with_sources(case, sources)
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, raw, sources_raw)
+
+
+@pytest.mark.parametrize("fault", ["missing", "extra", "wrong_type"])
+def test_containment_entry_plan_input_roster_is_closed_and_bytes_only(containment_entry_plan_case, fault):
+    case = containment_entry_plan_case
+    inputs = dict(case.inputs)
+    path = next(iter(inputs))
+    if fault == "missing": del inputs[path]
+    elif fault == "extra": inputs["unselected/source.txt"] = b"not selected"
+    else: inputs[path] = bytearray(inputs[path])
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, inputs=inputs)
+
+
+@pytest.mark.parametrize("carrier", ["original_native", "bubblewrap_source"])
+def test_containment_entry_plan_rehashed_authored_bindings_do_not_replace_independent_input_pins(
+        containment_entry_plan_case, carrier):
+    case = containment_entry_plan_case
+    sources = copy.deepcopy(case.sources)
+    path = (sources["original_native_inputs"]["carrier"]["path"] if carrier == "original_native"
+            else next(row["path"] for row in sources["bubblewrap_source"]["new_source_files"]
+                      if row["path"].endswith(".orig.tar.xz")))
+    original = case.inputs[path]
+    replacement = original[:-1] + bytes([original[-1] ^ 1])
+    assert replacement != original
+    def rewrite(value):
+        if isinstance(value, dict):
+            if value.get("path") == path and "sha256" in value:
+                value.update(bound(replacement))
+            for child in value.values(): rewrite(child)
+        elif isinstance(value, list):
+            for child in value: rewrite(child)
+    rewrite(sources)
+    raw, sources_raw = _containment_entry_plan_with_sources(case, sources)
+    inputs = dict(case.inputs, **{path: replacement})
+    assert digest(raw) != digest(case.raw) and digest(sources_raw) != digest(case.sources_raw)
+    with pytest.raises(case.checker.PlanError):
+        containment_entry_plan_check(case, raw, sources_raw, inputs)
+
+
+def _containment_entry_plan_zip(items):
+    import zipfile
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
+        for name, raw, mode in items:
+            info = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.external_attr = mode << 16
+            archive.writestr(info, raw)
+    return output.getvalue()
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "traversal", "absolute", "symlink", "directory", "member_limit", "decoded_limit", "count_limit"])
+def test_containment_entry_plan_zip_parser_rejects_ambiguous_members_and_resource_overruns(
+        containment_entry_plan_case, fault):
+    import warnings
+    case = containment_entry_plan_case
+    items = [("a", b"payload", stat.S_IFREG | 0o644)]
+    limits = dict(count_limit=4, decoded_limit=32, member_limit=16)
+    if fault == "duplicate": items.append(items[0])
+    elif fault == "traversal": items[0] = ("../a", items[0][1], items[0][2])
+    elif fault == "absolute": items[0] = ("/a", items[0][1], items[0][2])
+    elif fault == "symlink": items[0] = ("a", b"target", stat.S_IFLNK | 0o777)
+    elif fault == "directory": items[0] = ("a/", b"", stat.S_IFDIR | 0o755)
+    elif fault == "member_limit": limits["member_limit"] = 6
+    elif fault == "decoded_limit": limits["decoded_limit"] = 6
+    else: limits["count_limit"] = 0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        raw = _containment_entry_plan_zip(items)
+    with pytest.raises(case.checker.PlanError):
+        case.checker._zip_members(raw, **limits)
+
+
+def _containment_entry_plan_tar(items):
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        for name, raw, kind, target in items:
+            info = tarfile.TarInfo(name)
+            info.type = kind
+            info.mode = 0o644 if kind == tarfile.REGTYPE else 0o755
+            info.linkname = target
+            info.size = len(raw) if kind == tarfile.REGTYPE else 0
+            archive.addfile(info, io.BytesIO(raw) if kind == tarfile.REGTYPE else None)
+    return output.getvalue()
+
+
+def test_containment_entry_plan_tar_links_remain_metadata_and_are_never_extracted(
+        containment_entry_plan_case, monkeypatch):
+    case = containment_entry_plan_case
+    def forbidden(*_args, **_kwargs): pytest.fail("source archive must never be extracted or links resolved")
+    monkeypatch.setattr(tarfile.TarFile, "extract", forbidden)
+    monkeypatch.setattr(tarfile.TarFile, "extractall", forbidden)
+    raw = _containment_entry_plan_tar([
+        ("src", b"", tarfile.DIRTYPE, ""),
+        ("src/COPYING", b"license", tarfile.REGTYPE, ""),
+        ("src/LICENSE", b"", tarfile.SYMTYPE, "COPYING"),
+        ("src/duplicate-license", b"", tarfile.LNKTYPE, "src/COPYING"),
+    ])
+    members = case.checker._tar_members(raw, count_limit=4, decoded_limit=10240, member_limit=64)
+    assert members["src/COPYING"] == b"license"
+    assert members["src"]["kind"] == "directory"
+    assert members["src/LICENSE"]["kind"] == "symlink"
+    assert members["src/LICENSE"]["target"] == "COPYING"
+    assert members["src/duplicate-license"]["kind"] == "hardlink"
+    assert members["src/duplicate-license"]["target"] == "src/COPYING"
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "traversal", "absolute", "member_limit", "decoded_limit", "count_limit"])
+def test_containment_entry_plan_tar_parser_rejects_ambiguous_members_and_resource_overruns(
+        containment_entry_plan_case, fault):
+    case = containment_entry_plan_case
+    items = [("a", b"payload", tarfile.REGTYPE, "")]
+    limits = dict(count_limit=4, decoded_limit=10240, member_limit=16)
+    if fault == "duplicate": items.append(items[0])
+    elif fault == "traversal": items[0] = ("../a", b"payload", tarfile.REGTYPE, "")
+    elif fault == "absolute": items[0] = ("/a", b"payload", tarfile.REGTYPE, "")
+    elif fault == "member_limit": limits["member_limit"] = 6
+    elif fault == "decoded_limit": limits["decoded_limit"] = 6
+    else: limits["count_limit"] = 0
+    with pytest.raises(case.checker.PlanError):
+        case.checker._tar_members(_containment_entry_plan_tar(items), **limits)
+
+
+def test_containment_entry_plan_verification_never_runs_source_or_native_acquisition(
+        containment_entry_plan_case, monkeypatch):
+    import builtins
+    import ctypes
+    import socket
+    import urllib.request
+    import zipfile
+    case = containment_entry_plan_case
+    original_import = builtins.__import__
+    prohibited = {
+        "required_gate_idempotence_containment_v0", "required_gate_idempotence_entry_task_guard_v0",
+        "required_gate_idempotence_loader_resolution_v0", "collect_required_gate_idempotence_loader_resolution_v0",
+        "qualify_required_gate_idempotence_loader_two_slot_v0", "required_gate_idempotence_bootstrap_probe_v0",
+        "acquire_required_gate_idempotence_v0", "required_gate_idempotence_worker_v0",
+    }
+    def guarded_import(name, *args, **kwargs):
+        assert name not in prohibited, "plan verification imported acquisition or payload code"
+        return original_import(name, *args, **kwargs)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("plan verification must reconstruct preserved data only")
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    for owner, name in [(subprocess,"Popen"),(os,"fork"),(os,"execve"),(os,"system"),
+                        (ctypes,"CDLL"),(socket,"socket"),(socket,"create_connection"),
+                        (urllib.request,"urlopen"),(zipfile.ZipFile,"extract"),(zipfile.ZipFile,"extractall"),
+                        (tarfile.TarFile,"extract"),(tarfile.TarFile,"extractall")]:
+        monkeypatch.setattr(owner, name, forbidden)
+    independent = module("containment_entry_plan_no_execution", CONTAINMENT_ENTRY_PLAN_TOOL_REL)
+    report = independent.verify_plan(plan_bytes=case.raw, expected_plan_sha256=digest(case.raw),
+        source_inventory_bytes=case.sources_raw, expected_source_inventory_sha256=digest(case.sources_raw),
+        inputs=case.inputs)
+    assert report["boundary"]["design_relationships_verified"] is True
+    assert report["boundary"]["native_acquisition_performed"] is False
+    assert report["boundary"]["execution_authorized"] is False
+
+
+def _containment_entry_plan_cli_arguments(case, output):
+    return ["--plan", str(ROOT / CONTAINMENT_ENTRY_PLAN_REL),
+        "--expected-plan-sha256", digest(case.raw),
+        "--source-inventory", str(ROOT / CONTAINMENT_ENTRY_PLAN_SOURCES_REL),
+        "--expected-source-inventory-sha256", digest(case.sources_raw),
+        "--repo-root", str(ROOT), "--out", str(output)]
+
+
+def test_containment_entry_plan_cli_is_canonical_and_never_replaces_existing_output(
+        containment_entry_plan_case, tmp_path, capsys):
+    case = containment_entry_plan_case
+    outputs = [tmp_path / "one.json", tmp_path / "two.json"]
+    reports = []
+    for output in outputs:
+        assert case.checker.main(_containment_entry_plan_cli_arguments(case, output)) == 0
+        captured = capsys.readouterr()
+        raw = output.read_bytes()
+        assert captured.out.encode() == raw == case.checker.canonical(json.loads(raw))
+        assert not captured.err and json.loads(raw)["record_status"] == "verified_design"
+        reports.append(raw)
+    assert reports[0] == reports[1]
+    assert case.checker.main(_containment_entry_plan_cli_arguments(case, outputs[0])) == 1
+    captured = capsys.readouterr()
+    assert outputs[0].read_bytes() == reports[0] and not captured.out
+    assert json.loads(captured.err)["status"] == "rejected"
+
+
+def test_containment_entry_plan_cli_rejection_cannot_publish_a_success_record(
+        containment_entry_plan_case, tmp_path, capsys):
+    case = containment_entry_plan_case
+    output = tmp_path / "must-not-exist.json"
+    args = _containment_entry_plan_cli_arguments(case, output)
+    args[args.index("--expected-plan-sha256") + 1] = "0" * 64
+    assert case.checker.main(args) == 1
+    captured = capsys.readouterr()
+    assert not output.exists() and not captured.out
+    assert json.loads(captured.err)["status"] == "rejected"
+
+
+def test_containment_entry_plan_frozen_baseline_carrier_cannot_be_replaced(
+        containment_entry_plan_case):
+    import zipfile
+    case = containment_entry_plan_case
+    path = case.checker.BASELINE_REL
+    with zipfile.ZipFile(io.BytesIO(case.inputs[path])) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    selected = case.sources["baseline_files"][0]["path"]
+    original = members[selected]
+    members[selected] += b"\n# altered historical source\n"
+    replacement = _containment_entry_plan_zip(
+        [(name, raw, stat.S_IFREG | 0o644) for name, raw in sorted(members.items())])
+    with zipfile.ZipFile(io.BytesIO(replacement)) as archive:
+        assert archive.read(selected) != original
+        assert len(archive.namelist()) == 34
+    inputs = dict(case.inputs, **{path: replacement})
+    with pytest.raises(case.checker.PlanError) as failure:
+        containment_entry_plan_check(case, inputs=inputs)
+    assert failure.value.code == "containment_plan_original_carrier_binding"
+
+
+@pytest.mark.parametrize("link_location", ["root", "parent"])
+def test_containment_entry_plan_input_tree_does_not_follow_symlinked_directories(
+        containment_entry_plan_case, tmp_path, link_location):
+    case = containment_entry_plan_case
+    if link_location == "root":
+        alias = tmp_path / "selected-repository"
+        alias.symlink_to(ROOT, target_is_directory=True)
+    else:
+        alias = tmp_path / "selected-repository"
+        alias.mkdir()
+        for component in {name.split("/", 1)[0] for name in case.inputs}:
+            (alias / component).symlink_to(ROOT / component, target_is_directory=True)
+    # Every aliased input exists and has the selected bytes. A missing file or
+    # incorrect digest must not be the reason this unsafe tree is rejected.
+    assert all((alias / name).is_file() for name in case.inputs)
+    with pytest.raises(case.checker.PlanError) as failure:
+        case.checker.load_inputs(alias)
+    assert failure.value.code == "containment_plan_file_unreadable"
+
+
+def test_containment_entry_plan_implementation_changed_during_verification_is_rejected(
+        containment_entry_plan_case, tmp_path, monkeypatch):
+    case = containment_entry_plan_case
+    for name in (case.checker.TOOL_REL, case.checker.SCHEMA_REL):
+        destination = tmp_path / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((ROOT / name).read_bytes())
+    changed = tmp_path / case.checker.SCHEMA_REL
+    original = changed.read_bytes()
+    real_validate = case.checker._validate
+    changes = []
+    def validate_then_change_source(schema, definition, value):
+        result = real_validate(schema, definition, value)
+        if definition == "report":
+            changed.write_bytes(original + b" ")
+            changes.append(definition)
+        return result
+    monkeypatch.setattr(case.checker, "ROOT", tmp_path)
+    monkeypatch.setattr(case.checker, "_validate", validate_then_change_source)
+    with pytest.raises(case.checker.PlanError) as failure:
+        containment_entry_plan_check(case)
+    assert changes == ["report"] and changed.read_bytes() != original
+    assert failure.value.code == "containment_plan_implementation_changed"
+
+
+@pytest.mark.parametrize("which", ["plan", "inventory"])
+@pytest.mark.parametrize("fault", ["oversize", "deep"])
+def test_containment_entry_plan_control_bounds_apply_before_schema_or_carrier_work(
+        containment_entry_plan_case, which, fault, monkeypatch):
+    case = containment_entry_plan_case
+    original = case.raw if which == "plan" else case.sources_raw
+    raw = (original + b" " * (case.checker.CONTROL_BYTES + 1 - len(original))
+           if fault == "oversize" else b'{"nested":' * 64 + b"0" + b"}" * 64)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("oversized or deeply nested controls reached schema or carrier processing")
+    monkeypatch.setattr(case.checker, "_validate", forbidden)
+    monkeypatch.setattr(case.checker, "_zip_members", forbidden)
+    with pytest.raises(case.checker.PlanError) as failure:
+        if which == "plan":
+            containment_entry_plan_check(case, raw)
+        else:
+            plan = copy.deepcopy(case.plan)
+            plan["source_inventory"].update(bound(raw))
+            containment_entry_plan_check(case, encoded(plan), raw)
+    if fault == "deep":
+        assert failure.value.code == "containment_plan_json_complexity"
+
+
+def test_containment_entry_plan_same_inventory_semantics_accept_new_exact_bytes(
+        containment_entry_plan_case):
+    case = containment_entry_plan_case
+    raw, source_raw = _containment_entry_plan_with_sources(case, case.sources)
+    assert source_raw != case.sources_raw
+    report = containment_entry_plan_check(case, raw, source_raw)
+    assert report["record_status"] == "verified_design"
+    assert report["plan"] == bound(raw) and report["source_inventory"] == bound(source_raw)
+    assert report["boundary"]["historical_baseline_bytes_verified"] is True
+    assert report["boundary"]["source_carrier_bytes_verified"] is True
+    assert report["boundary"]["execution_authorized"] is False
+
+
+def test_containment_entry_plan_output_replacement_during_write_is_not_deleted_or_accepted(
+        containment_entry_plan_case, tmp_path, monkeypatch):
+    case = containment_entry_plan_case
+    output = tmp_path / "report.json"
+    replacement = b"caller-owned replacement\n"
+    real_write = os.write
+    replacements = []
+    def write_then_replace(fd, data):
+        written = real_write(fd, data)
+        if not replacements:
+            output.unlink()
+            output.write_bytes(replacement)
+            replacements.append(output)
+        return written
+    monkeypatch.setattr(os, "write", write_then_replace)
+    with pytest.raises(case.checker.PlanError):
+        case.checker._write_new(output, b'{"record_status":"verified_design"}\n')
+    assert replacements == [output]
+    assert output.read_bytes() == replacement
+
+
+def test_containment_entry_plan_report_uses_the_verified_input_snapshot(
+        containment_entry_plan_case, monkeypatch):
+    case = containment_entry_plan_case
+    inputs = dict(case.inputs)
+    path = case.checker.BASELINE_REL
+    original = inputs[path]
+    replacement = original[:-1] + bytes([original[-1] ^ 1])
+    real_source_contracts = case.checker._source_contracts
+    changes = []
+    def source_contracts_then_replace_caller_input(*args, **kwargs):
+        result = real_source_contracts(*args, **kwargs)
+        inputs[path] = replacement
+        changes.append(path)
+        return result
+    monkeypatch.setattr(case.checker, "_source_contracts", source_contracts_then_replace_caller_input)
+    report = containment_entry_plan_check(case, inputs=inputs)
+    assert changes == [path] and inputs[path] == replacement
+    assert report["record_status"] == "verified_design"
+    row = next(item for item in report["input_files"] if item["path"] == path)
+    assert row == {"path": path, **bound(original)}
+    assert row["sha256"] != digest(replacement)
