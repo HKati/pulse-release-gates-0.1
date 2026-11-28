@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 containment task-guard probe build and context selection](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_SELECTION_v0.md).
+  Preserve two fixed compile-only builds, actual ELF bytes, bounded compiler
+  outcomes and unchanged source/compiler observations under an explicit limited
+  acceptance policy. Independently bind the selected probe, full observer context
+  and qualifier source closure before a later attempt. Keep scripted and recorded
+  origins distinct; reject incomplete builds, changed selections and replaced
+  output paths. Append registered regressions without changing prior contracts,
+  the qualifier or CI manifests. No probe/helper/original execution is performed;
+  native qualification, full-host acceptance and B2 remain pending, with
+  `metric_pass=null` and `authority_effect=none`.
+
 - Implement the first [B2 containment task-guard qualification component](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_QUALIFICATION_v0.md).
   Add a fixed 21-case freestanding probe, bounded native observation command,
   closed evidence schema and independent raw-record reconstruction. Admit the

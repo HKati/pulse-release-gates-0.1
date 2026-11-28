@@ -26348,3 +26348,1078 @@ def test_containment_guard_qualification_cli_publishes_incomplete_prefix_before_
     monkeypatch.setattr(os,"_exit",record_exit)
     with pytest.raises(AuthoredExit):
         producer.main(_containment_guard_qualification_cli_arguments(producer,probe,output))
+
+
+# Guard build/input selection regressions. Compiler receipts and environment
+# observations here are independently authored data; the compiled probe fixture
+# is inspected as bytes and is never executed.
+CONTAINMENT_GUARD_SELECTION_CHECKER_REL = "tools/check_required_gate_idempotence_containment_task_guard_selection_v0.py"
+CONTAINMENT_GUARD_SELECTION_PREPARER_REL = "tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py"
+CONTAINMENT_GUARD_SELECTION_BUILDER_REL = "tools/build_required_gate_idempotence_containment_task_probe_v0.py"
+CONTAINMENT_GUARD_SELECTION_SCHEMA_REL = "schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json"
+CONTAINMENT_GUARD_SELECTION_POLICY_REL = "docs/compute/required_gate_idempotence_containment_task_guard_selection_v0/build_policy_v0.json"
+CONTAINMENT_GUARD_SELECTION_PREFIX_BYTES = 1464919
+CONTAINMENT_GUARD_SELECTION_PREFIX_SHA256 = "84b971d735bc4991ef3095b434ad119832a2cec2ae4de287dc85f9a4f48e5027"
+CONTAINMENT_GUARD_SELECTION_FLAGS = [
+    "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-ffreestanding",
+    "-fno-builtin", "-fno-stack-protector", "-fno-pie", "-no-pie",
+    "-fno-asynchronous-unwind-tables", "-fno-unwind-tables", "-nostdlib", "-static",
+    "-Wl,--build-id=none", "-Wl,-z,noexecstack", "-Wl,-e,_start", "-Wconversion", "-Wshadow",
+]
+CONTAINMENT_GUARD_SELECTION_BUILD_ENV = {
+    "PATH": "/usr/bin:/bin", "LC_ALL": "C", "TZ": "UTC",
+    "SOURCE_DATE_EPOCH": "0", "TMPDIR": ".",
+}
+CONTAINMENT_GUARD_SELECTION_LIMITS = {
+    "builds": 2, "retries": 0, "build_seconds": 30, "cleanup_seconds": 5,
+    "stdout_bytes": 65536, "stderr_bytes": 65536, "probe_bytes": 262144,
+    "compiler_bytes": 67108864, "record_bytes": 2097152,
+}
+
+
+def containment_guard_selection_checker():
+    return module("check_required_gate_idempotence_containment_task_guard_selection_v0",
+                  CONTAINMENT_GUARD_SELECTION_CHECKER_REL)
+
+
+def containment_guard_selection_preparer():
+    return module("prepare_required_gate_idempotence_containment_task_guard_selection_v0",
+                  CONTAINMENT_GUARD_SELECTION_PREPARER_REL)
+
+
+def containment_guard_selection_builder():
+    return module("build_required_gate_idempotence_containment_task_probe_v0",
+                  CONTAINMENT_GUARD_SELECTION_BUILDER_REL)
+
+
+@pytest.fixture(scope="module")
+def containment_guard_selection_case(containment_guard_qualification_probe):
+    checker = containment_guard_selection_checker()
+    source_inputs = {path: (ROOT / path).read_bytes() for path in checker.SOURCE_PATHS}
+    inventory = [{"path": path, **bound(source_inputs[path])} for path in sorted(source_inputs)]
+    policy = (ROOT / CONTAINMENT_GUARD_SELECTION_POLICY_REL).read_bytes()
+    source = (ROOT / CONTAINMENT_GUARD_PROBE_REL).read_bytes()
+    compiler = {"path": "/authored/toolchain/gcc", **bound(b"authored compiler identity" * 100)}
+    argv = [compiler["path"], *CONTAINMENT_GUARD_SELECTION_FLAGS, "probe.c", "-o", "probe.elf"]
+    request = {
+        "profile": "linux_x86_64_containment_task_guard_selection_v0",
+        "source": {"path": CONTAINMENT_GUARD_PROBE_REL, **bound(source)},
+        "compiler": compiler, "argv": argv,
+        "environment": copy.deepcopy(CONTAINMENT_GUARD_SELECTION_BUILD_ENV),
+        "limits": copy.deepcopy(CONTAINMENT_GUARD_SELECTION_LIMITS),
+        "policy": bound(policy), "sources": copy.deepcopy(inventory),
+    }
+    probe = containment_guard_qualification_probe
+    builds = [{
+        "build_id": name, "argv": list(argv),
+        "environment": copy.deepcopy(CONTAINMENT_GUARD_SELECTION_BUILD_ENV),
+        "source_hex": source.hex(), "source_after_hex": source.hex(),
+        "process": {"pid": 4000 + i, "exit_code": 0, "elapsed_ns": 10000000,
+                    "timed_out": False, "stdout_overflow": False,
+                    "stderr_overflow": False, "reaped": True},
+        "stdout_hex": "", "stderr_hex": "", "probe_hex": probe.hex(),
+        "directory_verified": True,
+    } for i, name in enumerate(("build-1", "build-2"), start=1)]
+    record = {
+        "record_type": "required_gate_idempotence_containment_task_probe_build_v0",
+        "profile": request["profile"], "attempt_id": "a" * 32,
+        "status": "completed", "evidence_origin": "scripted_build_backend",
+        "request": request, "source_hex": source.hex(),
+        "compiler_after": copy.deepcopy(compiler), "sources_after": copy.deepcopy(inventory),
+        "builds": builds, "failure": None, "cleanup_failures": [],
+        "boundary": copy.deepcopy(checker.BOUNDARY),
+    }
+    raw_record = encoded(record)
+    environment = _containment_guard_qualification_environment()
+    raw_checker = containment_guard_qualification_checker()
+    old_inventory = [{"path": path, **bound(source_inputs[path])}
+                     for path in sorted(raw_checker.SOURCE_PATHS)]
+    selection = {
+        "record_type": "required_gate_idempotence_containment_task_guard_selection_v0",
+        "profile": request["profile"], "selection_id": "b" * 32,
+        "record_status": "prepared", "evidence_origin": "scripted_selection",
+        "environment_origin": "scripted_context", "environment": environment,
+        "bindings": {"build_record": bound(raw_record), "probe": bound(probe),
+                     "environment": bound(encoded(environment)), "policy": bound(policy)},
+        "compiler": copy.deepcopy(compiler),
+        "probe_source": {"path": CONTAINMENT_GUARD_PROBE_REL, **bound(source)},
+        "build_evidence_origin": "scripted_build_backend",
+        "qualification": {
+            "profile": "linux_x86_64_containment_task_guard_probe_qualification_v0",
+            "acknowledgement": "QUALIFY_CONTAINMENT_TASK_GUARD_ONLY",
+            "limits": copy.deepcopy(raw_checker.LIMITS), "cases": list(raw_checker.CASES),
+            "sources": old_inventory,
+        },
+        "sources": copy.deepcopy(inventory), "boundary": copy.deepcopy(checker.BOUNDARY),
+    }
+    return SimpleNamespace(checker=checker, source_inputs=source_inputs, inventory=inventory,
+        source=source, policy=policy, probe=probe, compiler=compiler, request=request,
+        record=record, raw_record=raw_record, environment=environment,
+        selection=selection, raw_selection=encoded(selection))
+
+
+def _containment_guard_selection_build_check(case, record=None, **overrides):
+    raw_record = case.raw_record if record is None else encoded(record)
+    values = {"record_bytes": raw_record, "expected_record_sha256": digest(raw_record),
+              "policy_bytes": case.policy, "accepted_policy_sha256": digest(case.policy),
+              "source_inputs": case.source_inputs}
+    values.update(overrides)
+    return case.checker.verify_build_record(**values)
+
+
+def _containment_guard_selection_arguments(case, **overrides):
+    values = {"build_record_bytes": case.raw_record,
+              "expected_build_record_sha256": digest(case.raw_record),
+              "probe_bytes": case.probe, "expected_probe_sha256": digest(case.probe),
+              "policy_bytes": case.policy, "accepted_policy_sha256": digest(case.policy),
+              "source_inputs": case.source_inputs}
+    values.update(overrides)
+    return values
+
+
+def _containment_guard_selection_check(case, selection=None, **overrides):
+    raw_selection = case.raw_selection if selection is None else encoded(selection)
+    values = _containment_guard_selection_arguments(case,
+        selection_bytes=raw_selection, expected_selection_sha256=digest(raw_selection))
+    values.update(overrides)
+    return case.checker.verify_selection(**values)
+
+
+def _containment_guard_selection_boundaries(case, report):
+    for name, value in case.checker.BOUNDARY.items():
+        assert type(report[name]) is type(value) and report[name] == value
+    assert report["source_binary_equivalence_verified"] is False
+    assert report["full_host_qualification_completed"] is False
+    assert report["execution_authorized"] is False
+    assert report["b2_complete"] is False
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+
+
+def test_containment_guard_selection_historical_test_prefix_is_unchanged():
+    prefix = (ROOT / SELF).read_bytes()[:CONTAINMENT_GUARD_SELECTION_PREFIX_BYTES]
+    assert digest(prefix) == CONTAINMENT_GUARD_SELECTION_PREFIX_SHA256
+
+
+def test_containment_guard_selection_fixed_request_and_selection_match_authored_expectations(
+        containment_guard_selection_case):
+    case = containment_guard_selection_case
+    actual_request = case.checker.derive_build_request(compiler=case.compiler,
+        policy_bytes=case.policy, accepted_policy_sha256=digest(case.policy),
+        source_inputs=case.source_inputs)
+    assert encoded(actual_request) == encoded(case.request)
+    actual_selection = case.checker.derive_selection(**_containment_guard_selection_arguments(case),
+        environment=case.environment, environment_origin="scripted_context", selection_id="b" * 32)
+    assert encoded(actual_selection) == case.raw_selection
+    assert len(case.inventory) == 16
+    assert case.request["source"]["sha256"] == "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77"
+
+
+def test_containment_guard_selection_independent_checking_never_executes_or_imports_producers(
+        containment_guard_selection_case, monkeypatch):
+    import ctypes
+    import socket
+    case = containment_guard_selection_case
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("data-only guard input checking attempted execution or networking")
+    for owner, name in ((subprocess, "Popen"), (subprocess, "run"), (os, "fork"),
+                        (os, "execve"), (ctypes, "CDLL"), (socket, "socket")):
+        monkeypatch.setattr(owner, name, forbidden)
+    report = _containment_guard_selection_build_check(case)
+    assert report["status"] == "accepted_scripted_probe_build"
+    assert report["build_record_verified"] is True
+    assert report["recorded_compile_only"] is False
+    assert report["build_count"] == 2 and report["probe"] == bound(case.probe)
+    _containment_guard_selection_boundaries(case, report)
+    selected = _containment_guard_selection_check(case)
+    assert selected["selection_verified"] is True
+    assert selected["evidence_origin"] == "scripted_selection"
+    _containment_guard_selection_boundaries(case, selected)
+    source = (ROOT / CONTAINMENT_GUARD_SELECTION_CHECKER_REL).read_text()
+    import ast
+    imports = [node for node in ast.walk(ast.parse(source))
+               if isinstance(node, (ast.Import, ast.ImportFrom))]
+    forbidden_modules = {Path(CONTAINMENT_GUARD_QUALIFIER_REL).stem,
+                         Path(CONTAINMENT_GUARD_SELECTION_BUILDER_REL).stem,
+                         Path(CONTAINMENT_GUARD_SELECTION_PREPARER_REL).stem}
+    for node in imports:
+        names = [alias.name for alias in node.names] if isinstance(node, ast.Import) else [node.module]
+        assert not forbidden_modules.intersection(names)
+
+
+@pytest.mark.parametrize("origin", ["scripted_build_backend", "recorded_compile_only"])
+def test_containment_guard_selection_build_origin_does_not_authenticate_physical_compilation(
+        containment_guard_selection_case, origin):
+    case = containment_guard_selection_case
+    record = copy.deepcopy(case.record)
+    record["evidence_origin"] = origin
+    report = _containment_guard_selection_build_check(case, record)
+    assert report["recorded_compile_only"] is (origin == "recorded_compile_only")
+    assert report["status"] == ("accepted_recorded_probe_build" if origin == "recorded_compile_only"
+                                else "accepted_scripted_probe_build")
+    _containment_guard_selection_boundaries(case, report)
+
+
+@pytest.mark.parametrize("fault", [
+    "extra_root_key", "extra_request_key", "wrong_profile", "false_attempt_id", "wrong_origin",
+    "source_bytes", "request_source_digest", "request_source_path", "compiler_path",
+    "compiler_changed", "extra_flag", "extra_environment", "raised_limit", "removed_policy",
+    "sources_missing", "sources_reordered", "sources_after_missing", "one_build", "third_build",
+    "duplicate_build_id", "reversed_builds", "wrong_cwd_id", "row_extra_flag", "row_environment",
+    "row_source_changed", "row_source_after_changed", "row_directory_unverified", "exit_failed",
+    "exit_false_bool", "pid_false_bool", "pid_zero", "elapsed_zero", "elapsed_over_limit",
+    "process_not_reaped", "process_timed_out", "stdout_overflow", "stderr_overflow",
+    "missing_output", "failure_claimed", "cleanup_failed", "authority_true",
+])
+def test_containment_guard_selection_rehashed_build_mutations_are_rejected(
+        containment_guard_selection_case, fault):
+    case = containment_guard_selection_case
+    record = copy.deepcopy(case.record)
+    request, row = record["request"], record["builds"][0]
+    if fault == "extra_root_key": record["trusted"] = True
+    elif fault == "extra_request_key": request["trusted"] = True
+    elif fault == "wrong_profile": record["profile"] += "_changed"
+    elif fault == "false_attempt_id": record["attempt_id"] = False
+    elif fault == "wrong_origin": record["evidence_origin"] = "native_qualified"
+    elif fault == "source_bytes": record["source_hex"] = (case.source + b"\n").hex()
+    elif fault == "request_source_digest": request["source"]["sha256"] = "0" * 64
+    elif fault == "request_source_path": request["source"]["path"] = "tools/other_probe.c"
+    elif fault == "compiler_path": request["compiler"]["path"] = "/authored/../gcc"
+    elif fault == "compiler_changed": record["compiler_after"]["sha256"] = "0" * 64
+    elif fault == "extra_flag": request["argv"].append("-fplugin=unselected.so")
+    elif fault == "extra_environment": request["environment"]["LD_PRELOAD"] = "unselected.so"
+    elif fault == "raised_limit": request["limits"]["retries"] = 1
+    elif fault == "removed_policy": del request["policy"]
+    elif fault == "sources_missing": request["sources"].pop()
+    elif fault == "sources_reordered": request["sources"].reverse()
+    elif fault == "sources_after_missing": record["sources_after"] = []
+    elif fault == "one_build": record["builds"].pop()
+    elif fault == "third_build": record["builds"].append(copy.deepcopy(row))
+    elif fault == "duplicate_build_id": record["builds"][1]["build_id"] = "build-1"
+    elif fault == "reversed_builds": record["builds"].reverse()
+    elif fault == "wrong_cwd_id": row["build_id"] = "../build-1"
+    elif fault == "row_extra_flag": row["argv"].append("-fno-stack-protector")
+    elif fault == "row_environment": row["environment"]["TMPDIR"] = "/tmp"
+    elif fault == "row_source_changed": row["source_hex"] = (case.source + b"\n").hex()
+    elif fault == "row_source_after_changed": row["source_after_hex"] = (case.source + b"\n").hex()
+    elif fault == "row_directory_unverified": row["directory_verified"] = False
+    elif fault == "exit_failed": row["process"]["exit_code"] = 1
+    elif fault == "exit_false_bool": row["process"]["exit_code"] = False
+    elif fault == "pid_false_bool": row["process"]["pid"] = True
+    elif fault == "pid_zero": row["process"]["pid"] = 0
+    elif fault == "elapsed_zero": row["process"]["elapsed_ns"] = 0
+    elif fault == "elapsed_over_limit": row["process"]["elapsed_ns"] = 30000000001
+    elif fault == "process_not_reaped": row["process"]["reaped"] = False
+    elif fault == "process_timed_out": row["process"]["timed_out"] = True
+    elif fault == "stdout_overflow": row["process"]["stdout_overflow"] = True
+    elif fault == "stderr_overflow": row["process"]["stderr_overflow"] = True
+    elif fault == "missing_output": row["probe_hex"] = None
+    elif fault == "failure_claimed": record["failure"] = "authored_failure"
+    elif fault == "cleanup_failed": record["cleanup_failures"] = ["authored_cleanup_failure"]
+    elif fault == "authority_true": record["boundary"]["execution_authorized"] = True
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_build_check(case, record)
+
+
+def test_containment_guard_selection_equal_summaries_cannot_hide_unequal_actual_elf_bytes(
+        containment_guard_selection_case):
+    case = containment_guard_selection_case
+    alternate = bytearray(case.probe)
+    offset = alternate.find(b"GCC:")
+    assert offset >= 0
+    alternate[offset] = ord("X")
+    alternate = bytes(alternate)
+    assert containment_guard_qualification_checker().verify_probe_elf(
+        alternate, expected_probe_sha256=digest(alternate))["elf_shape_verified"] is True
+    record = copy.deepcopy(case.record)
+    record["builds"][1]["probe_hex"] = alternate.hex()
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_build_check(case, record)
+
+
+def test_containment_guard_selection_equal_outputs_still_require_the_exact_guard(
+        containment_guard_selection_case):
+    case = containment_guard_selection_case
+    alternate = bytearray(case.probe)
+    guard = containment_guard_qualification_checker().GUARD_BYTES
+    offset = alternate.find(guard)
+    assert offset >= 0
+    alternate[offset + len(guard) - 1] ^= 1
+    record = copy.deepcopy(case.record)
+    for row in record["builds"]:
+        row["probe_hex"] = bytes(alternate).hex()
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_build_check(case, record)
+
+
+@pytest.mark.parametrize("field", ["expected_record_sha256", "accepted_policy_sha256"])
+def test_containment_guard_selection_build_external_digests_are_not_taken_from_the_record(
+        containment_guard_selection_case, field):
+    case = containment_guard_selection_case
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_build_check(case, **{field: "0" * 64})
+
+
+@pytest.mark.parametrize("fault", ["extra_key", "changed_profile", "noncanonical"])
+def test_containment_guard_selection_rehashing_cannot_select_a_different_policy(
+        containment_guard_selection_case, fault):
+    case = containment_guard_selection_case
+    value = json.loads(case.policy)
+    if fault == "extra_key": value["allow_unverified_build"] = True
+    elif fault == "changed_profile": value["profile"] = "unreviewed_profile"
+    raw_policy = encoded(value) + (b" " if fault == "noncanonical" else b"")
+    record = copy.deepcopy(case.record)
+    record["request"]["policy"] = bound(raw_policy)
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_build_check(case, record,
+            policy_bytes=raw_policy, accepted_policy_sha256=digest(raw_policy))
+
+
+@pytest.mark.parametrize("fault", ["duplicate_key", "trailing_json", "float", "noncanonical", "array"])
+def test_containment_guard_selection_control_parser_rejects_ambiguous_json(
+        containment_guard_selection_case, fault):
+    case = containment_guard_selection_case
+    malformed = {
+        "duplicate_key": b'{"x":1,"x":2}\n',
+        "trailing_json": b'{"x":1}\n{}\n',
+        "float": b'{"x":1.0}\n',
+        "noncanonical": b'{ "x":1 }\n',
+        "array": b'[]\n',
+    }[fault]
+    with pytest.raises(case.checker.SelectionError):
+        case.checker.parse(malformed)
+
+
+def test_containment_guard_selection_incomplete_build_is_preserved_but_never_selected(
+        containment_guard_selection_case):
+    case = containment_guard_selection_case
+    record = copy.deepcopy(case.record)
+    record["status"] = "incomplete"
+    record["failure"] = "authored_first_build_failed"
+    record["builds"] = record["builds"][:1]
+    record["builds"][0]["process"]["exit_code"] = 1
+    record["builds"][0]["probe_hex"] = None
+    report = _containment_guard_selection_build_check(case, record)
+    assert report["status"] == "preserved_incomplete_probe_build"
+    assert report["build_record_verified"] is False and report["probe"] is None
+    _containment_guard_selection_boundaries(case, report)
+    raw_record = encoded(record)
+    with pytest.raises(case.checker.SelectionError):
+        case.checker.derive_selection(**_containment_guard_selection_arguments(case,
+            build_record_bytes=raw_record, expected_build_record_sha256=digest(raw_record)),
+            environment=case.environment, environment_origin="scripted_context", selection_id="b" * 32)
+
+
+@pytest.mark.parametrize("fault", [
+    "unknown_key", "wrong_status", "elevated_origin", "wrong_build_origin", "missing_binding",
+    "build_binding", "probe_binding", "environment_binding", "policy_binding", "boot_id",
+    "namespace", "observer_bytes", "capability", "root_uid", "extra_environment_key",
+    "wrong_ack", "extra_case", "raised_attempts", "old_source_roster", "new_source_roster",
+    "compiler", "probe_source", "execution_authorized", "b2_complete",
+])
+def test_containment_guard_selection_rehashed_selection_changes_are_rejected(
+        containment_guard_selection_case, fault):
+    case = containment_guard_selection_case
+    selection = copy.deepcopy(case.selection)
+    if fault == "unknown_key": selection["trusted"] = True
+    elif fault == "wrong_status": selection["record_status"] = "qualified"
+    elif fault == "elevated_origin": selection["evidence_origin"] = "recorded_build_and_local_context"
+    elif fault == "wrong_build_origin": selection["build_evidence_origin"] = "recorded_compile_only"
+    elif fault == "missing_binding": del selection["bindings"]["build_record"]
+    elif fault.endswith("_binding"):
+        key = "build_record" if fault == "build_binding" else fault.removesuffix("_binding")
+        selection["bindings"][key]["sha256"] = "0" * 64
+    elif fault == "boot_id": selection["environment"]["boot_id"] = "22345678-1234-1234-1234-123456789abc"
+    elif fault == "namespace": selection["environment"]["namespaces"]["user"] = "user:[124]"
+    elif fault == "observer_bytes": selection["environment"]["observer_executable"]["sha256"] = "0" * 64
+    elif fault == "capability": selection["environment"]["security"]["CapEff"] = "0000000000000001"
+    elif fault == "root_uid": selection["environment"]["ids"]["uid"] = 0
+    elif fault == "extra_environment_key": selection["environment"]["image_qualified"] = True
+    elif fault == "wrong_ack": selection["qualification"]["acknowledgement"] = "RUN_ORIGINAL"
+    elif fault == "extra_case": selection["qualification"]["cases"].append("new_unreviewed_case")
+    elif fault == "raised_attempts": selection["qualification"]["limits"]["attempts"] = 2
+    elif fault == "old_source_roster": selection["qualification"]["sources"].pop()
+    elif fault == "new_source_roster": selection["sources"].pop()
+    elif fault == "compiler": selection["compiler"]["sha256"] = "0" * 64
+    elif fault == "probe_source": selection["probe_source"]["sha256"] = "0" * 64
+    elif fault in ("execution_authorized", "b2_complete"): selection["boundary"][fault] = True
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_check(case, selection)
+
+
+@pytest.mark.parametrize("field", ["expected_selection_sha256", "expected_build_record_sha256",
+                                   "expected_probe_sha256", "accepted_policy_sha256"])
+def test_containment_guard_selection_all_external_input_digests_are_required(
+        containment_guard_selection_case, field):
+    case = containment_guard_selection_case
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_check(case, **{field: "0" * 64})
+
+
+def test_containment_guard_selection_altered_frozen_source_cannot_be_admitted_by_rehashing(
+        containment_guard_selection_case):
+    case = containment_guard_selection_case
+    sources = dict(case.source_inputs)
+    sources[CONTAINMENT_GUARD_PROBE_REL] += b"\n/* changed source */\n"
+    with pytest.raises(case.checker.SelectionError):
+        _containment_guard_selection_build_check(case, source_inputs=sources)
+
+
+def test_containment_guard_selection_schema_accepts_actual_records_and_reports(
+        containment_guard_selection_case):
+    import jsonschema
+    case = containment_guard_selection_case
+    schema = json.loads((ROOT / CONTAINMENT_GUARD_SELECTION_SCHEMA_REL).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    validator = jsonschema.Draft202012Validator(schema)
+    for value in (json.loads(case.policy), case.record, case.selection,
+                  _containment_guard_selection_build_check(case),
+                  _containment_guard_selection_check(case)):
+        validator.validate(value)
+
+
+@pytest.mark.parametrize("kind", ["existing", "leaf_symlink", "parent_symlink"])
+def test_containment_guard_selection_publication_is_new_and_nofollow(
+        containment_guard_selection_case, tmp_path, kind):
+    checker = containment_guard_selection_case.checker
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    target = parent / "record.json"
+    original = tmp_path / "original.json"
+    original.write_bytes(b"unrelated original\n")
+    if kind == "existing": target.write_bytes(b"existing record\n")
+    elif kind == "leaf_symlink": target.symlink_to(original)
+    else:
+        alias = tmp_path / "alias"
+        alias.symlink_to(parent, target_is_directory=True)
+        target = alias / "record.json"
+    with pytest.raises((OSError, checker.SelectionError)):
+        checker.write_new(target, encoded({"attempt": "authored"}))
+    assert original.read_bytes() == b"unrelated original\n"
+    if kind == "existing": assert target.read_bytes() == b"existing record\n"
+
+
+def test_containment_guard_selection_published_replacement_is_not_removed_or_accepted(
+        containment_guard_selection_case, tmp_path, monkeypatch):
+    checker = containment_guard_selection_case.checker
+    target = tmp_path / "record.json"
+    original_write = os.write
+    replaced = []
+    def replace(fd, data):
+        written = original_write(fd, data)
+        if not replaced:
+            target.unlink()
+            target.write_bytes(b"unrelated replacement\n")
+            replaced.append(True)
+        return written
+    monkeypatch.setattr(os, "write", replace)
+    with pytest.raises((OSError, checker.SelectionError)):
+        checker.write_new(target, encoded({"attempt": "authored"}))
+    assert target.read_bytes() == b"unrelated replacement\n"
+
+
+def test_containment_guard_selection_checker_close_failure_invalidates_its_own_publication(
+        containment_guard_selection_case, tmp_path, monkeypatch):
+    checker = containment_guard_selection_case.checker
+    target = tmp_path / "report.json"
+    unrelated = tmp_path / "unrelated.json"
+    unrelated.write_bytes(b"keep unchanged\n")
+    original_close = os.close
+    failed = []
+    def failed_writer_close(fd):
+        info = os.fstat(fd)
+        flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+        owned_writer = (not failed and stat.S_ISREG(info.st_mode)
+                        and flags & os.O_ACCMODE == os.O_RDWR
+                        and target.exists() and info.st_ino == target.stat().st_ino
+                        and info.st_dev == target.stat().st_dev)
+        original_close(fd)
+        if owned_writer:
+            failed.append(True)
+            raise OSError(errno.EIO, "authored close failure after publication")
+    monkeypatch.setattr(os, "close", failed_writer_close)
+    with pytest.raises((OSError, ValueError)):
+        checker.write_new(target, encoded({"status": "authored_complete_report"}))
+    assert failed == [True]
+    assert not target.exists() or target.read_bytes() == b""
+    assert unrelated.read_bytes() == b"keep unchanged\n"
+
+
+def _containment_guard_selection_prepare_arguments(case, output, **overrides):
+    values = _containment_guard_selection_arguments(case)
+    del values["source_inputs"]
+    values.update(output=output, selection_id="b" * 32)
+    values.update(overrides)
+    return values
+
+
+def test_containment_guard_selection_preparation_records_two_equal_readonly_contexts(
+        containment_guard_selection_case, tmp_path, monkeypatch):
+    import ctypes
+    import socket
+    case = containment_guard_selection_case
+    preparer = containment_guard_selection_preparer()
+    calls = []
+    def read_environment():
+        calls.append("read")
+        return copy.deepcopy(case.environment)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("guard input preparation attempted execution or networking")
+    for owner, name in ((subprocess, "Popen"), (subprocess, "run"), (os, "fork"),
+                        (os, "execve"), (ctypes, "CDLL"), (socket, "socket")):
+        monkeypatch.setattr(owner, name, forbidden)
+    output = tmp_path / "selection.json"
+    result = preparer.prepare(**_containment_guard_selection_prepare_arguments(case, output,
+        environment_reader=read_environment))
+    assert calls == ["read", "read"]
+    assert encoded(result) == output.read_bytes() == case.raw_selection
+    assert result["environment_origin"] == "scripted_context"
+    assert result["evidence_origin"] == "scripted_selection"
+    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize("field", ["boot_id", "namespace", "observer", "kernel", "security"])
+def test_containment_guard_selection_preparation_rejects_context_drift_before_publication(
+        containment_guard_selection_case, tmp_path, field):
+    case = containment_guard_selection_case
+    preparer = containment_guard_selection_preparer()
+    calls = []
+    def changed_context():
+        value = copy.deepcopy(case.environment)
+        if calls:
+            if field == "boot_id": value["boot_id"] = "22345678-1234-1234-1234-123456789abc"
+            elif field == "namespace": value["namespaces"]["mnt"] = "mnt:[124]"
+            elif field == "observer": value["observer_executable"] = bound(b"different observer")
+            elif field == "kernel": value["uname"]["release"] += "-changed"
+            elif field == "security": value["security"]["NoNewPrivs"] = 1
+        calls.append(value)
+        return value
+    output = tmp_path / "selection.json"
+    with pytest.raises((preparer.checker.SelectionError, ValueError)):
+        preparer.prepare(**_containment_guard_selection_prepare_arguments(case, output,
+            environment_reader=changed_context))
+    assert len(calls) == 2
+    if output.exists():
+        assert output.read_bytes() == b""
+
+
+def test_containment_guard_selection_preparation_never_promotes_a_scripted_environment_reader(
+        containment_guard_selection_case, tmp_path):
+    case = containment_guard_selection_case
+    preparer = containment_guard_selection_preparer()
+    record = copy.deepcopy(case.record)
+    record["evidence_origin"] = "recorded_compile_only"
+    raw_record = encoded(record)
+    class AuthoredContextReader:
+        evidence_origin = "local_readonly_context"
+        def __call__(self):
+            return copy.deepcopy(case.environment)
+    result = preparer.prepare(**_containment_guard_selection_prepare_arguments(case,
+        tmp_path / "selection.json", build_record_bytes=raw_record,
+        expected_build_record_sha256=digest(raw_record), environment_reader=AuthoredContextReader()))
+    assert result["environment_origin"] == "scripted_context"
+    assert result["evidence_origin"] == "scripted_selection"
+
+
+@pytest.mark.parametrize("kind", ["existing", "leaf_symlink", "parent_symlink"])
+def test_containment_guard_selection_preparer_refuses_reused_or_symlinked_output(
+        containment_guard_selection_case, tmp_path, kind):
+    case = containment_guard_selection_case
+    preparer = containment_guard_selection_preparer()
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    target = parent / "selection.json"
+    original = tmp_path / "original.json"
+    original.write_bytes(b"unrelated original\n")
+    if kind == "existing": target.write_bytes(b"existing selection\n")
+    elif kind == "leaf_symlink": target.symlink_to(original)
+    else:
+        alias = tmp_path / "alias"
+        alias.symlink_to(parent, target_is_directory=True)
+        target = alias / "selection.json"
+    with pytest.raises((OSError, ValueError)):
+        preparer.prepare(**_containment_guard_selection_prepare_arguments(case, target,
+            environment_reader=lambda: copy.deepcopy(case.environment)))
+    assert original.read_bytes() == b"unrelated original\n"
+    if kind == "existing": assert target.read_bytes() == b"existing selection\n"
+
+
+def test_containment_guard_selection_preparer_rechecks_source_inventory_after_context_read(
+        containment_guard_selection_case, tmp_path, monkeypatch):
+    case = containment_guard_selection_case
+    preparer = containment_guard_selection_preparer()
+    original_source_bytes = preparer.checker.source_bytes
+    state = {"reads": 0}
+    def read_environment():
+        state["reads"] += 1
+        return copy.deepcopy(case.environment)
+    def substituted_sources(*args, **kwargs):
+        values = original_source_bytes(*args, **kwargs)
+        if state["reads"] >= 2:
+            values[CONTAINMENT_GUARD_SELECTION_PREPARER_REL] += b"\n# changed after selection\n"
+        return values
+    monkeypatch.setattr(preparer.checker, "source_bytes", substituted_sources)
+    with pytest.raises((OSError, ValueError)):
+        preparer.prepare(**_containment_guard_selection_prepare_arguments(case,
+            tmp_path / "selection.json", environment_reader=read_environment))
+
+
+@pytest.mark.parametrize("origin", ["local_readonly_context", "scripted_context"])
+def test_containment_guard_selection_environment_and_build_origins_are_separate(
+        containment_guard_selection_case, origin):
+    case = containment_guard_selection_case
+    for build_origin in ("recorded_compile_only", "scripted_build_backend"):
+        record = copy.deepcopy(case.record)
+        record["evidence_origin"] = build_origin
+        raw_record = encoded(record)
+        selection = case.checker.derive_selection(**_containment_guard_selection_arguments(case,
+            build_record_bytes=raw_record, expected_build_record_sha256=digest(raw_record)),
+            environment=case.environment, environment_origin=origin, selection_id="b" * 32)
+        recorded = build_origin == "recorded_compile_only" and origin == "local_readonly_context"
+        assert selection["evidence_origin"] == ("recorded_build_and_local_context" if recorded
+                                                 else "scripted_selection")
+        report = _containment_guard_selection_check(case, selection,
+            build_record_bytes=raw_record, expected_build_record_sha256=digest(raw_record))
+        assert report["status"] == ("accepted_recorded_guard_selection" if recorded
+                                     else "accepted_scripted_guard_selection")
+        _containment_guard_selection_boundaries(case, report)
+
+
+def test_containment_guard_selection_default_reader_preserves_the_exact_raw_context_shape(monkeypatch):
+    import signal
+    preparer = containment_guard_selection_preparer()
+    expected = _containment_guard_qualification_environment()
+    expected["python_version"] = list(sys.version_info[:3])
+    proc_fd, task_fd = 61001, 61002
+    opened, closed, reads = [], [], []
+    own = 1234
+    monkeypatch.setattr(os, "getpid", lambda: own)
+    for name in ("getuid", "geteuid", "getgid", "getegid"):
+        monkeypatch.setattr(os, name, lambda: 1000)
+    monkeypatch.setattr(os, "uname", lambda: SimpleNamespace(**expected["uname"]))
+    monkeypatch.setattr(os, "sysconf", lambda name: 4096 if name == "SC_PAGE_SIZE" else None)
+    monkeypatch.setattr(signal, "getsignal", lambda number: signal.SIG_DFL)
+    def opened_fd(path, flags, *, dir_fd=None):
+        opened.append((path, flags, dir_fd))
+        assert flags & os.O_DIRECTORY and flags & os.O_NOFOLLOW
+        if path == "/proc/1234" and dir_fd is None: return proc_fd
+        assert path == "task" and dir_fd == proc_fd
+        return task_fd
+    monkeypatch.setattr(os, "open", opened_fd)
+    monkeypatch.setattr(os, "close", closed.append)
+    monkeypatch.setattr(os, "listdir", lambda descriptor: [str(own)] if descriptor == task_fd else [])
+    def readlink(path, *, dir_fd):
+        assert dir_fd == proc_fd and path.startswith("ns/")
+        return expected["namespaces"][path.removeprefix("ns/")]
+    monkeypatch.setattr(os, "readlink", readlink)
+    status = b"".join((name + ":\t" + str(value) + "\n").encode()
+                      for name, value in expected["security"].items())
+    def proc_read(descriptor, name, maximum, **options):
+        assert descriptor == proc_fd
+        reads.append((name, maximum, options))
+        if name == "status": return status
+        if name == "exe":
+            assert options.get("follow") is True
+            return b"authored observer bytes"
+        assert name == "attr/current" and options.get("empty") is True
+        return bytes.fromhex(expected["lsm_label_hex"])
+    monkeypatch.setattr(preparer, "_proc_read", proc_read)
+    def boot_read(path, maximum):
+        assert path == "/proc/sys/kernel/random/boot_id" and maximum == 128
+        return (expected["boot_id"] + "\n").encode()
+    monkeypatch.setattr(preparer, "_read_regular", boot_read)
+    assert preparer.read_environment() == expected
+    assert [row[0] for row in reads] == ["status", "exe", "attr/current"]
+    assert closed == [task_fd, proc_fd]
+
+
+def test_containment_guard_selection_duplicate_status_fields_are_rejected():
+    preparer = containment_guard_selection_preparer()
+    status = b"".join((name + ":\t" + str(value) + "\n").encode()
+                      for name, value in _containment_guard_qualification_environment()["security"].items())
+    with pytest.raises(ValueError):
+        preparer._status_fields(status + b"Seccomp:\t0\n")
+
+
+class _ContainmentGuardSelectionBuildBackend:
+    """Scripted compiler boundary; only writes inert selected ELF bytes."""
+    evidence_origin = "recorded_compile_only"  # Deliberately not authoritative.
+
+    def __init__(self, probe, *, fault=None, compiler=None, observer=None):
+        self.probe, self.fault, self.compiler = probe, fault, compiler
+        self.observer, self.calls = observer, []
+
+    def run(self, argv, *, cwd_fd, environment, limits):
+        self.calls.append({"argv": list(argv), "environment": dict(environment),
+                           "limits": dict(limits), "cwd_identity": (os.fstat(cwd_fd).st_dev,
+                                                                      os.fstat(cwd_fd).st_ino)})
+        assert argv[1:] == [*CONTAINMENT_GUARD_SELECTION_FLAGS, "probe.c", "-o", "probe.elf"]
+        assert environment == CONTAINMENT_GUARD_SELECTION_BUILD_ENV
+        assert limits == CONTAINMENT_GUARD_SELECTION_LIMITS
+        assert set(os.listdir(cwd_fd)) == {"probe.c"}
+        descriptor = os.open("probe.c", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=cwd_fd)
+        try:
+            source = os.read(descriptor, 65536)
+        finally:
+            os.close(descriptor)
+        assert digest(source) == "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77"
+        if self.observer is not None:
+            self.observer(cwd_fd)
+        if self.fault == "spawn_failure":
+            return {"process": None, "stdout": b"", "stderr": b"",
+                    "failure": "authored_spawn_failed", "cleanup_failures": []}
+        output = self.probe
+        if self.fault == "different_second_output" and len(self.calls) == 2:
+            output = bytearray(output)
+            output[output.find(b"GCC:")] = ord("X")
+            output = bytes(output)
+        if self.fault == "wrong_guard":
+            output = bytearray(output)
+            offset = output.find(containment_guard_qualification_checker().GUARD_BYTES)
+            assert offset >= 0
+            output[offset] ^= 1
+            output = bytes(output)
+        if self.fault == "output_symlink":
+            os.symlink(str(self.compiler), "probe.elf", dir_fd=cwd_fd)
+        elif self.fault != "missing_output":
+            descriptor = os.open("probe.elf", os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                 0o600, dir_fd=cwd_fd)
+            try:
+                assert os.write(descriptor, output) == len(output)
+            finally:
+                os.close(descriptor)
+        if self.fault == "source_changed":
+            descriptor = os.open("probe.c", os.O_WRONLY, dir_fd=cwd_fd)
+            try:
+                assert os.write(descriptor, b"X") == 1
+            finally:
+                os.close(descriptor)
+        if self.fault == "unexpected_file":
+            descriptor = os.open("unselected.tmp", os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                 0o600, dir_fd=cwd_fd)
+            os.close(descriptor)
+        if self.fault == "compiler_changed":
+            with self.compiler.open("r+b") as stream:
+                stream.seek(63)
+                stream.write(b"X")
+        process = {"pid": 5000 + len(self.calls), "exit_code": 0, "elapsed_ns": 10000000,
+                   "timed_out": False, "stdout_overflow": False,
+                   "stderr_overflow": False, "reaped": True}
+        if self.fault == "exit_failed": process["exit_code"] = 1
+        elif self.fault == "elapsed_zero": process["elapsed_ns"] = 0
+        elif self.fault == "elapsed_over_limit": process["elapsed_ns"] = 30000000001
+        elif self.fault == "not_reaped": process["reaped"], process["exit_code"] = False, None
+        elif self.fault in ("timed_out", "stdout_overflow", "stderr_overflow"):
+            process[self.fault] = True
+        return {"process": process, "stdout": b"", "stderr": b"",
+                "failure": None, "cleanup_failures": ["authored_cleanup_failed"]
+                if self.fault == "cleanup_failed" else []}
+
+
+def _containment_guard_selection_capture_inputs(case, tmp_path, **overrides):
+    compiler = tmp_path / "selected-compiler"
+    compiler.write_bytes(case.probe)
+    compiler.chmod(0o700)
+    values = {"compiler_path": compiler, "expected_compiler_sha256": digest(case.probe),
+              "policy_bytes": case.policy, "accepted_policy_sha256": digest(case.policy),
+              "output_directory": tmp_path / "build-output",
+              "acknowledgement": "BUILD_CONTAINMENT_TASK_PROBE_ONLY"}
+    values.update(overrides)
+    return values
+
+
+@pytest.mark.parametrize("explicit_native_instance", [False, True])
+def test_containment_guard_selection_capture_owns_two_distinct_builds_and_never_promotes_backends(
+        containment_guard_selection_case, tmp_path, monkeypatch, explicit_native_instance):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe)
+    selected = backend
+    if explicit_native_instance:
+        monkeypatch.setattr(builder.NativeCompilerBackend, "run",
+                            lambda _self, *args, **kwargs: backend.run(*args, **kwargs))
+        selected = builder.NativeCompilerBackend(-1)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("scripted build capture attempted compiler or probe execution")
+    for owner, name in ((subprocess, "Popen"), (subprocess, "run"), (os, "fork"), (os, "execve")):
+        monkeypatch.setattr(owner, name, forbidden)
+    record = builder.capture_probe_build(**arguments, backend=selected)
+    assert record["status"] == "completed" and record["evidence_origin"] == "scripted_build_backend"
+    assert len(backend.calls) == 2
+    assert backend.calls[0]["cwd_identity"] != backend.calls[1]["cwd_identity"]
+    output = arguments["output_directory"]
+    assert (output / "build.json").read_bytes() == encoded(record)
+    assert (output / "policy.json").read_bytes() == case.policy
+    assert sorted(str(path.relative_to(output)) for path in output.rglob("*") if path.is_file()) == [
+        "build-1/probe.c", "build-1/probe.elf", "build-2/probe.c", "build-2/probe.elf",
+        "build.json", "policy.json",
+    ]
+    for name in ("build-1", "build-2"):
+        assert (output / name / "probe.elf").read_bytes() == case.probe
+    report = _containment_guard_selection_build_check(case, record)
+    assert report["status"] == "accepted_scripted_probe_build"
+    _containment_guard_selection_boundaries(case, report)
+
+
+@pytest.mark.parametrize("fault", ["exit_failed", "elapsed_zero", "elapsed_over_limit", "not_reaped",
+    "timed_out", "stdout_overflow", "stderr_overflow", "cleanup_failed", "spawn_failure",
+    "missing_output", "wrong_guard", "source_changed", "unexpected_file", "output_symlink",
+    "compiler_changed"])
+def test_containment_guard_selection_first_failed_build_stops_and_preserves_an_incomplete_prefix(
+        containment_guard_selection_case, tmp_path, fault):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe, fault=fault,
+                                                     compiler=arguments["compiler_path"])
+    record = builder.capture_probe_build(**arguments, backend=backend)
+    assert len(backend.calls) == 1
+    assert record["status"] == "incomplete" and record["failure"] is not None
+    assert (arguments["output_directory"] / "build.json").read_bytes() == encoded(record)
+    assert not (arguments["output_directory"] / "build-2").exists()
+    assert len(record["builds"]) == (0 if fault == "spawn_failure" else 1)
+    report = _containment_guard_selection_build_check(case, record)
+    assert report["status"] == "preserved_incomplete_probe_build"
+    assert report["probe"] is None and report["build_record_verified"] is False
+
+
+def test_containment_guard_selection_second_different_output_remains_an_incomplete_build(
+        containment_guard_selection_case, tmp_path):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe, fault="different_second_output")
+    record = builder.capture_probe_build(**arguments, backend=backend)
+    assert len(backend.calls) == 2 and record["status"] == "incomplete"
+    assert record["builds"][0]["probe_hex"] != record["builds"][1]["probe_hex"]
+    report = _containment_guard_selection_build_check(case, record)
+    assert report["status"] == "preserved_incomplete_probe_build"
+
+
+@pytest.mark.parametrize("fault", ["compiler_digest", "policy_digest", "acknowledgement", "compiler_symlink"])
+def test_containment_guard_selection_invalid_build_admission_never_invokes_the_backend(
+        containment_guard_selection_case, tmp_path, fault):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe)
+    if fault == "compiler_digest": arguments["expected_compiler_sha256"] = "0" * 64
+    elif fault == "policy_digest": arguments["accepted_policy_sha256"] = "0" * 64
+    elif fault == "acknowledgement": arguments["acknowledgement"] = "RUN_PROBE"
+    elif fault == "compiler_symlink":
+        alias = tmp_path / "compiler-alias"
+        alias.symlink_to(arguments["compiler_path"])
+        arguments["compiler_path"] = alias
+    with pytest.raises((OSError, ValueError)):
+        builder.capture_probe_build(**arguments, backend=backend)
+    assert backend.calls == []
+    assert not arguments["output_directory"].exists()
+
+
+@pytest.mark.parametrize("kind", ["existing", "leaf_symlink", "parent_symlink"])
+def test_containment_guard_selection_build_directory_is_exclusive_and_nofollow(
+        containment_guard_selection_case, tmp_path, kind):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    output = arguments["output_directory"]
+    unrelated = tmp_path / "unrelated"
+    unrelated.mkdir()
+    (unrelated / "keep.txt").write_bytes(b"keep unchanged\n")
+    if kind == "existing": output.mkdir()
+    elif kind == "leaf_symlink": output.symlink_to(unrelated, target_is_directory=True)
+    else:
+        alias = tmp_path / "parent-alias"
+        alias.symlink_to(unrelated, target_is_directory=True)
+        arguments["output_directory"] = alias / "new-build"
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe)
+    with pytest.raises((OSError, ValueError)):
+        builder.capture_probe_build(**arguments, backend=backend)
+    assert backend.calls == [] and (unrelated / "keep.txt").read_bytes() == b"keep unchanged\n"
+
+
+@pytest.mark.parametrize("replace_inode", [False, True])
+def test_containment_guard_selection_completed_first_output_is_rechecked_after_second_build(
+        containment_guard_selection_case, tmp_path, replace_inode):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe)
+    def change_first_output(_cwd_fd):
+        if len(backend.calls) != 2:
+            return
+        first = arguments["output_directory"] / "build-1/probe.elf"
+        changed = bytearray(case.probe)
+        changed[changed.find(b"GCC:")] = ord("X")
+        if replace_inode:
+            first.unlink()
+            first.write_bytes(bytes(changed))
+        else:
+            with first.open("r+b") as stream:
+                stream.write(bytes(changed))
+    backend.observer = change_first_output
+    record = builder.capture_probe_build(**arguments, backend=backend)
+    assert len(backend.calls) == 2
+    assert record["status"] == "incomplete" and record["failure"] is not None
+    assert _containment_guard_selection_build_check(case, record)["build_record_verified"] is False
+
+
+def test_containment_guard_selection_build_record_replacement_is_never_overwritten_or_deleted(
+        containment_guard_selection_case, tmp_path):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe)
+    path = arguments["output_directory"] / "build.json"
+    def replace_receipt(_cwd_fd):
+        if len(backend.calls) == 1:
+            path.unlink()
+            path.write_bytes(b"unrelated caller receipt\n")
+    backend.observer = replace_receipt
+    with pytest.raises((OSError, ValueError)):
+        builder.capture_probe_build(**arguments, backend=backend)
+    assert path.read_bytes() == b"unrelated caller receipt\n"
+
+
+@pytest.mark.parametrize("owner", ["compiler", "evidence"])
+def test_containment_guard_selection_late_close_failure_invalidates_only_the_owned_complete_receipt(
+        containment_guard_selection_case, tmp_path, monkeypatch, owner):
+    case = containment_guard_selection_case
+    builder = containment_guard_selection_builder()
+    arguments = _containment_guard_selection_capture_inputs(case, tmp_path)
+    backend = _ContainmentGuardSelectionBuildBackend(case.probe)
+    selected_class = builder._Compiler if owner == "compiler" else builder._OwnedDirectory
+    original_close = selected_class.close
+    closed = []
+    def fail_after_close(self):
+        original_close(self)
+        closed.append(True)
+        raise OSError(errno.EIO, "authored late close failure")
+    monkeypatch.setattr(selected_class, "close", fail_after_close)
+    with pytest.raises((OSError, ValueError)):
+        builder.capture_probe_build(**arguments, backend=backend)
+    assert closed == [True] and len(backend.calls) == 2
+    output = arguments["output_directory"]
+    receipt = output / "build.json"
+    assert not receipt.exists() or not receipt.read_bytes()
+    assert (output / "build-1/probe.elf").read_bytes() == case.probe
+    assert (output / "build-2/probe.elf").read_bytes() == case.probe
+
+
+def test_containment_guard_selection_reused_mutable_context_cannot_hide_a_changed_first_read(
+        containment_guard_selection_case, tmp_path):
+    case = containment_guard_selection_case
+    preparer = containment_guard_selection_preparer()
+    context = copy.deepcopy(case.environment)
+    calls = []
+    def mutable_reader():
+        if calls:
+            context["boot_id"] = "22345678-1234-1234-1234-123456789abc"
+        calls.append(True)
+        return context
+    with pytest.raises(ValueError):
+        preparer.prepare(**_containment_guard_selection_prepare_arguments(case,
+            tmp_path / "selection.json", environment_reader=mutable_reader))
+    assert calls == [True, True]
+
+
+@pytest.mark.parametrize("fault", [None, "ownership_lost", "stdout_overflow", "timeout", "spawn_failed"])
+def test_containment_guard_selection_native_compiler_boundary_uses_fixed_fds_and_owned_bounded_cleanup(
+        monkeypatch, fault):
+    import signal
+    builder = containment_guard_selection_builder()
+    calls = []
+    streams = []
+    for text in (b"compiler stdout\n", b"compiler stderr\n"):
+        read_fd, write_fd = os.pipe()
+        os.write(write_fd, text)
+        os.close(write_fd)
+        streams.append(os.fdopen(read_fd, "rb", buffering=0))
+    stdout_fd, stderr_fd = [stream.fileno() for stream in streams]
+    class AuthoredProcess:
+        pid = 14001
+        returncode = None
+        stdout, stderr = streams
+        def wait(self, *, timeout):
+            calls.append(("reap", timeout))
+            assert 0 < timeout <= 5
+            self.returncode = 0
+            return 0
+    child = AuthoredProcess()
+    def scripted_popen(argv, **kwargs):
+        calls.append(("spawn", list(argv), kwargs))
+        assert argv == ["/selected/gcc", *CONTAINMENT_GUARD_SELECTION_FLAGS,
+                        "probe.c", "-o", "probe.elf"]
+        assert kwargs["executable"] == "/proc/self/fd/61003"
+        assert kwargs["cwd"] == "/proc/self/fd/61004"
+        assert kwargs["pass_fds"] == (61003, 61004)
+        assert kwargs["shell"] is False and kwargs["close_fds"] is True
+        assert kwargs["start_new_session"] is True and kwargs["umask"] == 0o077
+        assert kwargs["stdin"] is subprocess.DEVNULL
+        assert kwargs["env"] == CONTAINMENT_GUARD_SELECTION_BUILD_ENV
+        if fault == "spawn_failed": raise OSError(errno.ENOENT, "authored missing compiler")
+        return child
+    def waitid(kind, pid, options):
+        calls.append(("waitid", pid))
+        assert kind == os.P_PID and pid == child.pid
+        assert options == os.WEXITED | os.WNOHANG | os.WNOWAIT
+        if fault == "ownership_lost": raise ChildProcessError()
+        return SimpleNamespace(si_pid=child.pid)
+    monkeypatch.setattr(subprocess, "Popen", scripted_popen)
+    monkeypatch.setattr(signal, "getsignal", lambda number: signal.SIG_DFL)
+    original_listdir = os.listdir
+    monkeypatch.setattr(os, "listdir", lambda value: [str(os.getpid())]
+                        if value == "/proc/self/task" else original_listdir(value))
+    monkeypatch.setattr(os, "waitid", waitid)
+    monkeypatch.setattr(os, "killpg", lambda pid, sig: calls.append(("group_signal", pid, sig)))
+    monkeypatch.setattr(os, "kill", lambda pid, sig: calls.append(("leader_signal", pid, sig)))
+    if fault == "stdout_overflow":
+        original_read = os.read
+        chunks = [b"x" * 65536, b"x", b""]
+        def excessive_stdout(fd, count):
+            if fd == stdout_fd:
+                value = chunks.pop(0) if chunks else b""
+                assert len(value) <= count
+                return value
+            return original_read(fd, count)
+        monkeypatch.setattr(os, "read", excessive_stdout)
+    if fault == "timeout":
+        counter = [0.0]
+        def expired_clock():
+            counter[0] += 31.0
+            return counter[0]
+        monkeypatch.setattr(time, "monotonic", expired_clock)
+    backend = builder.NativeCompilerBackend(61003)
+    try:
+        result = backend.run(["/selected/gcc", *CONTAINMENT_GUARD_SELECTION_FLAGS,
+                              "probe.c", "-o", "probe.elf"], cwd_fd=61004,
+            environment=dict(CONTAINMENT_GUARD_SELECTION_BUILD_ENV),
+            limits=dict(CONTAINMENT_GUARD_SELECTION_LIMITS))
+    finally:
+        for stream in streams:
+            if not stream.closed:
+                stream.close()
+    names = [call[0] for call in calls]
+    assert names.count("spawn") == 1
+    if fault == "spawn_failed":
+        assert result["process"] is None and result["failure"] is not None
+        assert "group_signal" not in names and "reap" not in names
+    elif fault == "ownership_lost":
+        assert "group_signal" not in names and "leader_signal" not in names and "reap" not in names
+        assert result["process"]["reaped"] is False
+        assert backend.unresolved_processes == [child]
+        assert "probe_build_wait_ownership_lost" in result["cleanup_failures"]
+    else:
+        assert names.index("group_signal") < names.index("reap")
+        assert names.index("leader_signal") < names.index("reap")
+        assert names.count("group_signal") == names.count("leader_signal") == 1
+        assert result["process"]["reaped"] is True
+        if fault == "stdout_overflow":
+            assert result["stdout"] == b"x" * 65536
+            assert result["process"]["stdout_overflow"] is True and result["failure"] is not None
+        elif fault == "timeout":
+            assert result["process"]["timed_out"] is True and result["failure"] is not None
+        else:
+            assert result["stdout"] == b"compiler stdout\n"
+            assert result["stderr"] == b"compiler stderr\n"
+            assert result["process"]["exit_code"] == 0 and result["failure"] is None

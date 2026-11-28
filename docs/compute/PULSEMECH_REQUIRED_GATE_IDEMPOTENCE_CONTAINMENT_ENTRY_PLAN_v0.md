@@ -46,6 +46,7 @@ boundaries.
 | Data-only plan checking | Implemented; original-byte reconstruction and closed policy checks. |
 | Startup helper and task guard | Source, exact BPF policy and independent source-contract checking implemented; native qualification pending. |
 | Guard-probe qualification component | Fixed authored probe, bounded native observer and independent raw-record checking implemented; no native attempt performed. |
+| Guard-probe build and context selection | Fixed compile-only repeated-build capture and independent probe/policy/context selection implemented; no qualification attempt or full-host acceptance. |
 | Complete host qualification and new observation | Remaining qualification components and original collector are pending; no execution authorized by source implementation. |
 | Static-entry instructions | Zero execution in the proposed terminal profile. |
 | Real selected CPython capsule | Still requires new original inputs and selection. |
@@ -631,7 +632,7 @@ remain pending:
 | --- | --- |
 | Data-only plan checking | Implemented `required_gate_idempotence_containment_entry_plan_v0` schema and independent `check_...` tool; original-byte reconstruction and fixed reviewed policy. |
 | Startup and guard source contract | Implemented freestanding `containment_startup_v0.c`, pure task-guard policy, independent data-only source-contract checker and closed schema; no subject execution. |
-| Native qualification | The [first guard-probe component](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_QUALIFICATION_v0.md) implements the fixed probe, native qualifier and independent checker for the selected guard, two births, inheritance and owned cleanup. Actual native execution, executed startup-helper/build admission and the remaining complete host qualification are still required; source and scripted checks are insufficient. |
+| Native qualification | The [first guard-probe component](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_QUALIFICATION_v0.md) implements the fixed probe, native qualifier and independent checker for the selected guard, two births, inheritance and owned cleanup. Its separate [build and context selection](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_SELECTION_v0.md) binds repeated compiler outputs, explicit limited policy and the exact observer context. Actual native execution, executed startup-helper/build admission and the remaining complete host qualification are still required; source, compile-only and scripted checks are insufficient. |
 | Original observation | New entry core, preparation tool, collector, independent checker and capture schema. No change to old single-tracee meanings. |
 | Hosted route, after implementation review | New workflow, hosted controller/checker/schema, exact environment JSON, Dockerfile, lock, build and run helpers; separate acquisition and offline verification roles. |
 | Regression and carrier integration | Append meaningful cases to the already registered containment test module; update the normative inventory classifier and its mutation coverage when the new workflow is actually introduced. |

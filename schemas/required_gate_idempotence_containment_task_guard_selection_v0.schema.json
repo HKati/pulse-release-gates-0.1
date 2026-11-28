@@ -1,0 +1,3057 @@
+{
+  "$defs": {
+    "build_record": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "failure": {
+                "maxLength": 128,
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "type": "string"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "builds": {
+                "minItems": 2
+              },
+              "cleanup_failures": {
+                "maxItems": 0
+              },
+              "compiler_after": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 4096,
+                    "minLength": 2,
+                    "pattern": "^/[A-Za-z0-9_.+/-]+$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "maximum": 67108864,
+                    "minimum": 64,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "path",
+                  "size_bytes",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "failure": {
+                "type": "null"
+              },
+              "sources_after": {
+                "items": false,
+                "maxItems": 16,
+                "minItems": 16,
+                "prefixItems": [
+                  {
+                    "const": {
+                      "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                      "sha256": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                      "size_bytes": 21284
+                    }
+                  },
+                  {
+                    "const": {
+                      "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                      "sha256": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                      "size_bytes": 21350
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "const": "docs/compute/required_gate_idempotence_containment_task_guard_selection_v0/build_policy_v0.json"
+                      },
+                      "sha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "maximum": 1048576,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "const": {
+                      "path": "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                      "sha256": "20a17df1c1307ef5113044335ee70b8aa96d7d68322f1acc1fe5e9a18ba8bf64",
+                      "size_bytes": 12962
+                    }
+                  },
+                  {
+                    "const": {
+                      "path": "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                      "sha256": "da7fa9d873cb8fa4e4ac60c71f45e617e4cfc61969d8ce219aaa83bc7225ae39",
+                      "size_bytes": 106453
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "const": "schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json"
+                      },
+                      "sha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "maximum": 1048576,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "const": {
+                      "path": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                      "sha256": "97b753934024c4253a217ab9e906824d016d6144a27f615f7ed678dc5abada44",
+                      "size_bytes": 116458
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "const": "tools/build_required_gate_idempotence_containment_task_probe_v0.py"
+                      },
+                      "sha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "maximum": 1048576,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "const": {
+                      "path": "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                      "sha256": "27217f92c6c4c42bb09e71213ce50b3ddad4c95da5852a16078b75e9f72a5379",
+                      "size_bytes": 68660
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "const": "tools/check_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                      },
+                      "sha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "maximum": 1048576,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "const": {
+                      "path": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                      "sha256": "5be04d1fbf22c9de4ae0a93d9348ef0740568b68be9c3d60c6027dedb04085ad",
+                      "size_bytes": 40713
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "path": {
+                        "const": "tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                      },
+                      "sha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "size_bytes": {
+                        "maximum": 1048576,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "const": {
+                      "path": "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                      "sha256": "0265f67d6bc73cbdd5f57424a8fde1baf3c2ff8707cca55853cc7c734797ff0a",
+                      "size_bytes": 49570
+                    }
+                  },
+                  {
+                    "const": {
+                      "path": "tools/required_gate_idempotence_containment_startup_v0.c",
+                      "sha256": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                      "size_bytes": 27461
+                    }
+                  },
+                  {
+                    "const": {
+                      "path": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                      "sha256": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                      "size_bytes": 19568
+                    }
+                  },
+                  {
+                    "const": {
+                      "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+                      "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+                      "size_bytes": 17330
+                    }
+                  }
+                ],
+                "type": "array"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "attempt_id": {
+          "pattern": "^[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "boundary": {
+          "const": {
+            "authority_effect": "none",
+            "b2_complete": false,
+            "build_provenance_authenticated": false,
+            "compiler_closure_verified": false,
+            "compiler_execution_authenticated": false,
+            "container_image_authenticated": false,
+            "containment_observed": false,
+            "diagnostic_only": true,
+            "executed_helper_build_admitted": false,
+            "execution_authorized": false,
+            "full_host_qualification_completed": false,
+            "metric_pass": null,
+            "native_execution_ready": false,
+            "native_qualification_performed": false,
+            "observer_runtime_closure_verified": false,
+            "original_native_acquisition_performed": false,
+            "outer_security_policy_authenticated": false,
+            "physical_execution_authenticated": false,
+            "privileged_filter_readback": false,
+            "probe_output_executed": false,
+            "source_binary_equivalence_verified": false,
+            "startup_helper_execution_observed": false
+          }
+        },
+        "builds": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "argv": {
+                "items": false,
+                "maxItems": 23,
+                "minItems": 23,
+                "prefixItems": [
+                  {
+                    "maxLength": 4096,
+                    "minLength": 2,
+                    "pattern": "^/[A-Za-z0-9_.+/-]+$",
+                    "type": "string"
+                  },
+                  {
+                    "const": "-std=c11"
+                  },
+                  {
+                    "const": "-O2"
+                  },
+                  {
+                    "const": "-Wall"
+                  },
+                  {
+                    "const": "-Wextra"
+                  },
+                  {
+                    "const": "-Werror"
+                  },
+                  {
+                    "const": "-ffreestanding"
+                  },
+                  {
+                    "const": "-fno-builtin"
+                  },
+                  {
+                    "const": "-fno-stack-protector"
+                  },
+                  {
+                    "const": "-fno-pie"
+                  },
+                  {
+                    "const": "-no-pie"
+                  },
+                  {
+                    "const": "-fno-asynchronous-unwind-tables"
+                  },
+                  {
+                    "const": "-fno-unwind-tables"
+                  },
+                  {
+                    "const": "-nostdlib"
+                  },
+                  {
+                    "const": "-static"
+                  },
+                  {
+                    "const": "-Wl,--build-id=none"
+                  },
+                  {
+                    "const": "-Wl,-z,noexecstack"
+                  },
+                  {
+                    "const": "-Wl,-e,_start"
+                  },
+                  {
+                    "const": "-Wconversion"
+                  },
+                  {
+                    "const": "-Wshadow"
+                  },
+                  {
+                    "const": "probe.c"
+                  },
+                  {
+                    "const": "-o"
+                  },
+                  {
+                    "const": "probe.elf"
+                  }
+                ],
+                "type": "array"
+              },
+              "build_id": {
+                "enum": [
+                  "build-1",
+                  "build-2"
+                ]
+              },
+              "directory_verified": {
+                "type": "boolean"
+              },
+              "environment": {
+                "const": {
+                  "LC_ALL": "C",
+                  "PATH": "/usr/bin:/bin",
+                  "SOURCE_DATE_EPOCH": "0",
+                  "TMPDIR": ".",
+                  "TZ": "UTC"
+                }
+              },
+              "probe_hex": {
+                "anyOf": [
+                  {
+                    "maxLength": 524288,
+                    "minLength": 0,
+                    "pattern": "^(?:[0-9a-f]{2})*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "process": {
+                "additionalProperties": false,
+                "properties": {
+                  "elapsed_ns": {
+                    "maximum": 18446744073709551615,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "exit_code": {
+                    "anyOf": [
+                      {
+                        "maximum": 255,
+                        "minimum": -255,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pid": {
+                    "maximum": 2147483647,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "reaped": {
+                    "type": "boolean"
+                  },
+                  "stderr_overflow": {
+                    "type": "boolean"
+                  },
+                  "stdout_overflow": {
+                    "type": "boolean"
+                  },
+                  "timed_out": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "pid",
+                  "exit_code",
+                  "elapsed_ns",
+                  "timed_out",
+                  "stdout_overflow",
+                  "stderr_overflow",
+                  "reaped"
+                ],
+                "type": "object"
+              },
+              "source_after_hex": {
+                "anyOf": [
+                  {
+                    "maxLength": 131072,
+                    "minLength": 0,
+                    "pattern": "^(?:[0-9a-f]{2})*$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source_hex": {
+                "maxLength": 131072,
+                "minLength": 2,
+                "pattern": "^(?:[0-9a-f]{2})*$",
+                "type": "string"
+              },
+              "stderr_hex": {
+                "maxLength": 131072,
+                "minLength": 0,
+                "pattern": "^(?:[0-9a-f]{2})*$",
+                "type": "string"
+              },
+              "stdout_hex": {
+                "maxLength": 131072,
+                "minLength": 0,
+                "pattern": "^(?:[0-9a-f]{2})*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "build_id",
+              "argv",
+              "environment",
+              "source_hex",
+              "source_after_hex",
+              "process",
+              "stdout_hex",
+              "stderr_hex",
+              "probe_hex",
+              "directory_verified"
+            ],
+            "type": "object"
+          },
+          "maxItems": 2,
+          "type": "array"
+        },
+        "cleanup_failures": {
+          "items": {
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "compiler_after": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 4096,
+                  "minLength": 2,
+                  "pattern": "^/[A-Za-z0-9_.+/-]+$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 67108864,
+                  "minimum": 64,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_origin": {
+          "enum": [
+            "recorded_compile_only",
+            "scripted_build_backend"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "pattern": "^[a-z][a-z0-9_]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile": {
+          "const": "linux_x86_64_containment_task_guard_selection_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_probe_build_v0"
+        },
+        "request": {
+          "additionalProperties": false,
+          "properties": {
+            "argv": {
+              "items": false,
+              "maxItems": 23,
+              "minItems": 23,
+              "prefixItems": [
+                {
+                  "maxLength": 4096,
+                  "minLength": 2,
+                  "pattern": "^/[A-Za-z0-9_.+/-]+$",
+                  "type": "string"
+                },
+                {
+                  "const": "-std=c11"
+                },
+                {
+                  "const": "-O2"
+                },
+                {
+                  "const": "-Wall"
+                },
+                {
+                  "const": "-Wextra"
+                },
+                {
+                  "const": "-Werror"
+                },
+                {
+                  "const": "-ffreestanding"
+                },
+                {
+                  "const": "-fno-builtin"
+                },
+                {
+                  "const": "-fno-stack-protector"
+                },
+                {
+                  "const": "-fno-pie"
+                },
+                {
+                  "const": "-no-pie"
+                },
+                {
+                  "const": "-fno-asynchronous-unwind-tables"
+                },
+                {
+                  "const": "-fno-unwind-tables"
+                },
+                {
+                  "const": "-nostdlib"
+                },
+                {
+                  "const": "-static"
+                },
+                {
+                  "const": "-Wl,--build-id=none"
+                },
+                {
+                  "const": "-Wl,-z,noexecstack"
+                },
+                {
+                  "const": "-Wl,-e,_start"
+                },
+                {
+                  "const": "-Wconversion"
+                },
+                {
+                  "const": "-Wshadow"
+                },
+                {
+                  "const": "probe.c"
+                },
+                {
+                  "const": "-o"
+                },
+                {
+                  "const": "probe.elf"
+                }
+              ],
+              "type": "array"
+            },
+            "compiler": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 4096,
+                  "minLength": 2,
+                  "pattern": "^/[A-Za-z0-9_.+/-]+$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 67108864,
+                  "minimum": 64,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "environment": {
+              "const": {
+                "LC_ALL": "C",
+                "PATH": "/usr/bin:/bin",
+                "SOURCE_DATE_EPOCH": "0",
+                "TMPDIR": ".",
+                "TZ": "UTC"
+              }
+            },
+            "limits": {
+              "const": {
+                "build_seconds": 30,
+                "builds": 2,
+                "cleanup_seconds": 5,
+                "compiler_bytes": 67108864,
+                "probe_bytes": 262144,
+                "record_bytes": 2097152,
+                "retries": 0,
+                "stderr_bytes": 65536,
+                "stdout_bytes": 65536
+              }
+            },
+            "policy": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 65536,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "profile": {
+              "const": "linux_x86_64_containment_task_guard_selection_v0"
+            },
+            "source": {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+                "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+                "size_bytes": 17330
+              }
+            },
+            "sources": {
+              "items": false,
+              "maxItems": 16,
+              "minItems": 16,
+              "prefixItems": [
+                {
+                  "const": {
+                    "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                    "sha256": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                    "size_bytes": 21284
+                  }
+                },
+                {
+                  "const": {
+                    "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                    "sha256": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                    "size_bytes": 21350
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "docs/compute/required_gate_idempotence_containment_task_guard_selection_v0/build_policy_v0.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "const": {
+                    "path": "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                    "sha256": "20a17df1c1307ef5113044335ee70b8aa96d7d68322f1acc1fe5e9a18ba8bf64",
+                    "size_bytes": 12962
+                  }
+                },
+                {
+                  "const": {
+                    "path": "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                    "sha256": "da7fa9d873cb8fa4e4ac60c71f45e617e4cfc61969d8ce219aaa83bc7225ae39",
+                    "size_bytes": 106453
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "const": {
+                    "path": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                    "sha256": "97b753934024c4253a217ab9e906824d016d6144a27f615f7ed678dc5abada44",
+                    "size_bytes": 116458
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/build_required_gate_idempotence_containment_task_probe_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "const": {
+                    "path": "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                    "sha256": "27217f92c6c4c42bb09e71213ce50b3ddad4c95da5852a16078b75e9f72a5379",
+                    "size_bytes": 68660
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/check_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "const": {
+                    "path": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                    "sha256": "5be04d1fbf22c9de4ae0a93d9348ef0740568b68be9c3d60c6027dedb04085ad",
+                    "size_bytes": 40713
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "const": {
+                    "path": "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                    "sha256": "0265f67d6bc73cbdd5f57424a8fde1baf3c2ff8707cca55853cc7c734797ff0a",
+                    "size_bytes": 49570
+                  }
+                },
+                {
+                  "const": {
+                    "path": "tools/required_gate_idempotence_containment_startup_v0.c",
+                    "sha256": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                    "size_bytes": 27461
+                  }
+                },
+                {
+                  "const": {
+                    "path": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                    "sha256": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                    "size_bytes": 19568
+                  }
+                },
+                {
+                  "const": {
+                    "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+                    "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+                    "size_bytes": 17330
+                  }
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "profile",
+            "source",
+            "compiler",
+            "argv",
+            "environment",
+            "limits",
+            "policy",
+            "sources"
+          ],
+          "type": "object"
+        },
+        "source_hex": {
+          "maxLength": 131072,
+          "minLength": 2,
+          "pattern": "^(?:[0-9a-f]{2})*$",
+          "type": "string"
+        },
+        "sources_after": {
+          "anyOf": [
+            {
+              "items": false,
+              "maxItems": 16,
+              "minItems": 16,
+              "prefixItems": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "docs/compute/required_gate_idempotence_containment_task_guard_selection_v0/build_policy_v0.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/build_required_gate_idempotence_containment_task_probe_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/check_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/check_required_gate_idempotence_containment_task_guard_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/required_gate_idempotence_containment_startup_v0.c"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/required_gate_idempotence_containment_task_guard_v0.py"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "const": "tools/required_gate_idempotence_containment_task_probe_v0.c"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "maximum": 1048576,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "size_bytes",
+                    "sha256"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 0,
+              "type": "array"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "incomplete"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "status",
+        "evidence_origin",
+        "request",
+        "source_hex",
+        "compiler_after",
+        "sources_after",
+        "builds",
+        "failure",
+        "cleanup_failures",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "build_report": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "b2_complete": {
+          "const": false
+        },
+        "build_count": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "build_provenance_authenticated": {
+          "const": false
+        },
+        "build_record_verified": {
+          "type": "boolean"
+        },
+        "compiler_closure_verified": {
+          "const": false
+        },
+        "compiler_execution_authenticated": {
+          "const": false
+        },
+        "container_image_authenticated": {
+          "const": false
+        },
+        "containment_observed": {
+          "const": false
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "evidence_origin": {
+          "enum": [
+            "recorded_compile_only",
+            "scripted_build_backend"
+          ]
+        },
+        "executed_helper_build_admitted": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "full_host_qualification_completed": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "native_execution_ready": {
+          "const": false
+        },
+        "native_qualification_performed": {
+          "const": false
+        },
+        "observer_runtime_closure_verified": {
+          "const": false
+        },
+        "original_native_acquisition_performed": {
+          "const": false
+        },
+        "outer_security_policy_authenticated": {
+          "const": false
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "policy": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 65536,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "privileged_filter_readback": {
+          "const": false
+        },
+        "probe": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 262144,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "probe_output_executed": {
+          "const": false
+        },
+        "profile": {
+          "const": "linux_x86_64_containment_task_guard_selection_v0"
+        },
+        "record": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 2097152,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_probe_build_verification_v0"
+        },
+        "recorded_compile_only": {
+          "type": "boolean"
+        },
+        "source_binary_equivalence_verified": {
+          "const": false
+        },
+        "sources": {
+          "items": false,
+          "maxItems": 16,
+          "minItems": 16,
+          "prefixItems": [
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                "sha256": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                "size_bytes": 21284
+              }
+            },
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                "sha256": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                "size_bytes": 21350
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_task_guard_selection_v0/build_policy_v0.json"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                "sha256": "20a17df1c1307ef5113044335ee70b8aa96d7d68322f1acc1fe5e9a18ba8bf64",
+                "size_bytes": 12962
+              }
+            },
+            {
+              "const": {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                "sha256": "da7fa9d873cb8fa4e4ac60c71f45e617e4cfc61969d8ce219aaa83bc7225ae39",
+                "size_bytes": 106453
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                "sha256": "97b753934024c4253a217ab9e906824d016d6144a27f615f7ed678dc5abada44",
+                "size_bytes": 116458
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/build_required_gate_idempotence_containment_task_probe_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                "sha256": "27217f92c6c4c42bb09e71213ce50b3ddad4c95da5852a16078b75e9f72a5379",
+                "size_bytes": 68660
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "5be04d1fbf22c9de4ae0a93d9348ef0740568b68be9c3d60c6027dedb04085ad",
+                "size_bytes": 40713
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "0265f67d6bc73cbdd5f57424a8fde1baf3c2ff8707cca55853cc7c734797ff0a",
+                "size_bytes": 49570
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_startup_v0.c",
+                "sha256": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                "size_bytes": 27461
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                "size_bytes": 19568
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+                "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+                "size_bytes": 17330
+              }
+            }
+          ],
+          "type": "array"
+        },
+        "startup_helper_execution_observed": {
+          "const": false
+        },
+        "status": {
+          "enum": [
+            "accepted_recorded_probe_build",
+            "accepted_scripted_probe_build",
+            "preserved_incomplete_probe_build"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "status",
+        "record",
+        "policy",
+        "probe",
+        "build_count",
+        "build_record_verified",
+        "recorded_compile_only",
+        "evidence_origin",
+        "sources",
+        "diagnostic_only",
+        "startup_helper_execution_observed",
+        "executed_helper_build_admitted",
+        "full_host_qualification_completed",
+        "original_native_acquisition_performed",
+        "containment_observed",
+        "source_binary_equivalence_verified",
+        "physical_execution_authenticated",
+        "privileged_filter_readback",
+        "execution_authorized",
+        "b2_complete",
+        "metric_pass",
+        "authority_effect",
+        "probe_output_executed",
+        "compiler_closure_verified",
+        "observer_runtime_closure_verified",
+        "compiler_execution_authenticated",
+        "build_provenance_authenticated",
+        "container_image_authenticated",
+        "outer_security_policy_authenticated",
+        "native_qualification_performed",
+        "native_execution_ready"
+      ],
+      "type": "object"
+    },
+    "policy": {
+      "const": {
+        "acceptance": {
+          "actual_probe_bytes_equal": true,
+          "build_origin_preserved": true,
+          "completed_build_record_required": true,
+          "evidence_trust": "recorded_process_and_file_observations_not_physical_authentication",
+          "fresh_elf_and_guard_check": true,
+          "source_and_selected_compiler_unchanged": true,
+          "two_distinct_owned_build_directories": true
+        },
+        "boundary": {
+          "authority_effect": "none",
+          "b2_complete": false,
+          "build_provenance_authenticated": false,
+          "compiler_closure_verified": false,
+          "compiler_execution_authenticated": false,
+          "container_image_authenticated": false,
+          "containment_observed": false,
+          "diagnostic_only": true,
+          "executed_helper_build_admitted": false,
+          "execution_authorized": false,
+          "full_host_qualification_completed": false,
+          "metric_pass": null,
+          "native_execution_ready": false,
+          "native_qualification_performed": false,
+          "observer_runtime_closure_verified": false,
+          "original_native_acquisition_performed": false,
+          "outer_security_policy_authenticated": false,
+          "physical_execution_authenticated": false,
+          "privileged_filter_readback": false,
+          "probe_output_executed": false,
+          "source_binary_equivalence_verified": false,
+          "startup_helper_execution_observed": false
+        },
+        "limits": {
+          "build_seconds": 30,
+          "builds": 2,
+          "cleanup_seconds": 5,
+          "compiler_bytes": 67108864,
+          "probe_bytes": 262144,
+          "record_bytes": 2097152,
+          "retries": 0,
+          "stderr_bytes": 65536,
+          "stdout_bytes": 65536
+        },
+        "policy_id": "recorded_repeated_probe_build_under_selected_compiler_v0",
+        "probe_source": {
+          "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+          "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+          "size_bytes": 17330
+        },
+        "profile": "linux_x86_64_containment_task_guard_selection_v0",
+        "recipe": {
+          "build_ids": [
+            "build-1",
+            "build-2"
+          ],
+          "compiler_dependencies": "unverified_declared_builder_trust",
+          "compiler_execution": "pinned_readonly_regular_file_descriptor",
+          "compiler_selection": "external_canonical_path_and_sha256",
+          "environment": {
+            "LC_ALL": "C",
+            "PATH": "/usr/bin:/bin",
+            "SOURCE_DATE_EPOCH": "0",
+            "TMPDIR": ".",
+            "TZ": "UTC"
+          },
+          "flags": [
+            "-std=c11",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-ffreestanding",
+            "-fno-builtin",
+            "-fno-stack-protector",
+            "-fno-pie",
+            "-no-pie",
+            "-fno-asynchronous-unwind-tables",
+            "-fno-unwind-tables",
+            "-nostdlib",
+            "-static",
+            "-Wl,--build-id=none",
+            "-Wl,-z,noexecstack",
+            "-Wl,-e,_start",
+            "-Wconversion",
+            "-Wshadow"
+          ],
+          "output_name": "probe.elf",
+          "source_name": "probe.c"
+        },
+        "record_status": "authored_limited_build_acceptance_policy",
+        "record_type": "required_gate_idempotence_containment_task_probe_build_policy_v0",
+        "scope": "fixed_authored_containment_task_guard_probe_only"
+      }
+    },
+    "selection": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "additionalProperties": false,
+          "properties": {
+            "build_record": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 2097152,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "environment": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 65536,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "policy": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 65536,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "probe": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 262144,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "build_record",
+            "probe",
+            "environment",
+            "policy"
+          ],
+          "type": "object"
+        },
+        "boundary": {
+          "const": {
+            "authority_effect": "none",
+            "b2_complete": false,
+            "build_provenance_authenticated": false,
+            "compiler_closure_verified": false,
+            "compiler_execution_authenticated": false,
+            "container_image_authenticated": false,
+            "containment_observed": false,
+            "diagnostic_only": true,
+            "executed_helper_build_admitted": false,
+            "execution_authorized": false,
+            "full_host_qualification_completed": false,
+            "metric_pass": null,
+            "native_execution_ready": false,
+            "native_qualification_performed": false,
+            "observer_runtime_closure_verified": false,
+            "original_native_acquisition_performed": false,
+            "outer_security_policy_authenticated": false,
+            "physical_execution_authenticated": false,
+            "privileged_filter_readback": false,
+            "probe_output_executed": false,
+            "source_binary_equivalence_verified": false,
+            "startup_helper_execution_observed": false
+          }
+        },
+        "build_evidence_origin": {
+          "enum": [
+            "recorded_compile_only",
+            "scripted_build_backend"
+          ]
+        },
+        "compiler": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "maxLength": 4096,
+              "minLength": 2,
+              "pattern": "^/[A-Za-z0-9_.+/-]+$",
+              "type": "string"
+            },
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 67108864,
+              "minimum": 64,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "path",
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "environment": {
+          "additionalProperties": false,
+          "properties": {
+            "boot_id": {
+              "pattern": "^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "ids": {
+              "additionalProperties": false,
+              "properties": {
+                "egid": {
+                  "maximum": 4294967295,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "euid": {
+                  "maximum": 4294967295,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "gid": {
+                  "maximum": 4294967295,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "uid": {
+                  "maximum": 4294967295,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "uid",
+                "euid",
+                "gid",
+                "egid"
+              ],
+              "type": "object"
+            },
+            "lsm_label_hex": {
+              "maxLength": 131072,
+              "pattern": "^(?:[0-9a-f]{2})*$",
+              "type": "string"
+            },
+            "namespaces": {
+              "additionalProperties": false,
+              "properties": {
+                "cgroup": {
+                  "maxLength": 128,
+                  "pattern": "^cgroup:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                },
+                "ipc": {
+                  "maxLength": 128,
+                  "pattern": "^ipc:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                },
+                "mnt": {
+                  "maxLength": 128,
+                  "pattern": "^mnt:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                },
+                "net": {
+                  "maxLength": 128,
+                  "pattern": "^net:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                },
+                "pid": {
+                  "maxLength": 128,
+                  "pattern": "^pid:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                },
+                "pid_for_children": {
+                  "maxLength": 128,
+                  "pattern": "^pid:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                },
+                "time": {
+                  "anyOf": [
+                    {
+                      "maxLength": 128,
+                      "pattern": "^time:\\[[1-9][0-9]*\\]$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "time_for_children": {
+                  "anyOf": [
+                    {
+                      "maxLength": 128,
+                      "pattern": "^time:\\[[1-9][0-9]*\\]$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "user": {
+                  "maxLength": 128,
+                  "pattern": "^user:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                },
+                "uts": {
+                  "maxLength": 128,
+                  "pattern": "^uts:\\[[1-9][0-9]*\\]$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cgroup",
+                "ipc",
+                "mnt",
+                "net",
+                "pid",
+                "pid_for_children",
+                "time",
+                "time_for_children",
+                "user",
+                "uts"
+              ],
+              "type": "object"
+            },
+            "observer_executable": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 67108864,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "python_version": {
+              "items": {
+                "maximum": 100,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "security": {
+              "additionalProperties": false,
+              "properties": {
+                "CapAmb": {
+                  "pattern": "^[0-9a-f]{16}$",
+                  "type": "string"
+                },
+                "CapBnd": {
+                  "pattern": "^[0-9a-f]{16}$",
+                  "type": "string"
+                },
+                "CapEff": {
+                  "const": "0000000000000000"
+                },
+                "CapInh": {
+                  "const": "0000000000000000"
+                },
+                "CapPrm": {
+                  "const": "0000000000000000"
+                },
+                "NoNewPrivs": {
+                  "enum": [
+                    0,
+                    1
+                  ]
+                },
+                "Seccomp": {
+                  "enum": [
+                    0,
+                    2
+                  ]
+                },
+                "Seccomp_filters": {
+                  "maximum": 65535,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "NoNewPrivs",
+                "Seccomp",
+                "Seccomp_filters",
+                "CapEff",
+                "CapPrm",
+                "CapInh",
+                "CapBnd",
+                "CapAmb"
+              ],
+              "type": "object"
+            },
+            "uname": {
+              "additionalProperties": false,
+              "properties": {
+                "machine": {
+                  "const": "x86_64"
+                },
+                "release": {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "sysname": {
+                  "const": "Linux"
+                },
+                "version": {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sysname",
+                "release",
+                "version",
+                "machine"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "uname",
+            "boot_id",
+            "observer_executable",
+            "python_version",
+            "ids",
+            "security",
+            "lsm_label_hex",
+            "namespaces"
+          ],
+          "type": "object"
+        },
+        "environment_origin": {
+          "enum": [
+            "local_readonly_context",
+            "scripted_context"
+          ]
+        },
+        "evidence_origin": {
+          "enum": [
+            "recorded_build_and_local_context",
+            "scripted_selection"
+          ]
+        },
+        "probe_source": {
+          "const": {
+            "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+            "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+            "size_bytes": 17330
+          }
+        },
+        "profile": {
+          "const": "linux_x86_64_containment_task_guard_selection_v0"
+        },
+        "qualification": {
+          "const": {
+            "acknowledgement": "QUALIFY_CONTAINMENT_TASK_GUARD_ONLY",
+            "cases": [
+              "native_getpid",
+              "fork",
+              "vfork",
+              "clone3",
+              "io_uring_setup",
+              "io_uring_enter",
+              "io_uring_register",
+              "x32_getpid",
+              "compat_getpid",
+              "clone_unselected",
+              "clone_l_upper",
+              "clone_l_stack",
+              "clone_r_null_tid",
+              "clone_r_parent_tid",
+              "clone_r_tls",
+              "clone_r_stack",
+              "clone_r_upper",
+              "clone_r_unselected",
+              "exec_denial",
+              "graph_inheritance",
+              "graph_cancel"
+            ],
+            "limits": {
+              "attempts": 1,
+              "case_seconds": 5,
+              "cases": 21,
+              "cleanup_seconds": 5,
+              "events_per_case": 8192,
+              "events_total": 65536,
+              "memory_bytes_per_stop": 1048576,
+              "observation_seconds": 120,
+              "probe_bytes": 262144,
+              "raw_read_bytes": 65536,
+              "record_bytes": 33554432,
+              "retries": 0,
+              "stderr_bytes": 4096,
+              "stdout_bytes": 4096,
+              "tasks_per_case": 3
+            },
+            "profile": "linux_x86_64_containment_task_guard_probe_qualification_v0",
+            "sources": [
+              {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                "sha256": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                "size_bytes": 21284
+              },
+              {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                "sha256": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                "size_bytes": 21350
+              },
+              {
+                "path": "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                "sha256": "20a17df1c1307ef5113044335ee70b8aa96d7d68322f1acc1fe5e9a18ba8bf64",
+                "size_bytes": 12962
+              },
+              {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                "sha256": "da7fa9d873cb8fa4e4ac60c71f45e617e4cfc61969d8ce219aaa83bc7225ae39",
+                "size_bytes": 106453
+              },
+              {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                "sha256": "97b753934024c4253a217ab9e906824d016d6144a27f615f7ed678dc5abada44",
+                "size_bytes": 116458
+              },
+              {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                "sha256": "27217f92c6c4c42bb09e71213ce50b3ddad4c95da5852a16078b75e9f72a5379",
+                "size_bytes": 68660
+              },
+              {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "5be04d1fbf22c9de4ae0a93d9348ef0740568b68be9c3d60c6027dedb04085ad",
+                "size_bytes": 40713
+              },
+              {
+                "path": "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "0265f67d6bc73cbdd5f57424a8fde1baf3c2ff8707cca55853cc7c734797ff0a",
+                "size_bytes": 49570
+              },
+              {
+                "path": "tools/required_gate_idempotence_containment_startup_v0.c",
+                "sha256": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                "size_bytes": 27461
+              },
+              {
+                "path": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                "size_bytes": 19568
+              },
+              {
+                "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+                "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+                "size_bytes": 17330
+              }
+            ]
+          }
+        },
+        "record_status": {
+          "const": "prepared"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_guard_selection_v0"
+        },
+        "selection_id": {
+          "pattern": "^[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "sources": {
+          "items": false,
+          "maxItems": 16,
+          "minItems": 16,
+          "prefixItems": [
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                "sha256": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                "size_bytes": 21284
+              }
+            },
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                "sha256": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                "size_bytes": 21350
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_task_guard_selection_v0/build_policy_v0.json"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                "sha256": "20a17df1c1307ef5113044335ee70b8aa96d7d68322f1acc1fe5e9a18ba8bf64",
+                "size_bytes": 12962
+              }
+            },
+            {
+              "const": {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                "sha256": "da7fa9d873cb8fa4e4ac60c71f45e617e4cfc61969d8ce219aaa83bc7225ae39",
+                "size_bytes": 106453
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                "sha256": "97b753934024c4253a217ab9e906824d016d6144a27f615f7ed678dc5abada44",
+                "size_bytes": 116458
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/build_required_gate_idempotence_containment_task_probe_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                "sha256": "27217f92c6c4c42bb09e71213ce50b3ddad4c95da5852a16078b75e9f72a5379",
+                "size_bytes": 68660
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "5be04d1fbf22c9de4ae0a93d9348ef0740568b68be9c3d60c6027dedb04085ad",
+                "size_bytes": 40713
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "0265f67d6bc73cbdd5f57424a8fde1baf3c2ff8707cca55853cc7c734797ff0a",
+                "size_bytes": 49570
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_startup_v0.c",
+                "sha256": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                "size_bytes": 27461
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                "size_bytes": 19568
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+                "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+                "size_bytes": 17330
+              }
+            }
+          ],
+          "type": "array"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "selection_id",
+        "record_status",
+        "evidence_origin",
+        "environment_origin",
+        "environment",
+        "bindings",
+        "compiler",
+        "probe_source",
+        "build_evidence_origin",
+        "qualification",
+        "sources",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "selection_report": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "b2_complete": {
+          "const": false
+        },
+        "build_provenance_authenticated": {
+          "const": false
+        },
+        "build_record": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 2097152,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "build_record_verified": {
+          "const": true
+        },
+        "compiler_closure_verified": {
+          "const": false
+        },
+        "compiler_execution_authenticated": {
+          "const": false
+        },
+        "container_image_authenticated": {
+          "const": false
+        },
+        "containment_observed": {
+          "const": false
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "environment": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 65536,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "evidence_origin": {
+          "enum": [
+            "recorded_build_and_local_context",
+            "scripted_selection"
+          ]
+        },
+        "executed_helper_build_admitted": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "full_host_qualification_completed": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "native_execution_ready": {
+          "const": false
+        },
+        "native_qualification_performed": {
+          "const": false
+        },
+        "observer_runtime_closure_verified": {
+          "const": false
+        },
+        "original_native_acquisition_performed": {
+          "const": false
+        },
+        "outer_security_policy_authenticated": {
+          "const": false
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "policy": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 65536,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "privileged_filter_readback": {
+          "const": false
+        },
+        "probe": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 262144,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "probe_output_executed": {
+          "const": false
+        },
+        "profile": {
+          "const": "linux_x86_64_containment_task_guard_selection_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_containment_task_guard_selection_verification_v0"
+        },
+        "selection": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "size_bytes": {
+              "maximum": 65536,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "selection_verified": {
+          "const": true
+        },
+        "source_binary_equivalence_verified": {
+          "const": false
+        },
+        "sources": {
+          "items": false,
+          "maxItems": 16,
+          "minItems": 16,
+          "prefixItems": [
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/plan_v0.json",
+                "sha256": "dee57c7b8e4abf86227404ba4c9efc51ced69633e1128295a2d2cef8b78318e0",
+                "size_bytes": 21284
+              }
+            },
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_entry_plan_v0/source_bindings_v0.json",
+                "sha256": "80190d88ac4e0b654cd8a315b67062aab171a24f81d9fa99108c6d7351930fd0",
+                "size_bytes": 21350
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "docs/compute/required_gate_idempotence_containment_task_guard_selection_v0/build_policy_v0.json"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "docs/compute/required_gate_idempotence_containment_task_guard_v0/contract_v0.json",
+                "sha256": "20a17df1c1307ef5113044335ee70b8aa96d7d68322f1acc1fe5e9a18ba8bf64",
+                "size_bytes": 12962
+              }
+            },
+            {
+              "const": {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_qualification_v0.schema.json",
+                "sha256": "da7fa9d873cb8fa4e4ac60c71f45e617e4cfc61969d8ce219aaa83bc7225ae39",
+                "size_bytes": 106453
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "schemas/required_gate_idempotence_containment_task_guard_v0.schema.json",
+                "sha256": "97b753934024c4253a217ab9e906824d016d6144a27f615f7ed678dc5abada44",
+                "size_bytes": 116458
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/build_required_gate_idempotence_containment_task_probe_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_qualification_v0.py",
+                "sha256": "27217f92c6c4c42bb09e71213ce50b3ddad4c95da5852a16078b75e9f72a5379",
+                "size_bytes": 68660
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/check_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "5be04d1fbf22c9de4ae0a93d9348ef0740568b68be9c3d60c6027dedb04085ad",
+                "size_bytes": 40713
+              }
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py"
+                },
+                "sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "maximum": 1048576,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            {
+              "const": {
+                "path": "tools/qualify_required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "0265f67d6bc73cbdd5f57424a8fde1baf3c2ff8707cca55853cc7c734797ff0a",
+                "size_bytes": 49570
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_startup_v0.c",
+                "sha256": "0ae15697c524fc13c2ac0f04d2a1c1d44c7e5952e6b285a4add2799a740d4409",
+                "size_bytes": 27461
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_task_guard_v0.py",
+                "sha256": "b073d370c8081337cb658929a53802bdbfa73d4f0bf4bf677dc716ef9dd76802",
+                "size_bytes": 19568
+              }
+            },
+            {
+              "const": {
+                "path": "tools/required_gate_idempotence_containment_task_probe_v0.c",
+                "sha256": "98e9def65d5679a735f134799fb43f6d6c36b0eb53c240f02b7a1ca273db7f77",
+                "size_bytes": 17330
+              }
+            }
+          ],
+          "type": "array"
+        },
+        "startup_helper_execution_observed": {
+          "const": false
+        },
+        "status": {
+          "enum": [
+            "accepted_recorded_guard_selection",
+            "accepted_scripted_guard_selection"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "status",
+        "selection",
+        "build_record",
+        "probe",
+        "environment",
+        "policy",
+        "evidence_origin",
+        "build_record_verified",
+        "selection_verified",
+        "sources",
+        "diagnostic_only",
+        "startup_helper_execution_observed",
+        "executed_helper_build_admitted",
+        "full_host_qualification_completed",
+        "original_native_acquisition_performed",
+        "containment_observed",
+        "source_binary_equivalence_verified",
+        "physical_execution_authenticated",
+        "privileged_filter_readback",
+        "execution_authorized",
+        "b2_complete",
+        "metric_pass",
+        "authority_effect",
+        "probe_output_executed",
+        "compiler_closure_verified",
+        "observer_runtime_closure_verified",
+        "compiler_execution_authenticated",
+        "build_provenance_authenticated",
+        "container_image_authenticated",
+        "outer_security_policy_authenticated",
+        "native_qualification_performed",
+        "native_execution_ready"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/required_gate_idempotence_containment_task_guard_selection_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Closed data shapes. Independent checker additionally reconstructs fixed policy, source, build and selection relationships. No execution or host authority.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/policy"
+    },
+    {
+      "$ref": "#/$defs/build_record"
+    },
+    {
+      "$ref": "#/$defs/selection"
+    },
+    {
+      "$ref": "#/$defs/build_report"
+    },
+    {
+      "$ref": "#/$defs/selection_report"
+    }
+  ],
+  "title": "Containment task-guard probe build and pre-execution selection v0"
+}
