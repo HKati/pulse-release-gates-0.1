@@ -45,7 +45,8 @@ boundaries.
 | Minimal containment-entry request | Concrete proposed argv, view, role graph, evidence and terminal contract. |
 | Data-only plan checking | Implemented; original-byte reconstruction and closed policy checks. |
 | Startup helper and task guard | Source, exact BPF policy and independent source-contract checking implemented; native qualification pending. |
-| New observation and host qualification | Not implemented, not performed, not authorized. |
+| Guard-probe qualification component | Fixed authored probe, bounded native observer and independent raw-record checking implemented; no native attempt performed. |
+| Complete host qualification and new observation | Remaining qualification components and original collector are pending; no execution authorized by source implementation. |
 | Static-entry instructions | Zero execution in the proposed terminal profile. |
 | Real selected CPython capsule | Still requires new original inputs and selection. |
 | Full B2, B3 property evidence, B4 admission, B5 actual reference | Remain separate and incomplete. |
@@ -622,13 +623,15 @@ All 29 paths remain explicitly listed in the immutable plan JSON, grouped by
 their originally proposed units. The plan-checking paths are implemented as
 described above. The startup helper, guard core, independent source-contract
 checker and schema now have their own [complete implementation inventory](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_STARTUP_v0.md#complete-change-inventory).
-The native qualifier, original observation and hosted paths remain proposed:
+The first guard-probe qualifier component is implemented; its native execution,
+the remaining full-host qualification, original observation and hosted paths
+remain pending:
 
 | Next implementation unit | Files and responsibility |
 | --- | --- |
 | Data-only plan checking | Implemented `required_gate_idempotence_containment_entry_plan_v0` schema and independent `check_...` tool; original-byte reconstruction and fixed reviewed policy. |
 | Startup and guard source contract | Implemented freestanding `containment_startup_v0.c`, pure task-guard policy, independent data-only source-contract checker and closed schema; no subject execution. |
-| Native qualification | Still requires a fixed `containment_task_probe_v0.c`, native qualifier and actual same-host observations. Bind the executed helper/build/environment and qualify the complete task graph; source-contract success is insufficient. |
+| Native qualification | The [first guard-probe component](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_QUALIFICATION_v0.md) implements the fixed probe, native qualifier and independent checker for the selected guard, two births, inheritance and owned cleanup. Actual native execution, executed startup-helper/build admission and the remaining complete host qualification are still required; source and scripted checks are insufficient. |
 | Original observation | New entry core, preparation tool, collector, independent checker and capture schema. No change to old single-tracee meanings. |
 | Hosted route, after implementation review | New workflow, hosted controller/checker/schema, exact environment JSON, Dockerfile, lock, build and run helpers; separate acquisition and offline verification roles. |
 | Regression and carrier integration | Append meaningful cases to the already registered containment test module; update the normative inventory classifier and its mutation coverage when the new workflow is actually introduced. |
