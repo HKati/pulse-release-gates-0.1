@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [selected containment task-guard attempt adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_ATTEMPT_v0.md).
+  Freshly reconstruct the selected build, probe, policy and context before at
+  most one separately acknowledged qualification invocation. Preserve exact
+  request/input/raw bytes in a fixed owned bundle and independently replay the
+  result. Keep scripted origins, rejected prefixes and fatal observer-exit
+  obligations explicit; invalidate owned completion on publication failures.
+  Append regressions without changing earlier source contracts or CI manifests.
+  Development performs no native qualification, helper or original execution;
+  full-host acceptance, B2 and #2879 remain open, with `metric_pass=null` and
+  `authority_effect=none`.
+
 - Reduce repeated immutable input parsing in the new containment guard-selection
   test fixtures after PR #3064 exhausted the Tools smoke job's two-hour budget.
   Reuse only exact-input parser results with isolated returned containers and
