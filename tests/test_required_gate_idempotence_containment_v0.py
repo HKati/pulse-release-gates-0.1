@@ -26392,8 +26392,91 @@ def containment_guard_selection_builder():
                   CONTAINMENT_GUARD_SELECTION_BUILDER_REL)
 
 
+class _ContainmentGuardSelectionParseCache:
+    """Reuse pure decoding only in the new selection tests, never a verdict.
+
+    Every source read/binding, metadata relationship, schema instance check,
+    contract/plan reconstruction and report construction still executes. Cache
+    keys retain exact input bytes, argument types, bounds and selections. Only
+    successful parser results are retained; callers receive fresh containers.
+    """
+    def __init__(self, fields_parser, tar_parser):
+        from functools import lru_cache
+        self.fields_parser, self.tar_parser = fields_parser, tar_parser
+
+        @lru_cache(maxsize=131072)
+        def fields_values(paragraph):
+            # Frozen indices contain 106,470 paragraphs. Intern only immutable
+            # field-name strings; field values and paragraph bytes stay exact.
+            return tuple((sys.intern(name), value)
+                         for name, value in fields_parser(paragraph).items())
+
+        @lru_cache(maxsize=8)
+        def tar_values(raw, count_limit, decoded_limit, member_limit,
+                       selection_type, selection_values):
+            selected = None if selection_type is None else selection_type(selection_values)
+            return tar_parser(raw, count_limit=count_limit, decoded_limit=decoded_limit,
+                              member_limit=member_limit, selected=selected)
+
+        self.fields_values, self.tar_values = fields_values, tar_values
+
+    def fields(self, paragraph):
+        if type(paragraph) is not bytes:
+            return self.fields_parser(paragraph)
+        return dict(self.fields_values(paragraph))
+
+    def tar(self, raw, *, count_limit, decoded_limit, member_limit, selected=None):
+        limits = (count_limit, decoded_limit, member_limit)
+        if (type(raw) is not bytes or any(type(value) is not int or value <= 0 for value in limits)
+                or selected is not None and (
+                    type(selected) not in (set, frozenset, list, tuple)
+                    or len(selected) > count_limit
+                    or any(type(name) is not str for name in selected))):
+            return self.tar_parser(raw, count_limit=count_limit, decoded_limit=decoded_limit,
+                                   member_limit=member_limit, selected=selected)
+        selection_type = None if selected is None else type(selected)
+        selection_values = None if selected is None else tuple(selected)
+        return copy.deepcopy(self.tar_values(raw, *limits, selection_type, selection_values))
+
+    def clear(self):
+        self.fields_values.cache_clear()
+        self.tar_values.cache_clear()
+
+
 @pytest.fixture(scope="module")
-def containment_guard_selection_case(containment_guard_qualification_probe):
+def containment_guard_selection_parse_cache():
+    guard = module("check_required_gate_idempotence_containment_task_guard_v0",
+                   CONTAINMENT_TASK_GUARD_CHECKER_REL)
+    cache = _ContainmentGuardSelectionParseCache(
+        guard.prior._fields, guard._PRIOR_VERIFY_GLOBALS["_tar_members"])
+    try:
+        yield SimpleNamespace(cache=cache, plan=guard.prior, guard=guard)
+    finally:
+        cache.clear()
+        assert cache.fields_values.cache_info().currsize == 0
+        assert cache.tar_values.cache_info().currsize == 0
+
+
+@contextmanager
+def _containment_guard_selection_cached_parsers(selected):
+    # Function-scoped restoration also isolates earlier parser/mutation tests
+    # when collection order differs. The historical checker keeps a private
+    # globals snapshot, while its metadata function resolves _fields normally.
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(selected.plan, "_fields", selected.cache.fields)
+        patch.setitem(selected.guard._PRIOR_VERIFY_GLOBALS, "_tar_members", selected.cache.tar)
+        yield
+
+
+@pytest.fixture
+def containment_guard_selection_case(containment_guard_selection_case_data,
+                                     containment_guard_selection_parse_cache):
+    with _containment_guard_selection_cached_parsers(containment_guard_selection_parse_cache):
+        yield containment_guard_selection_case_data
+
+
+@pytest.fixture(scope="module")
+def containment_guard_selection_case_data(containment_guard_qualification_probe):
     checker = containment_guard_selection_checker()
     source_inputs = {path: (ROOT / path).read_bytes() for path in checker.SOURCE_PATHS}
     inventory = [{"path": path, **bound(source_inputs[path])} for path in sorted(source_inputs)]
@@ -27423,3 +27506,180 @@ def test_containment_guard_selection_native_compiler_boundary_uses_fixed_fds_and
             assert result["stdout"] == b"compiler stdout\n"
             assert result["stderr"] == b"compiler stderr\n"
             assert result["process"]["exit_code"] == 0 and result["failure"] is None
+
+
+def _containment_guard_selection_observed_parse_cache():
+    guard = module("check_required_gate_idempotence_containment_task_guard_v0",
+                   CONTAINMENT_TASK_GUARD_CHECKER_REL)
+    real_fields, real_tar = guard.prior._fields, guard._PRIOR_VERIFY_GLOBALS["_tar_members"]
+    calls = {"fields": [], "tar": []}
+    def fields(raw):
+        calls["fields"].append(raw)
+        return real_fields(raw)
+    def tar(raw, **kwargs):
+        calls["tar"].append((raw, copy.deepcopy(kwargs)))
+        return real_tar(raw, **kwargs)
+    return _ContainmentGuardSelectionParseCache(fields, tar), guard.prior, calls
+
+
+def _containment_guard_selection_cache_tar(items=(("one", b"alpha"), ("two", b"beta"))):
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        for name, data in items:
+            header = tarfile.TarInfo(name)
+            header.size, header.mode, header.mtime = len(data), 0o644, 0
+            archive.addfile(header, io.BytesIO(data))
+    return output.getvalue()
+
+
+def test_containment_guard_selection_fields_cache_binds_exact_bytes_and_returns_fresh_dicts():
+    cache, _plan, calls = _containment_guard_selection_observed_parse_cache()
+    original, changed = b"Package: one\nVersion: 1\n", b"Package: one\nVersion: 2\n"
+    first = cache.fields(original)
+    first["version"] = b"caller change"
+    assert cache.fields(original) == {"package": b"one", "version": b"1"}
+    assert cache.fields(changed) == {"package": b"one", "version": b"2"}
+    assert calls["fields"] == [original, changed]
+    assert cache.fields_values.cache_info().maxsize == 131072
+
+
+@pytest.mark.parametrize("raw", [b"Package: one\nPackage: two\n", b" orphan\n", b"missing-colon\n"])
+def test_containment_guard_selection_fields_cache_never_retains_failed_parses(raw):
+    cache, plan, calls = _containment_guard_selection_observed_parse_cache()
+    for _attempt in range(2):
+        with pytest.raises(plan.PlanError):
+            cache.fields(raw)
+    assert calls["fields"] == [raw, raw]
+    assert cache.fields_values.cache_info().currsize == 0
+
+
+def test_containment_guard_selection_fields_cache_bypasses_mutable_input_types():
+    cache, _plan, calls = _containment_guard_selection_observed_parse_cache()
+    raw = bytearray(b"Package: one\n")
+    assert cache.fields(raw)["package"] == b"one"
+    assert cache.fields(raw)["package"] == b"one"
+    assert len(calls["fields"]) == 2 and cache.fields_values.cache_info().currsize == 0
+
+
+def test_containment_guard_selection_tar_cache_preserves_selection_type_and_none_semantics():
+    cache, _plan, calls = _containment_guard_selection_observed_parse_cache()
+    raw = _containment_guard_selection_cache_tar()
+    limits = {"count_limit": 4, "decoded_limit": len(raw), "member_limit": 16}
+    selections = (None, set(), frozenset(), [], (), {"one"}, frozenset({"one"}), ["one"], ("one",))
+    for selected in selections:
+        first = cache.tar(raw, **limits, selected=selected)
+        if selected is None:
+            assert first == {"one": b"alpha", "two": b"beta"}
+        elif not selected:
+            assert first["one"]["sha256"] == digest(b"alpha")
+            first["one"]["sha256"] = "caller mutation"
+        else:
+            assert first["one"] == b"alpha" and first["two"]["sha256"] == digest(b"beta")
+            first["two"]["sha256"] = "caller mutation"
+        again = cache.tar(raw, **limits, selected=selected)
+        assert again is not first
+        if selected is not None:
+            unselected = "one" if not selected else "two"
+            assert again[unselected] is not first[unselected]
+            assert again[unselected]["sha256"] != "caller mutation"
+    assert len(calls["tar"]) == len(selections)
+    assert cache.tar_values.cache_info().maxsize == 8
+    assert cache.tar_values.cache_info().currsize <= 8
+
+
+@pytest.mark.parametrize("field,value", [("count_limit", 1), ("decoded_limit", 10239),
+                                          ("member_limit", 4), ("count_limit", 4.0)])
+def test_containment_guard_selection_tar_cache_keys_include_each_bound_and_its_type(field, value):
+    cache, plan, calls = _containment_guard_selection_observed_parse_cache()
+    raw = _containment_guard_selection_cache_tar()
+    limits = {"count_limit": 4, "decoded_limit": len(raw), "member_limit": 16}
+    assert cache.tar(raw, **limits)["one"] == b"alpha"
+    altered = {**limits, field: value}
+    for _attempt in range(2):
+        with pytest.raises(plan.PlanError):
+            cache.tar(raw, **altered)
+    assert len(calls["tar"]) == 3
+    assert cache.tar_values.cache_info().currsize == 1
+
+
+def test_containment_guard_selection_tar_cache_does_not_alias_boolean_and_integer_limits():
+    cache, plan, calls = _containment_guard_selection_observed_parse_cache()
+    raw = _containment_guard_selection_cache_tar((("one", b"alpha"),))
+    limits = {"count_limit": 1, "decoded_limit": len(raw), "member_limit": 16}
+    assert cache.tar(raw, **limits) == {"one": b"alpha"}
+    with pytest.raises(plan.PlanError):
+        cache.tar(raw, **{**limits, "count_limit": True})
+    assert len(calls["tar"]) == 2
+
+
+@pytest.mark.parametrize("selected", [["one", "one"], ("one", "one")])
+def test_containment_guard_selection_tar_cache_never_normalizes_duplicate_selections(selected):
+    cache, plan, calls = _containment_guard_selection_observed_parse_cache()
+    raw = _containment_guard_selection_cache_tar()
+    limits = {"count_limit": 4, "decoded_limit": len(raw), "member_limit": 16}
+    for _attempt in range(2):
+        with pytest.raises(plan.PlanError):
+            cache.tar(raw, **limits, selected=selected)
+    assert len(calls["tar"]) == 2 and cache.tar_values.cache_info().currsize == 0
+
+
+def test_containment_guard_selection_tar_cache_binds_bytes_and_never_reuses_failed_decoding():
+    cache, plan, calls = _containment_guard_selection_observed_parse_cache()
+    first = _containment_guard_selection_cache_tar((("one", b"alpha"),))
+    changed = _containment_guard_selection_cache_tar((("one", b"other"),))
+    limits = {"count_limit": 4, "decoded_limit": len(first), "member_limit": 16}
+    assert cache.tar(first, **limits)["one"] == b"alpha"
+    assert cache.tar(changed, **limits)["one"] == b"other"
+    for _attempt in range(2):
+        with pytest.raises(plan.PlanError):
+            cache.tar(b"truncated tar", **limits)
+    assert len(calls["tar"]) == 4 and cache.tar_values.cache_info().currsize == 2
+
+
+def test_containment_guard_selection_parse_caches_are_bounded_and_explicitly_cleared():
+    cache, _plan, calls = _containment_guard_selection_observed_parse_cache()
+    first = None
+    for index in range(9):
+        raw = _containment_guard_selection_cache_tar((("one", bytes([index])),))
+        first = raw if first is None else first
+        cache.tar(raw, count_limit=4, decoded_limit=len(raw), member_limit=16)
+        assert cache.tar_values.cache_info().currsize <= 8
+    cache.tar(first, count_limit=4, decoded_limit=len(first), member_limit=16)
+    assert len(calls["tar"]) == 10
+    cache.fields(b"Package: one\n")
+    cache.clear()
+    assert cache.fields_values.cache_info().currsize == cache.tar_values.cache_info().currsize == 0
+
+
+def test_containment_guard_selection_cached_parser_scope_restores_helpers_after_failure(
+        containment_guard_selection_parse_cache):
+    selected = containment_guard_selection_parse_cache
+    fields, tar = selected.plan._fields, selected.guard._PRIOR_VERIFY_GLOBALS["_tar_members"]
+    with pytest.raises(RuntimeError, match="authored fixture failure"):
+        with _containment_guard_selection_cached_parsers(selected):
+            assert selected.plan._fields == selected.cache.fields
+            assert selected.guard._PRIOR_VERIFY_GLOBALS["_tar_members"] == selected.cache.tar
+            raise RuntimeError("authored fixture failure")
+    assert selected.plan._fields is fields
+    assert selected.guard._PRIOR_VERIFY_GLOBALS["_tar_members"] is tar
+
+
+def test_containment_guard_selection_warm_parsers_keep_fresh_contract_reconstruction(
+        containment_guard_selection_case_data, containment_guard_selection_parse_cache):
+    case, selected = containment_guard_selection_case_data, containment_guard_selection_parse_cache
+    real_contract = case.checker.raw.verify_prerequisite_source_contract
+    # This baseline deliberately bypasses the parser caches and every producer.
+    uncached = encoded(real_contract())
+    calls = []
+    def reconstruct():
+        result = real_contract()
+        calls.append(encoded(result))
+        return result
+    with _containment_guard_selection_cached_parsers(selected), pytest.MonkeyPatch.context() as patch:
+        patch.setattr(case.checker.raw, "verify_prerequisite_source_contract", reconstruct)
+        first = _containment_guard_selection_build_check(case)
+        before = selected.cache.fields_values.cache_info().hits
+        second = _containment_guard_selection_check(case)
+        assert selected.cache.fields_values.cache_info().hits > before
+    assert first["build_record_verified"] is True and second["selection_verified"] is True
+    assert calls == [uncached, uncached]

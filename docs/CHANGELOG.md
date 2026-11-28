@@ -1,0 +1,1685 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+- Reduce repeated immutable input parsing in the new containment guard-selection
+  test fixtures after PR #3064 exhausted the Tools smoke job's two-hour budget.
+  Reuse only exact-input parser results with isolated returned containers and
+  bounded test-local caches; freshly reconstruct source contracts, relationships
+  and reports on every validation. Preserve the existing test cases, production
+  verifiers, both CI manifests and the workflow's required-check semantics.
+
+- Add [B2 containment task-guard probe build and context selection](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_SELECTION_v0.md).
+  Preserve two fixed compile-only builds, actual ELF bytes, bounded compiler
+  outcomes and unchanged source/compiler observations under an explicit limited
+  acceptance policy. Independently bind the selected probe, full observer context
+  and qualifier source closure before a later attempt. Keep scripted and recorded
+  origins distinct; reject incomplete builds, changed selections and replaced
+  output paths. Append registered regressions without changing prior contracts,
+  the qualifier or CI manifests. No probe/helper/original execution is performed;
+  native qualification, full-host acceptance and B2 remain pending, with
+  `metric_pass=null` and `authority_effect=none`.
+
+- Implement the first [B2 containment task-guard qualification component](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_QUALIFICATION_v0.md).
+  Add a fixed 21-case freestanding probe, bounded native observation command,
+  closed evidence schema and independent raw-record reconstruction. Admit the
+  exact guard submission, both selected clone shapes, inherited denials and
+  owned cleanup through a shared pre-resume state machine. Preserve unordered
+  birth joins, bound SIGCHLD forwarding and kernel restart handling, reserve
+  cleanup evidence space and retain unresolved ownership on fatal prefixes.
+  Append data-only, substituted-backend and compile-only regressions; keep the
+  prior startup-helper source contract unchanged. No native probe or original
+  execution is performed by this development unit. Executed-helper build
+  admission, complete host qualification and the original observation remain
+  pending; B2 and #2879 stay open, `metric_pass=null`, `authority_effect=none`.
+
+- Implement the bounded [B2 containment startup helper and task-guard source contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_STARTUP_v0.md).
+  Add the freestanding fixed-FD helper, exact sealed-input hashing, parent-loss
+  checks, bounded release barrier and fixed original-launcher exec route.
+  Select a separate 34-instruction guard for the two reviewed clone shapes;
+  preserve the observer's role/order/count and dynamic-pointer obligations.
+  Independently verify the closed authored contract, current source closure and
+  unchanged original-byte plan; inspect compiled ELF/filter bytes without
+  executing the helper. Append bounded data-only and compile-only regressions.
+  Native qualification, the new observation collector, executed-helper build
+  admission and hosted route remain pending. B2 and #2879 stay open,
+  `metric_pass=null` and `authority_effect=none`.
+
+- Implement the closed schema and independent data-only checker for the
+  [B2 containment-entry plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md#implemented-data-only-plan-checking).
+  Preserve the exact 34-file historical baseline and reconstruct selected
+  ELF, source-index, patch, BPF, argument and task-graph relationships from
+  independently pinned original carriers. Reject rehashed semantic changes,
+  ambiguous archives, example-runtime promotion and mutable filesystem inputs;
+  append targeted regressions without changing historical tests or CI manifests.
+  Keep the authored proposal immutable and report only verified design relations.
+  Native observation and qualification remain pending, B2 and #2879 stay open,
+  `metric_pass=null` and `authority_effect=none`.
+
+- Record the source-bound [B2 containment-entry plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md)
+  after the completed original-loader observation. Preserve the exact Debian
+  bubblewrap source carriers and declare a new minimal readonly view, three
+  subject roles, separate reaper/payload filter evidence, a static-entry exec
+  stop and complete owned cleanup. Specify fresh host qualification, independent
+  checking and negative cases before implementation. Keep actual selected
+  CPython admission and later bootstrap/worker integration explicit; this
+  design-only unit performs no execution or dispatch, with B2 and #2879 open,
+  `metric_pass=null` and `authority_effect=none`.
+
+- Preserve the completed [original-loader observation 45881405789/1](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#completed-hosted-observation-458814057891)
+  at its exact source and policy identity. Retain the complete unique raw
+  capture, nine consumer/provider returns, terminal entry stop, four equal
+  hosted reports, cache-absence controls, owned cleanup and attestation evidence
+  in a bounded repository selection with exact original-member provenance.
+  Keep both full original artifact ZIPs in separate custody. Record containment
+  and selected-bootstrap design as the next boundary; earlier failures remain
+  incomplete, B2 and #2879 stay open, and `authority_effect=none`.
+
+- Select loader-cache absence in the hosted original-loader environment after
+  the [second observation attempt](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#second-hosted-attempt-458361762661)
+  stopped at an unselected `/etc/ld.so.cache` mapping. Remove only the selected
+  regular cache inside the isolated image after package installation; check
+  absence before acquisition and replay, preserve fresh phase-specific state,
+  and require its exact environment binding during hosted verification. Keep
+  native mapping rejection, original bytes and rebuild policy unchanged. Add
+  original-map regressions and hostile filesystem/state coverage. The failed
+  attempt remains incomplete; a fresh owner dispatch is required, with B2 and
+  #2879 open and `authority_effect=none`.
+
+- Refresh the reviewed history-workflow preservation digest for the exact
+  setup-python v7.1.0 action pin. Keep the complete canonical workflow guard
+  and read-only token boundary; add rejection coverage for old, missing,
+  moving, unreviewed and wrong-source setup-python references.
+
+- Reconcile the setup-python v7.1.0 dependency update with the current
+  workflows and exact source-binding contracts. Retain the later action-pin
+  updates, include newly added Python workflows, and refresh the corresponding
+  inventory and regression expectations. Preserve historical workflow bytes
+  through narrowly checked test-input reconstruction and keep the release
+  authority and evidence-admission rules unchanged.
+
+- Fix the original-loader checkpoint comparison after the first
+  [hosted observation attempt](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#first-hosted-attempt-455866533791).
+  Preserve both original process samples while excluding only validated RSS
+  accounting values from stopped-sample equality in the collector and native
+  replay. Keep identity, security, mappings, registers and memory checks strict;
+  retain the historical fixture contracts. Add unchanged samples from the
+  incomplete attempt and regressions through collection and independent replay.
+  The recorded failure remains incomplete; a fresh owner dispatch is still
+  required, with B2 and #2879 open and `authority_effect=none`.
+
+- Add the separate [hosted B2 original-loader resolution route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md).
+  Bind manual owner dispatch to the reviewed source and explicitly selected
+  rebuild policy; preserve the complete offline admission closure and exact
+  GPG/OpenSSL/native environment. Supervise one bounded original collector,
+  independently replay raw evidence in a separate job, require equal checker
+  reports and owned cleanup, and attest only completed verification. Preserve
+  incomplete prefixes and classify the new workflow explicitly. This unit
+  implements the route without dispatching it; B2 and whole-runtime #2879
+  remain open, with `metric_pass=null` and `authority_effect=none`.
+
+- Fix the [B2 original-loader collector regressions](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md#verification-and-next-boundary)
+  to distinguish scripted original-signature transport from fresh cryptographic
+  verification with an explicitly selected test-host verifier. Exercise the
+  unchanged original signature inputs with real GPG, reject changed signed
+  bytes, and prove that an unselected verifier still stops production admission
+  before any probe or original execution. Keep the historical verifier pin,
+  production admission and existing runtime profiles unchanged.
+
+- Add the separate [B2 bounded original-loader collector and independent replay](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md).
+  Reconstruct the full original-input and explicitly selected rebuild-policy
+  chains before fresh fixed guard/two-slot probes, then permit one acknowledged
+  original attempt with nine unique raw consumer/provider returns and a terminal
+  entry stop. Bind contemporaneous backing reads, paired raw samples, exact
+  continuation counts and owned cleanup; preserve incomplete attempts and keep
+  scripted tests distinct from native evidence. This unit performs no original
+  acquisition or workflow dispatch. Existing profiles, B2 completion and
+  whole-runtime #2879 retain their scope; `metric_pass=null` and
+  `authority_effect=none`.
+
+- Add a bounded [B2 original-loader rebuild acceptance policy](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ACCEPTANCE_v0.md)
+  and independent data-only checker. Preserve the exact public service snapshot,
+  join its source-resolution records to all three complete original source
+  inputs, and freshly reconstruct the preceding package and signature proof.
+  Default evaluation leaves policy selection pending. An externally selected
+  exact policy can satisfy only the scoped source/build prerequisite under its
+  explicit current-service endorsement and unsigned source-association trust
+  assumptions. Retain truncation, unverified historical authority and original
+  signature limits; original acquisition, future-host admission, B2 and
+  whole-runtime #2879 remain open, with `metric_pass=null` and `authority_effect=none`.
+
+- Preserve the completed [B2 hosted two-slot qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861)
+  from owner-dispatched run `45253188286/1` at source `624713608bcf5467c6d4be44cd026f906c45f274`.
+  Retain 255 unchanged original control/evidence members, exact artifact and
+  source bindings, four identical hosted reports, cleanup and hosted attestation
+  verification. Two fresh data-only checker processes reproduced the reports;
+  complete original evidence reconstructed the attested binding unchanged under
+  its recorded absolute input-path requirement. Keep complete original ZIPs in
+  separate custody and the first failed attempt incomplete. Original-loader
+  acquisition, source/build acceptance, B2 and whole-runtime #2879 remain open;
+  `metric_pass=null` and `authority_effect=none`.
+
+- Fix the [B2 loader two-slot hosted qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
+  container creation to select `apparmor=docker-default` explicitly in both
+  acquisition and verification. Keep strict prestart and terminal profile
+  checks, independently reconstruct the exact selected command, and add
+  regressions from the first hosted attempt's actual prestart inspection.
+  The original incomplete attempt remains incomplete; actual qualification,
+  original-loader acquisition and release authority remain separate.
+
+- Add a separate [B2 loader two-slot hosted qualification route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
+  with a manual owner-bound workflow, exact source/input preservation, one
+  synthetic probe in a restricted container and independent offline replay in
+  a fresh verification job. Bind current-run artifacts, fixed commands, native
+  reports, owned container cleanup and completed-statement attestation;
+  preserve incomplete prefixes without promoting them. This implementation
+  does not run the workflow. Actual qualification, original source/build
+  admission, original acquisition, B2 completion and release authority remain
+  separate; issue #2879 retains its complete whole-runtime scope.
+
+- Add the [B2 loader two-slot qualification request and attempt adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_ACQUISITION_v0.md)
+  with independently selected pre-execution context, exact implementation
+  bindings, one acknowledged fixed-probe invocation and closed complete or
+  incomplete preservation. Reuse the existing raw checker for independent
+  reconstruction and retain scripted/native origin separation. Actual hosted
+  qualification, original loader acquisition, source/build admission, B2
+  completion and release authority remain open.
+
+- Add the [B2 loader two-slot qualification implementation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_QUALIFICATION_v0.md)
+  with a separate fixed-probe producer, a closed bounded native record and an
+  independent raw-record checker. Bind repeated hardware stops, RF/TF state,
+  exact continuation counts, process identity and owned cleanup; preserve
+  incomplete attempts and distinguish scripted backend tests from native
+  records. Actual selected-environment qualification, original loader readouts,
+  source/build admission, B2 completion and release authority remain open.
+
+- Add the [B2 original-loader rebuild-attestation binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ATTESTATION_BINDING_v0.md)
+  with exact preserved rebuilder statements and public-key response, bounded
+  canonical-message/key derivation and fresh Ed25519 verification. Reconstruct
+  the unchanged build-record prerequisite and join both selected original
+  packages and the complete buildinfo carrier to every signed digest. Retain
+  the other signature as unverified and the API aliases as one evidence set.
+  Historical key authority, direct signed source-input coverage, accepted build
+  policy, the source/build gate, live acquisition and B2 completion remain open.
+
+- Add the [B2 original-loader build-record binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BUILD_RECORD_BINDING_v0.md)
+  with exact recovered buildinfo/changes preservation, bounded envelope and
+  Deb822 parsing, complete cross-record inventory joins and fresh checks of the
+  two selected original package byte streams. Reconstruct the unchanged startup
+  prerequisite and retain declaration-only scope for the other eighteen outputs.
+  Signature verification, builder authorization, authenticated build provenance,
+  the source/build gate, live acquisition and B2 completion remain open.
+
+- Add the [B2 original-loader startup and resume acceptance contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_STARTUP_CONTRACT_v0.md)
+  with fresh prior reconstruction, original source/debug/instruction mode
+  derivation, complete bounded initial-stack fixture checks and explicit
+  RF/TF predicates for the selected hardware stops. Preserve incomplete
+  outcomes and the existing historical/source boundaries. Actual invocation,
+  hardware qualification, authenticated build provenance, original acquisition,
+  B2 completion and release authority remain open.
+
+- Add the [B2 loader readout checker contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_READOUT_CONTRACT_v0.md)
+  with fresh reconstruction of the pinned static prerequisite, raw register and
+  memory occurrence checks, and a separate two-slot repeated-stop transcript
+  checker. Closed, explicitly authored test fixtures exercise the rules without
+  native execution or qualification claims. Build provenance, invocation modes,
+  live capability and original acquisition remain blocked. Historical sources,
+  the 190/41 CI inventories and non-authority boundaries remain unchanged.
+
+- Add the [B2 exact original-loader binary/debug/source binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BINARY_BINDING_v0.md)
+  with six complete preserved distribution artifacts in nine ordinary-size
+  byte parts and a data-only independent checker. Reconstruct the historical
+  entry evidence, package membership and selected patched source; correlate the
+  original instructions and raw DWARF at the pre-store return checkpoint with
+  the RBX argument and RAX provider recipe. Bind exact private field layouts and
+  the nine original consumer/name pointer obligations without importing host
+  layouts or executing the loader. Retain the unchanged authored plan, all 81
+  historical source bindings and the 190/41 CI lists. Reproducible source/build
+  equivalence, live readout and hardware qualification, loader-resolution
+  acquisition, B2 completion and release authority remain open.
+
+- Add the [B2 per-consumer loader-resolution plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_PLAN_v0.md)
+  with a closed proposal schema and independent data-only checker. Reconstruct
+  the preserved original entry capture with all 81 historical source bindings;
+  derive nine original `DT_NEEDED` occurrences and three separate interpreter
+  declarations directly from the original ELF bytes. Select a bounded proposed
+  return-event witness with a final original-entry stop, exact occurrence joins
+  and explicit unsatisfied binary/ABI, capability and implementation gates.
+  No new acquisition or workflow is introduced; loader-resolution verification,
+  B2 completion, selected-runtime execution and release authority remain open.
+
+- Add [LRM-05 preserved candidate import and evaluation](docs/PULSEMECH_LANGUAGE_RELATION_ADAPTER_EVALUATION_v0.md)
+  on a fixed source-only inventory of 23 HU/EN cases and 24 questions. Bind saved
+  responses to exact request/source bytes, retain failed, missing and unsupported
+  cases, and run the independent LRM-02 representation checker. Preserve exact
+  admitted input and verification artifacts for the existing measurement path.
+  Separate producer declarations, confidence, source mapping and unresolved
+  target selection; publish operational counts without an extraction-accuracy
+  claim. No live model call, reference-answer input, acceptance promotion,
+  workflow change or release-authority activation is introduced.
+
+- Add [B2 original launcher exec-stop GitHub observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md)
+  as a manual owner-scoped repository process with separate acquisition and
+  verification jobs. Preserve the complete 114-file original-input carrier,
+  fixed environment inputs and unchanged historical sources. Build the pinned
+  CPython 3.11.16 image offline with its already selected loader; retain the
+  restricted container policy and permit one original cp0 attempt without
+  post-exec continuation. Preserve failed prerequisites, bounded command logs,
+  raw capture prefixes and source/run receipts. Independently reconstruct the
+  uploaded attempt twice with fresh original-chain signature checks; attest
+  only completed verification and verify the original attestation bundle.
+  Pass all 914 containment cases (668 prior plus 246 hosted) and all 61 normative
+  inventory cases without changing the 189/40 CI rosters. Fresh preparation and
+  two separate checks from the new carrier reproduce byte-identical accepted
+  reports while retaining all 53 original source bindings. The first
+  manual hosted observation remains pending; Q2's negative result, unsupported
+  gates, previous observations and all authority boundaries remain unchanged.
+
+- Add [B2 original launcher exec-stop acquisition](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md)
+  with a closed original-input request, explicit owner collector and independent
+  checker. Freshly reconstruct the preserved launcher/distribution chain before
+  request preparation or checking. Bind the exact original launcher/interpreter,
+  eight ELF load-segment occurrences and four RX memory-sample obligations to
+  one kernel exec stop with no later resume. Preserve failed prerequisites,
+  bounded diagnostics and owned-child cleanup. Previous observations and
+  original bytes remain unchanged. Actual original-target acquisition requires
+  a separately authorized eligible owner environment; selected-runtime execution
+  stays closed and `authority_effect=none`.
+
+- Add [B2 fixed-probe private-memory transition observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MEMORY_OBSERVATION_v0.md)
+  with a separately pinned two-stop authored ELF and one fixed data-byte write.
+  Preserve two samples of each selected code/data page at each checkpoint;
+  independently bind every occurrence to its ELF range, process and backing
+  object. Check unchanged sealed backing bytes alongside changed private data,
+  with exactly one bounded continuation and terminal owned-child cleanup.
+  Retain denied and short reads as incomplete evidence, reuse corrected
+  nonblocking input admission, and keep the original single-stop profile and
+  source-bound observations unchanged. A completed local capture preserved
+  39 raw members; two separate checker processes reproduced byte-identical
+  accepted canonical reports. Pass all 600 containment cases (508 prior plus
+  92 new) without changing the 189/40 CI rosters. Original launcher/loader acquisition, host
+  qualification and selected execution remain open; B2 is incomplete and
+  `authority_effect=none`.
+
+- Fix the [B2 mapping checker FIFO substitution race](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md#fifo-substitution-review-correction)
+  by opening shared checker inputs with `O_NONBLOCK` before validating the
+  resulting descriptor identity. Cover selection, capture record and raw-member
+  replacement at the stat/open boundary with bounded isolated regressions.
+  Reproduce all three blocking paths on the reviewed checker and verify prompt
+  rejection after the fix; pass all 508 containment cases (505 prior plus 3 new).
+  Preserve the original source-bound observation and reports unchanged; record
+  a fresh completed observation and two byte-identical independent-checker
+  reports for the corrected source selection. Keep the fixed probe, collector,
+  CI rosters, original evidence and all authority boundaries unchanged.
+
+- Add [B2 fixed-probe stopped mapping observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md)
+  for one exact built-in authored static executable. Bind the retained sealed
+  object, actual stopped-child executable descriptor and every file-backed
+  mapping occurrence using preserved kernel evidence and an independent checker.
+  Retain raw process identities, maps, executable bytes, bounded failed attempts
+  and terminal cleanup. Require external selection/capture bindings and reject
+  substituted objects, cross-attempt evidence and incomplete preservation.
+  Keep the cooperative checkpoint distinct from ptrace exec interception,
+  process-memory equality and original launcher/runtime observation.
+  Two separate checker processes reproduced the same accepted canonical report
+  from a completed local fixed-probe capture with 20 preserved raw files.
+  Pass all 505 containment cases (409 existing plus 96 new) and keep the 189/40
+  CI rosters unchanged.
+  Preserve original evidence and all authority boundaries; actual launcher/loader
+  coverage, host qualification and selected execution remain open.
+
+- Add [B2 launcher distribution authentication](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCHER_DISTRIBUTION_v0.md)
+  with a separately pinned trust policy, exact original keyring and GPG identity,
+  complete signer roster and explicit evaluation epoch. Freshly verify each
+  detached Release signature, reconstruct the full compressed/decoded Packages
+  bindings and connect the exact original package to the existing launcher plan.
+  Preserve bounded verifier status/stderr and failed-attempt diagnostics; reject
+  ambiguous metadata, partial signature success and rehashed record substitution.
+  Two separate checker processes freshly verified all three original Debian
+  signature groups and reproduced the same canonical accepted report from the
+  full 68825-paragraph package index and preserved launcher inputs.
+  Retain the original launch-host plan/report and all authority boundaries.
+  Extend the existing containment regression module without changing the 189/40
+  CI manifests. Trust freshness, upstream/build origin, host qualification and
+  selected runtime execution remain open; B2 is incomplete.
+
+- Add [B2 launcher and passive host binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCH_HOST_v0.md)
+  with independent reconstruction from the original containment and entry-build
+  inputs. Require both entry-build outputs to equal the selected containment
+  entry, bind the outer launcher to an exact plain Debian package member, and
+  check every consumer's selected interpreter/native dependency edges.
+  Add a bounded offline package reader and a passive host snapshot with explicit
+  blocked/unknown prerequisites. Preserve observed package-to-launcher equality
+  separately from origin authentication and actual host qualification.
+  Extend existing containment regressions without changing CI manifests or the
+  189 Tools / 40 targeted entries. No launcher, preserved entry or selected
+  runtime executes; the original artifacts and claim boundaries retain their
+  bytes, B2 remains incomplete and `authority_effect=none`.
+
+- Preserve the [first hosted B2 entry-build/provenance observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
+  from run `43854478248/1` at `f290aee20cd610e4fdb358dbf34d054ec351d390`.
+  Retain both original GitHub artifact ZIPs byte-for-byte and add a descriptive
+  machine-readable inventory of their source, run, artifact and evidence bindings.
+  Record the two equal 9568-byte entries, accepted hosted record checks and the
+  actual successful hosted signature verification. Two later source-pinned
+  offline checker executions reproduce the hosted canonical reports byte-for-byte;
+  they do not claim a fresh local cryptographic verification. Keep the original
+  records and their boundary flags unchanged, update the documentation index,
+  and retain the remaining launcher/host/runtime obligations. No entry or selected
+  runtime is executed by this preservation change; B2 remains incomplete,
+  `metric_pass=null`, `actual_reference_claimed=false` and `authority_effect=none`.
+
+- Add [fixed B2 entry build acquisition and provenance](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
+  with two bounded builds of the unchanged static entry source, exact raw
+  source/log/binary preservation and an independent closed-record checker.
+  Retain compiler/subtool observations before and after building, require
+  identical entry bytes and preserve incomplete attempts. Add a manual-only
+  workflow that separates read-only compilation from attestation, checks the
+  exact downloaded artifact and verifies the original provenance bundle.
+  Bind the exact Python patch to its build and attest jobs in repository hygiene,
+  coordinate the guard fixtures and exercise the actual shared version guard.
+  Classify the exact workflow bytes as build-evidence preservation with
+  attestation participation and no required-gate or release-path participation.
+  Bind the toolchain-change regression to the observed assembler lookup and
+  verify stable and changed observations for bare, absolute and target-prefixed
+  query paths, retaining the exact failed-attempt diagnostics.
+  No produced entry or selected runtime is executed, no workflow is dispatched
+  by this change, and host/compiler qualification remains open. Add regressions
+  and coordinate Tools count guards from 188 to 189; targeted pytest remains 40,
+  B2 remains incomplete and `authority_effect=none`.
+
+- Add [B2 containment primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md)
+  with deterministic boundary requests, sealed input descriptors, a static entry,
+  a fixed syscall policy and a bounded example-only launcher. Verify raw attempt
+  records against reconstructed inputs and preserve failed or partial evidence.
+  After stopping a failed child, nonblockingly drain both output pipes through
+  the preservation sink up to their independent caps before closing them;
+  reject normal receipts after a drain or sink preservation failure.
+  Keep selected-runtime execution closed and all qualification and authority
+  flags unchanged. Add synthetic regressions and coordinate Tools count guards
+  from 187 to 188; targeted pytest remains 40 and `authority_effect=none`.
+
+- Add [B2 bootstrap preparation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md)
+  with an independently selected finite profile, deterministic launch-plan
+  reconstruction, exact module/resource bindings and private launch-view
+  materialization. Preserve a fixed worker/collector diagnostic probe, native
+  aliases and incomplete materialization prefixes. Discover selected JSON Schema
+  resources by format and schema identity, including extensionless vocabulary
+  files. Add synthetic regressions and coordinate Tools count guards from 186
+  to 187. Preparation performs no selected runtime execution; the probe grants
+  no qualification or authority, observed acquisition remains closed and
+  `authority_effect=none`.
+
+- Add [B2 selected runtime preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md)
+  with independent runtime/operator selections, a closed byte-bound capsule,
+  static ELF interpreter/dependency bindings and exact private-directory
+  restoration. Reject source, archive, native-provider and filesystem
+  substitutions; retain incomplete restoration prefixes. Add synthetic
+  regressions and coordinate Tools count guards from 185 to 186. No preserved
+  runtime is executed, the observed launch route stays closed, runtime closure
+  remains incomplete and `authority_effect=none`.
+
+- Add [bounded B2 idempotence acquisition primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md)
+  with selected-source preparation, sealed worker/input/interpreter descriptors,
+  Linux process and syscall restrictions, and synthetic finite-suite orchestration.
+  Preserve incomplete attempts without retry or cleanup and verify complete
+  example carriers with the unchanged observation adapter. Register the new
+  regressions once and coordinate Tools count guards. Observed launch remains
+  closed pending recoverable runtime closure, review and separate owner
+  authorization; no actual reference, metric verdict or release authority is
+  supplied, B2 remains incomplete and `authority_effect=none`.
+
+- Add the [offline B2 idempotence observation adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md)
+  with exact carrier/receipt verification, a truthful standalone runtime profile,
+  and per-application first-output-to-second-input binding. Reuse the existing
+  compute consumption and planned-observed relation mechanisms; retain B1 v0
+  and historical schemas. Add synthetic substitution, source, archive and CLI
+  regressions and synchronize the Tools manifest count guards. Recorded-relation
+  integrity does not authenticate physical execution or establish idempotence,
+  runtime closure, B2 completion or release eligibility; `authority_effect=none`.
+
+- Propose a [B2 snapshot-sanitizer idempotence protocol](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md)
+  for the existing EPF logging component. Bind its fixed configuration, twelve
+  exact public inputs, planned two-application paths, comparison, privacy and
+  preservation rules. Identify the required derived-input binding and supported
+  acquisition adapter without changing B1 v0 or executing the suite. The finite
+  component proposal does not establish production-gate applicability; all twelve
+  unsupported classifications and `authority_effect=none` remain unchanged.
+
+- Fix the B1 suite-contract checker to validate the selected input digest and
+  byte count for every occurrence, including repeated observations of one case.
+  A matching occurrence cannot mask another occurrence's mismatched input.
+  Add repeated-occurrence regressions and refresh the frozen checker selections;
+  retain the structural-only result and `authority_effect=none`.
+
+- Add the [B1 required-gate suite contract](docs/compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md)
+  and its offline structural checker. Bind declarations to a separately selected
+  manifest, exact source/protocol/input bytes and existing compute packet schemas;
+  check finite case coverage, per-gate obligations and execution/state references.
+  Distinguish valid unresolved drafts from complete declarations while keeping
+  execution readiness, semantic verification and release authority separate.
+  Add explicitly synthetic positive and rejection fixtures, register the test
+  once and synchronize all dependent tools-manifest count checks. No real
+  operator protocol, subject execution or required gate is activated;
+  `authority_effect=none` and #2879 remains open.
+
+- Configure the [Q3 immutable-release runtime adapter](docs/compute/PULSEMECH_Q3_RUNTIME_RELEASE_TRANSPORT_v0.md)
+  for the fixed published companion. Check repository/release/tag and all 25
+  asset identities, retrieve the pinned manifest and twenty fragments without
+  credentials, and verify original bytes before the existing archive/installation
+  boundary. Retain bounded streaming, metadata rechecks and source-bound receipts;
+  update independent checking and its pin chain while preserving exact historical
+  replay. Add offline transport and coherent-forgery regressions. Actual-runner
+  retrieval, preflight, capture and Q3 measurement remain separate pending work;
+  no execution or release authority is granted, and #2879 remains open.
+
+- Add optional [LRM-04 persistence and impact measurement](docs/PULSEMECH_LANGUAGE_RELATION_IMPACT_v0.md):
+  recompute independently admitted grounded support after base-evidence withdrawal,
+  retain conjunctive premises and alternative proof routes, and diagnose unsupported
+  cycles and exact claim/negation conflicts. Evaluate condition satisfaction and
+  complete joint possibility vectors in common finite configurations. Resolve
+  observed consequences through separately pinned before/after event records and
+  exact processing, source, subject, run and event bindings. Preserve structural
+  relation states and canonical status axes; publish a byte-bound impact artifact
+  alongside the existing verification and measurement artifacts. Keep the frozen
+  profile and LRM-03 default CLI behavior; register regressions and synchronize
+  manifest count guards. Automatic extraction, offline replay integration and
+  release authority remain outside this implementation.
+
+- Add the [LRM-03 relation comparator](docs/PULSEMECH_LANGUAGE_RELATION_COMPARATOR_v0.md):
+  evaluate four relation states on the preserved finite profile, retain complete
+  role tuples and joint interpretation choices, and produce bound difference
+  witnesses and separately assessed additions. Recompute the LRM-02 source checks;
+  resolve target-specific correspondence, coverage and addition reviews through
+  independently configured evidence. Preserve candidate/reference claim scopes,
+  incomplete families and target-local results in the existing measurement and
+  verification artifacts. Register regressions and synchronize manifest count
+  guards. Downstream impact, automatic extraction and offline replay remain later
+  work packages; no release authority is activated.
+
+- Add the [LRM-02 source and representation verifier](docs/PULSEMECH_LANGUAGE_RELATION_INPUT_VERIFIER_v0.md):
+  strict input loading, exact UTF-8 source/span bindings, typed reference closure,
+  a separate parser for the preserved 22 HU/EN controlled-language productions,
+  independently configured reference acceptance and exact processing-record bindings.
+  Preserve candidate scopes, incomplete interpretation families and unperformed
+  checks in the existing verification artifact. Register the runtime regressions
+  and synchronize the shared test-manifest count guards. The historical LRM-01
+  profile and fixtures remain unchanged; comparison, impact, extraction and
+  replay remain later work packages. No release authority is activated.
+
+- Add Anchor Integrity v0.1
+  [WP2A local byte/reference checks](docs/ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
+  [WP2B opt-in JSON Pointer projections](docs/ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)
+  and [WP2C materialized verifier-record bindings](docs/ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md).
+  Bind records to fresh base checks, exact packets and caller-pinned verifier
+  tuples; preserve existing profiles and historical fixtures. These diagnostic
+  checks do not establish verifier execution, provenance authentication or
+  semantic support, and do not complete the full adapter; `authority_effect = none`.
+
+- Add the [LRM-01 contract foundation](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_CONTRACT.md):
+  four closed schemas, a finite language profile, synthetic reference fixtures
+  and contract tests. Separate source-representation verification, relation
+  comparison and supported impact in the
+  [development plan](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_PLAN.md).
+  The runtime verifier, comparator, impact evaluator, extractor and replay
+  runner remain unimplemented. Contract-test success is not a language
+  measurement result; `authority_effect = none` and release activation remains false.
+
+- Add W1 [offline observation-record checking](docs/experiments/PD_SM_02_W1_RECORD_CHECKER_v0.md),
+  [candidate-free environment admission](docs/experiments/PD_SM_02_W1_ADMISSION_v0.md),
+  the [preserved native request](docs/experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  and [manual hosted native integration](docs/experiments/PD_SM_02_W1_HOSTED_NATIVE_v0.md).
+  Bind the guarded capture path to the exact source and request; retain separate
+  live controls, bounded execution, cleanup and offline replay. The original
+  hosted capture preservation in [PR #2984](https://github.com/HKati/pulse-release-gates-0.1/pull/2984)
+  remains pending and is not evidence preserved on `main`. Implementation and
+  internally consistent replay do not establish authenticated acquisition,
+  native/model correspondence or release authority; `authority_effect = none`.
+
+- Add the separate [QRH003 v0.1.3 Python source-binding correction](studies/openai_math_003_qrh_v0/SOURCE_BINDING.md).
+  Verify the caller-approved source manifest, capture and compile the declared
+  source inventory before study imports, and reject cache or unlisted-initializer
+  substitution. Pass sealed launcher/manifest descriptors to collector children,
+  which verify their own source snapshots. Record the previously documented
+  2026-10-10 local validation of 220 distinct cases, including 35 added regressions,
+  while retaining the earlier v0.1.2/185-case record.
+  Preserve historical anchors, the original pilot verifier and `BLOCK` / `MATCH`;
+  native proof capture remains `NOT_IMPLEMENTED`, with no new production gate
+  or mathematical acceptance claim.
+
+- Prepare an inactive, source-bound Q3 runtime transport for the exact twenty
+  preserved byte fragments. Verify each part and the original archive before
+  the existing independent archive check; bind retrieval evidence to prelaunch.
+  Retain exact historical checker replay while requiring the current checker
+  for capture handoff. Add offline transport and integration regressions.
+  The payload source remains unconfigured; no hosted retrieval, publication,
+  native execution, capture or release-authority change is asserted.
+
+- Fix Q3 native installation completion: consume and validate the exact installer
+  acknowledgement before the unchanged empty-tail, EOF and exit checks.
+  Add real-pipe regressions using the actual installer body with synthetic
+  venv/pip operations, including missing/malformed/duplicate output, nonzero
+  exits, deadlines, other phases and cleanup/interruption behavior. No native
+  execution, workflow, profile, input, metric or release-authority change.
+
+- Add a bounded Q3 native token-preflight/capture implementation for review,
+  preserving the exact 204-task P2 stimulus frame and the existing Q2 path.
+  Separate zero-generation preflight from owner-authorized, single-attempt
+  acquisition; bind original requests/tokens/text, external supervision,
+  independent verification, cleanup and bounded non-authorizing publication.
+  Add offline regressions and narrow workflow/hygiene/classification registration.
+  No native execution, label correctness, metric PASS or release activation is
+  asserted by implementation. Preserve historical Q2 49/50 FAIL / release BLOCK.
+
+- Fix the second Q3-2A preparation review: reject lexical hour 24 before
+  runtime date-time parsing, explicitly restore and verify private output
+  modes independently of process umask, and retain staging ownership before
+  its initial open. Clean up still-owned empty stages without reopening them;
+  report incomplete cleanup when ownership cannot be established. Add
+  deterministic parser, restrictive-umask and early-failure regressions.
+  Preserve pinned producer/checker/resources, original bytes, non-authorizing
+  preparation and historical Q2 FAIL / release BLOCK. Keep #2879 open.
+
+- Fix Q3-2A preparation review findings: detach returned receipt claims from
+  module defaults, register deterministic date/date-time validation matching
+  the pinned producer without optional format plugins, and reject every raw
+  carriage-return byte in JSONL inputs. Add same-process mutation, format-plugin
+  independence, producer-parity and JSONL regressions. Preserve original input
+  bytes, unchanged producer/checker/resources, non-authorizing preparation and
+  the historical Q2 FAIL / release BLOCK. Refs #2879; keep the issue open.
+
+- Add the offline Q3-2A archived-input preparer, closed external-selection
+  schema and focused synthetic tests. Preserve selected manifest/examples/labels
+  and selection bytes; build the unchanged Q3 bundle/expected-context formats
+  before scoring. Pin supported resources and producer source, retain unknown
+  original runtime as null, and separate preparation from full Q3 semantic
+  validation, metric PASS, provenance authentication and authority. Publish only
+  into a new destination with no-replace semantics and bounded, identity-aware
+  failure cleanup. Document the
+  [preparation contract](docs/compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)
+  and append its pytest registration. Existing Q3 implementation/resources and
+  Q2 history, including 49/50 FAIL / release BLOCK, remain unchanged. No model
+  call, acquisition, replay, policy, gate, workflow, README or DOI/SWH change;
+  `authority_effect = none`. Keep #2879 open.
+
+- Add the separate Q3 `q3_input_recomputation_v0.1` reference profile,
+  standalone producer, independently implemented checker, closed input/result
+  schemas and synthetic conformance fixtures. Bind original example/label bytes
+  and the exact producer source to a caller-selected external expectation;
+  recompute marginal Wilson gaps and the accepted deduplicated-union small-group
+  coverage rule without pruning the overall population. Distinguish valid
+  metric FAIL from malformed input and report mismatch. Register the focused
+  pytest module in the existing targeted suite and document the
+  [reference contract](docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md).
+  Preserve canonical Q3 spec 0.1.1, Q2 code/history and 49/50 FAIL / release
+  BLOCK. This is a standalone Step 5C increment with synthetic tests, not real
+  Q3 acquisition, current-run release evidence or completed Step 5C/5D. No
+  policy, required-gate, dispatcher, workflow or admission activation;
+  `authority_effect = none`. Keep #2879 open.
+
+- Preserve the 2026-10-20 QRH003 M1 knowledge-link inventory in a separate
+  [knowledge-continuity companion](studies/openai_math_003_knowledge_continuity_v0/README.md),
+  with the original five-file ZIP unchanged, byte/member identities and
+  retained source notices. Keep M1 acceptance `INCOMPLETE`, the exact
+  selected-source gaps, historical four-claim/five-export `BLOCK` / replay
+  `MATCH`, native capture `NOT_IMPLEMENTED` and semantic review `NOT_REVIEWED`.
+  Add documentation navigation. Static preservation only; no new proof,
+  replay or experiment; no policy, gate or workflow modification or authority
+  change.
+
+- Add a self-contained Q2 repository-preservation metadata stage under
+  `preservation/q2_reference_closure_v0/`: exact planned archive identities, three
+  byte-preserved historical records, component review, supplemental notices
+  and an explicit split from future payload publication. Include no original
+  archive, LFS pointer or LFS attribute. Preserve the earlier 4/4 byte-check
+  result, original 49/50 FAIL / release BLOCK and all non-authorizing claims.
+  Record the bounded GNU build-ID/debuglink follow-up without asserting
+  source-RPM equivalence or closing P2. Full-payload P1-P5, LFS quota/budget,
+  later archive readback and full Q2-4 acceptance remain open.
+  No new inference, replay, runtime, workflow, policy, gate, README or DOI/SWH
+  change. Keep #2879 open.
+
+- Preserve the PULSEbox v0 technical design, revision 0.2 dated 2026-10-13,
+  as an [English repository edition](docs/PULSEBOX_V0_TECHNICAL_PLAN.md), with
+  the original Hungarian source retained byte-for-byte and a source identity
+  manifest. Document the separate execute/promote decisions, Execution Gate
+  and Device Gate, bounded receiver, contract fields and 54 planned negative
+  cases. Design preservation only: no PULSEbox implementation, activated gate,
+  prototype execution or new authority; all proposed cases remain `NOT_RUN`.
+
+- Record the bounded Q2-4 field comparison of historical run
+  `37600313529/1` and native run `39057898256/1` in the
+  [metadata-only comparison checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint).
+  Preserve the selected input and calculation identities, 150 paired calls
+  with matching selected output fields, separate execution bindings and
+  the runner-image difference. Retain both original 49/50 FAIL results,
+  historical release BLOCK and all original evidence bytes.
+  Record the prior local comparison repeat, separate crosscheck and
+  30 passing local regressions without presenting them as this change's CI.
+  Full Q2-4 acceptance and durable owner-held custody remain open.
+  Documentation only; no raw payload publication, new inference, runtime,
+  workflow, policy, gate or test-manifest change. Keep #2879 open.
+
+- Record Q2-2/Q2-3 native worker run `39057898256/1` at source
+  `8f86ac9e787914e0b3b41228c56e866a115bea16`, its 150 completed calls,
+  separate source-bound offline carrier verification and byte-identical
+  deterministic metric replay. Preserve the valid 49/50 FAIL, historical
+  platform difference and all original Q2/Q2-1 evidence identities. Add the
+  [metadata-only checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint)
+  and current documentation navigation; retain the earlier implementation
+  records unchanged. Publish no raw responses, token arrays or complete
+  evidence/replay archives. Durable owner-held retention remains `not_verified`;
+  Q2-4 comparison/acceptance and release authority remain separate. Documentation
+  only; no new inference, runtime or CI change. Keep #2879 open.
+
+- Add an explicit request-selected Q2 native-platform v1 extension alongside
+  the unchanged strict archived-platform v0 profile and schemas. Admit only
+  the reviewed Ubuntu 24.04 image `20261012.334.1` tuple; retain all original
+  bootstrap, runtime, isolation and cleanup requirements. Bind separately
+  computed native/historical field comparisons into versioned plans/results
+  and independently reject profile mixing, downgrade and invented equality.
+  Extend the existing worker regression program and update only the manual
+  workflow input description and its exact carrier-classification digest.
+  Preserve Q2-1, the original worker/protocol, historical 49/50 FAIL / release
+  BLOCK, test manifests and authority boundaries. Actual native execution,
+  Q2-4 comparability and acceptance are not established. See the
+  [native platform contract](docs/compute/PULSEMECH_Q2_NATIVE_PLATFORM_v1.md).
+
+- Add the separate Q2-2/Q2-3 fixed-capsule worker verification implementation:
+  explicit owner consent for one complete 150-call protocol and declared raw
+  Actions retention, strict historical-platform checks, unchanged worker and
+  metric tools, independent token/text and carrier reconstruction, and verified
+  service/watchdog/private-tree cleanup before exclusive publication.
+  Add closed profile/request/result contracts, one manual-only workflow, two
+  offline test programs, narrowly scoped hygiene/classification registration
+  and the [worker contract](docs/compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md).
+  Reconcile all seven test-manifest count consumers (165 to 167).
+  Native model loading/inference, acquisition, Q2-4 comparison/preservation and
+  full Q2/Step 5C/5D acceptance remain unverified; #2879 stays open.
+  Preserve Q2-1 original bytes and all historical 49/50 FAIL / release BLOCK
+  evidence. No policy, gate, threshold, README, DOI or active authority changes.
+
+
+### Fixed
+
+- Align all Q2 projection regular-file path and origin character sets with
+  the existing archive reader for `+` and `@`. Add full projection-schema and
+  complete synthetic-receipt regressions with actual affected capsule names;
+  retain runtime path guards, exact inventories, original hashes, bindings,
+  ownership/modes, restricted links and fail-closed behavior. Run
+  `38443305721/1` remains rejected. Its retained failure lacks the full
+  candidate and does not identify the first failing native schema field.
+  This separately reproduced defect correction guarantees no future native
+  success or Q2/Step 5C acceptance. Historical 49/50 FAIL/release BLOCK remains
+  unchanged.
+
+- Preserve the Q2 summary checker's original bounded stdout bytes when
+  freezing `summary-check.json`, after strict parsing and the closed expected
+  object check. Remove compact reserialization while retaining the original
+  historical digest, exact output inventory, producer bindings and mandatory
+  cleanup. Add positive and negative byte-preservation regressions. Run
+  `38304292049/1` stays rejected; native execution of this correction remains
+  unverified. Preserve all input/profile/workflow pins and historical 49/50
+  FAIL/release BLOCK.
+
+- Handle the Q2 tokenizer summary builder's expected exit-1 terminal state
+  after stop/reap. Require matching systemd exit evidence, EOF, a reaped client
+  and an empty original cgroup before resetting only that service's failed
+  state; retain the unchanged final cleanup collector and independent checker.
+  Preserve the original exit, exact historical output and fail-closed behavior.
+  Add targeted positive/negative regressions. Run `38272639609/1` stays rejected;
+  native execution of this correction remains unverified. Historical 49/50
+  FAIL/release BLOCK and all input, profile and workflow pins remain unchanged.
+
+- Separate Q2 tokenizer private collector data from the subject-readable
+  projection ancestor. Preserve the fixed projection path and held-descriptor
+  reader while supplying the directory read permission it requires. Retain
+  bounded failure phase, actual exit and closed error codes; report execution,
+  service cleanup and directory cleanup separately without publishing stderr.
+  Add positive/negative access and simultaneous-failure regressions. Native run
+  `38248867903/1` stays rejected; native execution of this correction remains
+  unverified. Preserve all input pins and historical 49/50 FAIL/release BLOCK.
+
+- Prepare the exact Q2 bootstrap library from the existing pinned CPython
+  archive after the release installer upgrades pip. Verify a private staging
+  tree before replacement, remove installer extras and recheck the installed
+  closure before any subject launch. Add positive/negative preparation and
+  collector-failure regressions; preserve all pins and historical FAIL/BLOCK.
+  The failed native run `38174388350/1` remains rejected and unqualified.
+
+- Declare the existing `rfc8785==0.1.4` canonicalizer in `requirements.txt`
+  after run #7023 exposed the missing Q2 tokenizer test dependency in Tools
+  smoke. Preserve workflow source pins, native execution contracts and the
+  historical FAIL/BLOCK.
+
+- Add the owner-only Q2 native tokenizer unit with closed source/input/output
+  contracts, immutable capsule projection, four externally isolated occurrences,
+  exact historical negative reduction and independent receipt replay. Add
+  positive/negative offline regressions, a manual-only pinned workflow and exact
+  hygiene/classification/test registrations. This implementation executes no
+  worker/model capture, creates no authority, preserves historical FAIL/BLOCK,
+  and still requires separately acquired and preserved native owner-run evidence.
+
+- Bind SARIF upload to a separate checkout of the already verified source SHA
+  and reject a mismatched checkout HEAD before publication. Preserve trusted
+  default-branch verification, artifact/run binding and fork exclusion; add
+  regressions for matching, default-branch and unavailable upload checkouts.
+
+- Add owner-only Q2 capsule reconstruction/publication and a separate fresh-job
+  artifact roundtrip verifier. Bind the original archives, official bootstrap,
+  every payload byte/mode and the complete deterministic ZIP; execute no model.
+  Add independently reacquired negative intake metadata while retaining the
+  historical metric FAIL and original nonzero required-gate exit. Coordinate
+  current source pins and two tools-test registrations; preserve PASS-only
+  admission and all release-authority boundaries. Hosted publication and the
+  later direct PULSE CI negative intake remain separately executed operations.
+ 
+- Bind the hosted Q2 subject dispatch to a separately configured, API-verified
+  `HKati` owner credential, preserving the intake's strict actor checks.
+  Require the original reference owner/event/request binding before using the
+  credential; confine it to one exact subject POST without token fallback or
+  retry. Keep observation/provider transport separate, sanitize authentication
+  failures, and test real loopback IO, isolated CLI rejection and independent
+  producer/admission entry. Accept GitHub's canonical main-branch event ref in
+  both event consumers and refresh both current Q2 plan source-pin maps. The
+  owner secret and real release capsule remain
+  operational prerequisites; the historical checked Q2-FAIL is unchanged.
+- Implement the dedicated archived Q2 intake in the existing required-gate
+  dispatcher/runner and independently reacquiring candidate admission. Preserve
+  capture `37600313529/1`, its executed source and original checked FAIL, the
+  unchanged reducer/checker, six generic recipes and twelve unsupported gates.
+  Carry both prelaunch request metadata fields through the existing workflows,
+  whole-runtime plans and acquisition/context checks; pin actual replay Python
+  3.11.16 and Unicode 14.0.0. Bound private archive IO, exact capsule bytes/modes,
+  process lifetime and closed metadata output, with cleanup on handled exits.
+  Coordinate candidate/source pins, carrier fixtures and 161 tools entries.
+  Extend the reviewed file inventory by the acquisition test
+  `tests/test_q2_reference_acquisition_v0.py`, whose exact-count assertion also
+  needs the 161-entry tools manifest. Also coordinate the existing
+  `.github/workflows/repo_hygiene.yml` guard: permit Python 3.11.16 only at
+  the single setup step in the PULSE job, preserving every other declaration
+  and the existing acquisition pin. Execute the actual guard over the full
+  repository workflow set and its negative cases. The complete inventory is
+  26 modified files plus 13 new files (39 total).
+  A real release capsule and hosted subject binding remain operational inputs;
+  this implementation creates neither a replacement capture nor release authority.
+ 
+- Close the three QRH003 review findings in #2907: report fresh recomputation
+  without unsupported verifier-process provenance; hash and execute the same
+  sealed executable snapshot for version and strict Landrun probes; reject
+  physical bundle entries outside the signed inventory and its two root
+  control files. Add deterministic race and signed-bundle regressions, extend
+  the declared test set, and record the v0.1.2 source revision with fresh
+  hashes. Preserve the historical v0.1.1 archive, original pilot verifier,
+  production gate policy and existing CI workflows.
+- Align native Q2 bootstrap validation with the existing root-freeze operation:
+  derive exact post-freeze permission bits without changing the original
+  inventory, file bytes or historical bindings. Retain bounded checker error
+  codes and post-barrier sandbox evidence on failed phases after cleanup.
+  Test the installation/freeze/checker boundary and preserve fail-closed
+  behavior; this does not promote the failed run `37310024905` to qualified.
+- Replace the native Q2 whole-`/run` inaccessible mask with a bounded,
+  service-local tmpfs after the `226/NAMESPACE` failure in run `37250080353`.
+  Verify actual mount namespaces, tmpfs identity, flags and root-only systemd
+  propagation plumbing before `EXEC`; recheck retained observations in the
+  separate checker. Extend the already registered startup and acquisition
+  regressions without changing workflow, model, timing or historical inputs.
+  This is a targeted configuration correction, not a native qualification claim.
+- Retain bounded native Q2 service-startup failure evidence before retrying
+  qualification after run `37231651986`. Record the stage, startup phase,
+  client exit observations, pre-cleanup systemd status and post-cleanup
+  unit-scoped journal, preserving raw output and explicit collection limits.
+  Keep the original failure, mandatory cleanup, isolation controls, generation
+  window, historical input bindings and all non-authorizing boundaries intact.
+  This adds diagnostics and offline regressions, not a proven runtime fix.
+- Address the #2894 hygiene and preparation-inventory review findings.
+  Require every pinned workflow to exist as a regular file at its exact path
+  before scanning Python declarations; reject missing, renamed or symlinked
+  paths. Exercise the actual guard in offline regressions and record all
+  thirteen preparation paths, including `.github/workflows/repo_hygiene.yml`,
+  in the readiness document. Preserve exact version checks, the selected
+  runtime, preparation behavior and the non-authorizing boundary.
+- Reconcile the Q2 preparation workflow's exact Python 3.11.16 pin with
+  the repository's Python 3.11 line in the hygiene guard. Require that exact
+  pin once at the declared Q2 workflow path; retain exact environment.yml
+  equality for every other workflow. Add offline regressions against the
+  actual hygiene step, including wrong, missing, duplicate and broadened pins.
+  Keep the selected runtime, acquisition workflow and runtime guards unchanged.
+- Specify RFC 8785 JCS for the Q2 request and selected-definition hashes in
+  #2893, including exact numeric serialization. Regenerate all 50 request
+  digests, their 150 occurrence references, the definition digest and the
+  whole-workload file binding together. Keep prompts, call order and numeric
+  generation settings unchanged. Retain BOS 1, as declared by the pinned
+  Instruct model/generation configurations; do not replace it with BOS 0.
+  This fixes the selection contract only, without runtime or gate activation.
+- Fix both Q2 reference-readiness review blockers under #2890. Update the
+  three current tools-manifest count regressions from 155 to 156 without
+  weakening uniqueness, order or exact-registration checks. Validate manifest
+  dates and timestamps explicitly in the builder and separate checker using
+  instance-local standard-library format checks, independent of optional
+  jsonschema extras. Cover invalid calendar dates, time/offset ranges, the
+  generated-at timestamp requirement, rebound manifest/summary digests and
+  isolated CLI rejection. Preserve the Q2 metric, fixed schemas, unsupported
+  production gates, source pins, dependency declarations and workflows.
+- Synchronize README implementation and evidence boundaries after #2886.
+  Distinguish merged Step 5C mechanics from pending actual reference
+  acquisition, preserve the historical Step 5B test count and #6066 record,
+  and label the old Tier 0 strict-dispatch combination as historical and
+  rejected by the corrected release preflight. Clarify that a separate
+  checker is not mandatory third-party approval, identify the canonical
+  root gate-set policy, and preserve the existing DOI records, badge targets
+  and DOI regression unchanged. DOI-label changes were excluded from the
+  merged #2891 scope; publication records and release authority are unchanged.
+- Align the Step 5C reference-workflow pin regression with the reviewed
+  `actions/download-artifact` v8.0.1 SHA in #2889. Preserve the exact single
+  current-run artifact ID, token/repository/run binding, direct destination
+  and `merge-multiple: true` handoff. Lock the complete input mapping so no
+  name/pattern fallback, decompression bypass or digest-mismatch downgrade
+  can enter unnoticed. The separately checked handoff bytes, source-bound
+  checker and 19-gate policy are unchanged; this does not dispatch or accept
+  a live Step 5C reference.
+- Repair the Step 5C historical-workflow regressions after the hosted-order
+  correction in #2886. Reverse only the reviewed ordering/guard/output delta in
+  test memory and verify the unchanged intermediate and historical Git blobs
+  before checking the original pre-acquisition graph and smoke-budget history.
+  Reject unreviewed edits before inversion; preserve job/step/input inventory,
+  permissions and budgets. This is a test-only correction: runtime workflow,
+  source pins, 19-gate policy and separate checker are unchanged.
+- Preserve current-run hosted LlamaGuard evidence before required-gate rejection
+  in #2886. Move the existing identity/producer/summary/upload sequence directly
+  after reset, before the unchanged 19-gate evaluator. Derive evidence readiness
+  only from successful upload; let the existing attestation job consume those
+  bytes after a failed candidate job without treating attestation as acceptance.
+  Bind the recorded path to both upstream jobs and explicitly BLOCK rejected
+  candidates before downloading candidate artifacts. Valid candidate paths retain
+  the existing post-materialization checks; failed candidates are never given a
+  fabricated status or release-decision artifact. Preserve all 19 requirements,
+  13 unsupported rejections, separate checker, permissions and time budgets.
+  Rebind exact workflow source pins and occurrence mappings together. Controlled
+  offline producer/adapter/native-gate and routing regressions are not evidence
+  of live model inference, GitHub upload or signature verification. This revises
+  the initial correction's ordering/conditional-graph preservation below; it does
+  not retroactively rebind historical carriers or authorize a reference dispatch.
+- Separate the Step 5C terminal regression profiles under #2886: assert native
+  rejection under the unchanged 19-gate repository policy, and exercise positive
+  reconstruction under the explicitly named six-recipe TEST policy
+  `pulse-step5c-supported-terminal-fixture-v0`. Bind the test-only policy,
+  evaluation plan and exact literal policy-pin revisions to a distinct source
+  tree before producing evidence. Keep all native producer and checker logic,
+  release-required duties, mutation/replay checks and non-authority boundaries.
+  This is not a passing 19-gate release or hosted-reference readiness; hosted
+  evidence ordering is addressed by the separate correction above.
+- Preserve the source-pinned isolated attestation pip installation in both
+  Step 5C external-operation mappings. Keep the original operation-count and
+  unknown-result regressions; reject an omitted installation even after the
+  plan and step-reference lists are consistently rehashed. This does not
+  by itself resolve the separate terminal-fixture or hosted-evidence-ordering work.
+- Prepare the bounded #2879 pre-acquisition correction following merged #2880.
+  Reject inconsistent strict-release inputs before publication of release flags;
+  retain hosted evidence materialization and post-materialization enforcement.
+  Remove assertion-only admission for the 13 unsupported required gates and
+  independently reject those results at candidate intake. All 19 required
+  entries and the six other evaluator recipes remain unchanged.
+- Pin the isolated LlamaGuard attestation installation to the complete seven-wheel
+  `PULSE_safe_pack_v0/requirements-attestation-v0.lock`, targeting CPython 3.11 on
+  Linux x86_64. Require hashes and wheels; remove the affected job's floating
+  pip/dependency installs. The supplied acquisition records CPython 3.11.16,
+  glibc 2.39 and bootstrap pip 24.0; this is not a general platform or security
+  certification.
+- Bind that lock as the 74th public R2 prelaunch source input in the independent
+  plan implementations, while retaining 62 state obligations and the existing
+  60-source legacy / 69-source local profiles. This initial installation correction
+  preserved workflow job/step order; the explicit hosted-ordering revision above
+  supersedes that ordering constraint, not permissions, budgets or historical carriers. No reference run or Step 5C
+  acceptance is claimed: #2879 remains open and substantive gate-evidence gaps
+  continue to block successful-reference readiness.
+- Clarify that correction verification independence is provided by the separate
+  checker and source-bound verification path, not by a mandatory external person
+  or third-party approval. Preserve positive regression coverage, required CI,
+  reconstruction checks, source review and fail-closed behavior. Draft-branch
+  transfer does not declare correction acceptance or reference readiness.
+
+### Added
+- Add the non-authoritative Transition Meter `comparison_binding v0` carrier
+  and an offline synthetic companion. Separate system support from successful
+  observation coverage, reject missing/null bindings and preserve unavailable
+  differences without zero imputation. Include three geometric fixtures,
+  32 companion regressions and two integration tests; expose target-scoped
+  diagnostic views through the six existing canonical status groups. Register
+  the integration entrypoint in the existing targeted pytest manifest. Keep
+  physical path and causal claims unexecuted and release authority unchanged.
+- Add the isolated [QRH003 v0.1.2 audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
+  under `studies/openai_math_003_qrh_v0/`, with source/admission/authority
+  mechanics, pinned PULSE primitives, schemas, source bindings, license
+  records and 185 local fixture tests. Include the observer correction
+  separating matching decision replay from completed offline primitive
+  execution, and link the audit reference from `docs/INDEX.md`.
+  Preserve historical `BLOCK` / `MATCH`; native proof capture remains
+  `NOT_IMPLEMENTED`. Existing CI and production gate policy are unchanged.
+- docs(q2): preserve verified capture FAIL from native run `37600313529`,
+  attempt 1, without rebinding its original source. Retain five byte-exact
+  metadata reports and a separate preservation index: 150 verified calls,
+  49 eligible groups against a minimum of 50, and a correctly checked Q2 FAIL.
+  Extend the registered startup regression with closed-projection, digest-link,
+  historical-binding and rehashed-substitution checks. Keep original generated
+  text/tokens outside the repository and require the original archives for
+  full replay. No new capture, workflow, gate activation, candidate admission,
+  policy change or Step 5C acceptance; keep #2879 open.
+- Implement the separately owner-confirmed Q2 `capture-reference` path for the
+  fixed 50-group/150-slot workload. Bind the actual worker/runtime/model inventory,
+  externally timed per-call permissions and original token/text records; preserve
+  full terminal extent on failure. Separately verify original capture and extraction
+  before the existing reducer/summary checker, retaining valid metric FAIL.
+  Keep preparation, one-diagnostic qualification, historical evidence, both test
+  manifests and all production admission requirements unchanged. Offline regression
+  evidence does not claim that a native 150-call acquisition has executed.
+- Preserve the successful one-unscored-diagnostic Q2 native qualification
+  from run `37362661448`, attempt 1, with four byte-exact original report
+  snapshots and a distinct run/artifact index. Keep raw generated text and
+  token records outside the repository, retain the historical preparation
+  identity, and cover record integrity in the registered startup test module.
+  No capture dispatch, scored acquisition, runtime change or gate admission.
+- Implement the bounded Q2 native-qualification path after #2895: a separate
+  external supervisor, local model worker, independent checker, fixed unscored
+  diagnostic and closed report schema. Verify original/adopted byte bindings,
+  install only the hash-locked offline wheel closure in a fresh environment,
+  inspect kernel-backed isolation/limits and preserve original token/text records.
+  Keep the existing prepare-runtime tools unchanged and add a separately
+  confirmed manual workflow mode; retain all original preparation identities.
+  Extend the registered offline tests without changing the 157-program manifest.
+  Implementation/offline regression is not observed native qualification:
+  no model execution, workflow dispatch, 150-call capture, production Q2
+  admission or Step 5C acceptance occurs in this change. Keep #2879 open.
+- Adopt the Q2 runtime input pins from owner-dispatched preparation run
+  `37148637546` under #2879. Preserve 30 exact wheel requirements and eight
+  model/tokenizer identities, with original preparation/checker/candidate
+  metadata retained byte-for-byte. Bind the derived repository model map to
+  the artifact, source run and exact repository lock. Add offline regressions
+  for evidence, pin substitution and non-authorizing adoption boundaries.
+  Do not install libraries, execute inference, authorize capture or change
+  production gates; native qualification and acquisition remain pending.
+- Implement the preparation-only subset of the selected Q2 acquisition path
+  under #2879: owner-dispatched staging of fixed model bytes and CPU wheel
+  candidates, exact source/run/file bindings, and a separately implemented
+  checker with offline hash-locked dependency resolution. Preserve candidate
+  lock/model maps as Actions artifacts for review, not fabricated repository
+  inputs. Register the offline protocol regression and exact-path inventory
+  classification; reconcile all three current-manifest counts to 157 while
+  retaining the original 156 entries. No model worker, installed-runtime
+  qualification, scored capture, Q2 admission or Step 5C acceptance is claimed.
+- Select the owner-operated Q2 field-extraction reference under #2879.
+  Fix the SmolLM2-135M-Instruct revision and upstream expected weights digest,
+  CPU runtime targets, 50 authored requests and 150 separately identified call
+  slots before inference. Preserve the full-output extraction rule, zero
+  retries, bounded greedy scope and separate occurrence/extraction checking.
+  Record the complete next acquisition implementation inventory, including
+  workflow classification and all three manifest-count regressions.
+  This adds selected definitions and request data, not a collector, installed
+  runtime, model responses, materialized release artifact or production recipe.
+  All 19 required gates and 13 unsupported rejections remain unchanged.
+- Define the next Q2 input-selection and acquisition contract under #2879.
+  Require a concrete evaluated subject and its release relationship before
+  implementation or execution; do not substitute an arbitrary model or search
+  again for a presumed lost export. Specify predeclared exact-request repeats,
+  complete occurrence/attempt accounting, original-response extraction and
+  input handoff before existing reducer/checker use. This is a contract-only
+  change: selection and actual acquisition remain unresolved, with all 13
+  production-gate rejections unchanged.
+- Add the first bounded reference-readiness unit under #2879: non-active Q2
+  reduction from explicitly typed final-answer/refusal groups, the unchanged
+  exact-match/Wilson/minimum-50-group metric contract, and a separately
+  implemented original-input recomputation checker. Require exact expected
+  group/manifest hashes, closed schemas, deterministic normalization and
+  no-replacement publication. A correctly verified FAIL remains a FAIL; no
+  caller or third-party approval is substituted for mechanical evidence.
+  Register permanent positive, malformed-input, rehashed-tamper, replay and
+  non-activation regressions. Record the 13-gate availability map and the
+  missing admissible-input/current-run-admission boundary. Keep the production
+  policy, all 13 unsupported rejections, Step 5C source pins and workflows
+  unchanged. This adds no live inference, successful reference or gate promotion.
+- Record the completed bounded Step 5B observed execution, acquisition, preservation,
+  independent replay and evidence-closure handoff under work order #2875.
+  - Implement the finite non-active checker/result-consumer observation path
+    through PR #2876, merge
+    `c32508f8afb58381225fec0b426b85b00e32fe11`, reusing the existing
+    subject-input producer, immutable bridge, single analyzer core,
+    source-aware report/relation validators and separate candidate
+    materializer.
+  - Preserve the unchanged strict `PULSE_safe_pack_v0/tools/check_gates.py`
+    outcomes across three controlled cases: exit `0` → `ready`, exit `1` →
+    `held`, and exit `2` → `held`, with the two blocking reasons retained
+    distinctly and no consumer-side promotion of BLOCK to ALLOW.
+  - Execute the reviewed manual reference workflow once on `main` as
+    workflow run `34402387728`, run number `1`, attempt `1`, job
+    `102637163024`, artifact `10123984621`, bound to source commit
+    `c32508f8afb58381225fec0b426b85b00e32fe11`.
+  - Preserve the exact acquisition artifact and separate verification
+    evidence through PR #2877, merge
+    `12b42736a9f8a1da16e3659a2d2099058207129b`, under
+    `preservation/compute_bounded_execution_reference_v0/run_34402387728_attempt_1/`.
+  - Independently reproduce the exact preparation carrier, validate the
+    preserved capture against authenticated source objects, and reconstruct
+    the complete 322,567-byte 12-member derived output twice in separate
+    processes with byte-identical results.
+  - Reproduce all ten preserved negative/preservation scenarios at their
+    intended semantic rejection boundaries, including cross-run context,
+    source/input substitution, occurrence/order mismatch, false downstream
+    consumption, BLOCK-to-ready mutation and non-replacing publication.
+  - Establish, only within
+    `six_declared_direct_processes_and_their_bound_io`, complete bounded
+    packet integrity, observation extent and relational coverage, with
+    `comparison_complete = true`: six expectations, six observations, six
+    decisive relations and zero unresolved relations.
+  - Keep the whole runtime packet `partial`, retain the projection collector
+    as a partial collector rather than a seventh fully observed subject
+    process, and keep resource coverage `unavailable`.
+  - The three non-active compute candidate values are true for this bounded
+    reference, while the differently scoped generic runtime-report fields
+    `authority_binding_complete` and `decision_closure_complete` remain
+    false.
+  - Preserve `authority_effect = none`,
+    `same_run_release_authority_eligible = false` and
+    `active_gate_eligible = false`. No resource measurement, compute budget,
+    deployment admission, active compute gate, full Step 5 completion or
+    Step 6/7 completion is introduced.
+- Add the bounded Step 5A runtime-bound report and relation path through
+  PR #2872, merge `5afb4404719fb04d3ee32a007cdbb8b47c220118`, accepted under #2870.
+  - Extend the existing immutable subject-input bridge, single analyzer core,
+    report/relation contracts and source-aware validators; forward exact upstream
+    inputs through separate non-replacing candidate materialization.
+  - Preserve artifact evidence origin, subject/collector/analyzer separation,
+    original policy order, occurrence identity and per-link consumption evidence.
+  - Keep packet integrity, observation extent, relational coverage, comparison
+    completeness and resource coverage distinct; the genuine #6066 packet remains
+    partial and unchanged. Synthetic completeness is not observed completeness.
+  - Modify 18 existing files, with no workflow, dependency or program-registration
+    addition. No live acquisition, resource measurement, compute budget, active
+    gate or release-policy promotion is introduced.
+- Add the Linux-only, isolated offline Step 4B runtime-packet producer
+  `tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py`
+  and its permanent, CI-registered regression (work order #2864).
+  - Consume the exact preserved #6066 capture, observed subject context,
+    release-grade preservation carrier and original historical Git sources.
+  - Bind an explicit canonical construction record and the matching producer
+    and independent validator source identities. Replay uses those same
+    declared construction facts; it does not invent fresh clock observations.
+  - Preserve eight platform job records and 171 step records with a separate
+    collector, exact input-state digests, historical policy-set order and
+    partial observation coverage. Unknown commands, process exit codes,
+    calls and resource use remain unobserved, not zero or proven absent.
+  - Validate the input capture and context through their existing independent
+    validators and the generated packet through the separate runtime checker.
+    Publish external output without replacement; recheck source identities and
+    use inode-bound rollback so unrelated replacement files are preserved.
+  - This is a historical, non-active producer, not live instrumentation,
+    runtime-connected proof, resource measurement or gate promotion.
+    `authority_effect = none`; the actual observed-output preservation and
+    documentation handoffs remain separate from this implementation.
+- CODEOWNERS to require Code Owners review on `main`.
+- Pull request template with the PULSE governance checklist.
+- (Optional) changelog check workflow (soft warning).
+- Stability Map JSON generator for Pulse Topology v0:
+  - new tool `PULSE_safe_pack_v0/tools/build_stability_map.py`
+  - generates `stability_map.json` from existing PULSE artefacts (`status.json` and optional `status_epf.json`)
+  - aggregates safety/quality gate outcomes, RDSI and EPF (`epf_L`) into a single instability score with transparent components
+  - assigns a coarse stability type per run (`STABLE`, `METASTABLE`, `UNSTABLE`, `PARADOX`, `COLLAPSE`)
+  - does not modify any existing fail-closed release-gate behaviour
+- Core policy profile `PULSE_safe_pack_v0/profiles/pulse_policy_core.yaml`:
+  - documents the minimal recommended deterministic gate set for first-time PULSE adopters
+  - encodes a CI-neutral refusal-delta stability policy without changing the existing fail-closed behaviour
+- Add a shadow-only `parameter_golf_v0` sidecar for OpenAI Parameter Golf submission evidence: schema, verifier, example artifact, docs, tests, and an upstream issue-comment draft.
+
+### Changed
+- Extend the existing runtime-packet validator only for a matching observed
+  `post_run_platform_export` producer/collector profile. Admit historical
+  subject times no later than collector start, while collector and observed
+  state times remain inside collection and packet creation follows it.
+  Preserve historical active-policy-set order with uniqueness/nonempty
+  checks; the input-bound producer verifies that exact order against the
+  observed context. Keep existing non-post-run behavior, set-like ordering,
+  independent validation and empty-record capture-summary semantics unchanged.
+  No runtime schema, capture implementation, workflow or policy is changed.
+- README: add DOI badge above the PULSE badges; keep badges.
+- README: add **Acknowledgments** section.
+
+### Fixed
+- Include all three PR #2872 review corrections within the Step 5A file set:
+  downgrade non-qualifying collector/observer records; keep unverified observed
+  repository-file identities partial rather than authenticating self-declared
+  digests; and derive runtime plan/report replay locators from captured bytes.
+  Matching regressions cover collector outcomes, unsupported source exactness,
+  forged locators and non-publication of invalid candidates. No new arbitrary
+  runtime Git/blob authentication implementation is claimed.
+- Bind the Step 4B producer's actually invoked path and exact source bytes to
+  its canonical committed source, rather than reading a canonical neighbour
+  on behalf of an executed copy (PR #2867 review).
+  Reject renamed, modified or symlinked aliases before helper execution;
+  retain construction-digest, committed-byte and publication-recheck guards.
+  Add permanent CLI/imported-copy and source-drift regressions without
+  changing the runtime-validator pin.
+- Synchronize the two existing Step 3F/3G workflow regressions with the
+  153-entry tools-test manifest after registering the new producer test
+  (PR #2867). Change only `152` to `153` in their exact count assertions;
+  retain uniqueness, exactly-once registration, ordered-block checks and
+  direct authoritative launchers. This corrects a test-registration
+  dependency without changing either workflow or production code.
+- `publish_report_pages.yml`: copy `status.json` to site root; improve concurrency safety.
+- Makefile: `reproduce` is now fail-closed locally and no longer hides `run_all.py` failures.
+- Makefile: add explicit `reproduce-soft` for permissive local/demo execution.
+- Makefile: checksum generation now uses the repo-root `compute_checksums.py`.
+- Makefile: checksum manifest is emitted atomically to avoid self-hash inconsistency when hashing the current directory.
+- Harden `tools/verify_parameter_golf_submission_v0.py` to fail cleanly when `jsonschema` is missing or the supplied schema is malformed.
+- Account for counted tokenizer bytes in `tools/verify_parameter_golf_submission_v0.py` total-size checks.
+- Honor `--json` for early evidence/schema load errors so machine-readable verifier output stays structured in failure cases.
+- Execute `tests/test_parameter_golf_submission_evidence_v0.py` through the CI pytest manifest (`ci/pytest-tests.list`).
+
+### Docs
+- Synchronize README, the Technical Overview and the documentation index with
+  the source-bound Q2 checkpoint and subsequent #2927 implementation merge at
+  `a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a` (2026-10-15).
+  Preserve the earlier `65b51603ea64d0878df28894572fd976be0a1a4f` checkpoint,
+  historical source/run identities and the original 150-call 49/50 FAIL.
+  Record dedicated Q2 intake, the preserved Q2-1 tokenizer/separate replay,
+  and merged Q2-2/Q2-3 implementation without claiming native worker execution
+  or Q2-4 acceptance. Separate the current 167-program manifest from the earlier
+  165-program checkpoint and historical proof counts. Clarify historical Tier 0
+  settings and the #2926 path-availability explanation. Preserve all 19 gates,
+  DOI declarations and non-authority boundaries. This documentation change adds
+  no acquisition, inference, gate activation or release authorization;
+  full Q2/Step 5C/5D acceptance remains open under #2879.
+- Synchronize the five existing canonical documentation surfaces with accepted
+  Step 5A (#2872) and completion comment `5577131873` under closed work order #2870.
+  - Record the exact implementation merge separately from historical subject,
+    capture, packet-producer and preservation revisions, which remain unchanged.
+  - Attribute the cloud review's 407 passed / 11 failed and separate
+    140 passed / 74 setup errors to that environment. Record the distinct
+    post-merge PULSE CI run `34170196053`, attempt 1, and Tools smoke job
+    `101888978377`: 418 affected-suite passes, separate 74-pass historical producer
+    suite and separate 94-pass targeted pytest step.
+  - Correct the review's manifest interpretation: 153 unique program paths after
+    excluding five blank and four comment lines from 162 physical lines.
+    No registration file changes. Preserve original review outcomes.
+  - Keep the complete Step 5 observed proof, supported runtime source/extent
+    evidence, public Step 3F/3G execution instance, Step 6 measurement and Step 7
+    promotion distinct from the accepted implementation. Documentation only;
+    no new acquisition, authority effect or publication-metadata change.
+- Synchronize the existing compute workstream record, Technical Overview,
+  documentation index and root README with the accepted bounded Step 4B
+  implementation (#2867) and four-file historical preservation (#2868).
+  - Keep producer revision `d7def834e8aa63911426550cf41b05f81c0b56b0`
+    distinct from preservation revision `55c6180dfbfd4055a558cf6b3e3883461a423f86`.
+  - Record the preserved local reconstruction separately from the supplied
+    post-merge review's direct packet validation, negative probes and explicit
+    historical-source/remote-CI access limits.
+  - Retain partial coverage, the unchanged Step 4A inputs, no active compute
+    enforcement and the future current-run pre-decision requirement.
+  - Documentation only; no implementation, schema, evidence, workflow, policy,
+    ledger, Zenodo or DOI change. Final documentation acceptance remains a
+    separate check under #2864.
+- Add [PULSEmech — Recursive Self-Improvement and Transition Provability](docs/PULSEMECH_RECURSIVE_SELF_IMPROVEMENT_AND_TRANSITION_PROVABILITY_v0.md)
+  as foundational architecture, with English main text and a fenced Hungarian
+  version; register it in `docs/INDEX.md` (PR #2866).
+  Distinguish transition evidence, evaluation continuity, iteration composition
+  and authority to proceed. The recursive application remains an architectural
+  extension, not a completed implementation; `authority_effect = none`.
+- Updated glossary terminology to use `PULSE Instrument Review Pack v0` as the active component name, with `Governance Pack` retained only as a legacy alias.
+- `CITATION.cff`: add ORCID for Katalin Horvat; add software reference to ChatGPT (GPT-5 Pro).
+- Add `docs/GOVERNANCE_PACK_v0.md`: overview of the optional Governance Pack (Stability Map, Decision Engine, EPF/Paradox Playbook, G-field, history tools).
+- Add `docs/GLOSSARY_v0.md`: working glossary for core PULSE terms across the safe-pack, Core profile, and Governance Pack.
+
+### Security
+- (no changes)
+
+### Post-v1.2.0 development
+
+Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
+
+#### Added
+
+- Completed the PULSEmech current-run compute automation surface through
+  Step 3G:
+  - added the observed current-run export-expectation producer, protected
+    carrier loader, current-run subject-input wrapper, manual candidate
+    workflows, protected candidate-bundle intake, artifact-observed proof
+    builder, and checksum-closed proof-bundle contract;
+  - reused the existing subject-input producer and analyzer core rather than
+    introducing parallel implementations;
+  - retained the complete lane as manual, candidate-only, non-active,
+    artifact-observed, and pre-authority, with `authority_effect = none`;
+  - no manually dispatched Step 3G run, run-bound proof-bundle instance,
+    runtime-observation producer, or active or release-required compute
+    enforcement is claimed.
+  - Provenance:
+    - PRs #2789, #2814, #2815, #2818, #2819, #2822, #2823, #2825,
+      #2826, and #2827;
+    - terminal implementation commit:
+      `9bf7fab95dbcc3532238723d0cf76500263106f5`;
+    - canonical state-record commit:
+      `1edfff9b570f7c29107311cefd9388dd92d4ba9a`.
+
+- Added the reviewed
+  [PULSEmech Transition-Bounded Computation Architecture v0](docs/PULSEMECH_TRANSITION_BOUNDED_COMPUTATION_ARCHITECTURE_v0.md)
+  and the relational release-authority interpretation:
+  - defined event-bound relation changes, dependency deltas, monotone affected
+    closure, inspected-frontier accounting, invariant boundaries, computation
+    cost accounting, and fail-closed unresolved state;
+  - kept the architecture and relational interpretation non-activating and
+    separate from the existing release-authority path.
+  - Provenance:
+    - PRs #2816, #2817, and #2820;
+    - reviewed architecture commit:
+      `fbfa9b0c03003eef93b23489ab7cb6cc72a9edeb`;
+    - relational interpretation commit:
+      `934109c89bb5787832f8e2952c2919fc06ee854e`.
+
+- Completed the PULSEmech Device Ledger v0 bounded mechanical proof:
+  - added the Device Canonical JSON and iOS observation contracts,
+    ledger/signature/manifest/report schemas, deterministic synthetic reference
+    artifacts, and the separately implemented standalone Python verifier;
+  - added the Swift session-boundary, network-observation, coverage,
+    transition, terminal-checkpoint, canonical-ledger, checkpoint-signature,
+    manifest, package-signature, and deterministic `.pulseledger`
+    materialization path;
+  - proved exact Python–Swift reference-carrier byte parity;
+  - reproduced an exact canonical verifier result with 49 of 49 checks passed
+    and both signatures verified;
+  - reproduced byte-identical verifier-report bytes on repeated execution;
+  - proved fail-closed rejection of a structurally admissible, CRC-consistent
+    package-signature mutation at `package_signature_valid`;
+  - recorded the complete bounded proof in
+    [PULSEmech Device Ledger Bounded Mechanical Proof v0](docs/PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md).
+  - Exact reference identities:
+    - carrier size: `133568` bytes;
+    - carrier SHA-256:
+      `a31388c7bf574040893d1d923d684d23318e5d2109a0d72a923888b95d5d42b3`;
+    - canonical verifier-report size: `15328` bytes;
+    - canonical verifier-report SHA-256:
+      `5e93539099e99dd5bfa835ba56c401608a5b5c015209812ebb5f9c31142a74f4`.
+  - Provenance:
+    - foundation: PR #2828;
+    - verifier and relation corrections: PRs #2831, #2833, and #2834;
+    - Swift observation, coverage, transition, and ledger closure:
+      PRs #2835, #2836, #2837, and #2838;
+    - checkpoint signature, manifest, package signature, and carrier:
+      PRs #2840, #2842, #2843, and #2844;
+    - standalone-verifier round trip and workflow correction:
+      PRs #2845 and #2846;
+    - runnable demonstrator: PR #2847;
+    - canonical proof record: PR #2848;
+    - terminal proof-record commit:
+      `d2be905bbdf281cb4adff97b98618340d5ca5c39`.
+
+- Added the minimal runnable iPhone bounded-proof demonstrator:
+  - executes the existing deterministic synthetic reference materialization;
+  - requires the exact generated checkpoint, ledger, manifest, carrier, and
+    verifier-report identities;
+  - admits only the exact canonical verifier-report bytes bound to the exact
+    carrier generated by the current Swift execution;
+  - displays the bounded proof result through a read-only result surface;
+  - exports the exact current `.pulseledger` bytes;
+  - remains `carrier_class = diagnostic_shadow`,
+    `authority_effect = none`, and `external_validation_claim = none`;
+  - does not execute, import, or reimplement the Python verifier and makes no
+    self-verification claim.
+  - Provenance:
+    - PR #2847;
+    - merge commit:
+      `6a358187d8fde7321963b76cc50cc77fad695dd0`.
+
+- Completed the PULSEmech Device Ledger Reproduction Capsule v0:
+  - closed the exact four-member `ZIP_STORED` Capsule contract around the
+    canonical Capsule manifest, canonical `.pulseledger`, unchanged standalone
+    verifier, and canonical expected positive verifier report;
+  - added the deterministic Capsule builder, strict reproduction-result schema,
+    orchestration-only runner, checked-in canonical Capsule, canonical
+    reproduction result, permanent execution regression, and dedicated
+    reference-environment workflow;
+  - constructed Capsule A and Capsule B in separate processes, workspaces, and
+    output directories and proved exact A/B/canonical byte equality without
+    reusing output, temporary state, materialized members, or computed archive
+    bytes;
+  - executed the unchanged standalone verifier twice in separate positive
+    processes and required exact canonical stdout bytes, exit status `0`, empty
+    stderr, `verified_with_declared_unavailability`, and 49 of 49 checks passed;
+  - performed one isolated `signature_base64` first-character `O → P` mutation,
+    repaired both ZIP CRC32 fields, and required the exact cryptographic
+    rejection at `package_signature_valid`;
+  - preserved ten protected repository source objects byte-for-byte before and
+    after reproduction;
+  - bound the reference execution to the externally verified digest-pinned
+    Python 3.11.9 slim Bookworm image on `linux/amd64`, with no reproduction
+    network, no runtime downloads, read-only repository and attestation mounts,
+    and a separate writable output mount;
+  - registered the execution regression exactly once and advanced the canonical
+    tools-test manifest to `149` active, unique entries.
+  - Exact canonical output identities:
+    - Capsule path:
+      `examples/device_transition_ledger/pulsemech_device_ledger_reproduction_capsule_v0.zip`;
+    - Capsule size: `285144` bytes;
+    - Capsule SHA-256:
+      `49e02cf3daa466170b7ffee681ceb06c23410010b64e23137022541ec7691678`;
+    - Capsule Git blob SHA-1:
+      `5b2647823e59bde24cf9125851c1490e3149dfab`;
+    - reproduction-result path:
+      `examples/device_transition_ledger/pulsemech_device_ledger_reproduction_result_reference_v0.json`;
+    - reproduction-result size: `31188` bytes;
+    - reproduction-result SHA-256:
+      `d0a659c572dcde11315f518d350361f6fc7690027c7e2682111f88a519b34ad1`;
+    - reproduction-result Git blob SHA-1:
+      `9b5a240495b357c64a510e6019e4d7189c29152e`;
+    - reproduction-result framing: no UTF-8 BOM, CR, LF, or trailing newline.
+  - Provenance:
+    - exact Capsule manifest contract: PR #2851;
+    - contract merge commit:
+      `722fe4e85acfaac67c283862645ac9e42c831236`;
+    - deterministic execution: PR #2852;
+    - reviewed final PR head:
+      `5d8792ffb5c1f555b50f01bb34fa9757e20af5ec`;
+    - squash-merge commit:
+      `21837e1e54f898a131d3a9bff89527209ddae711`;
+    - post-merge review:
+      no actionable findings on the squash-merge commit.
+
+#### Fixed
+
+- Fix the Q2-1 preservation check to verify all 29 historical source payloads
+  against the fixed acquisition commit/tree and original receipt bindings,
+  independently of current working-tree files or Git history. Add a separate
+  [later source preservation copy](tests/fixtures/q2_release_host_tokenizer_historical_source_d44bf963_v0.zip)
+  with raw Git commit/tree proofs and offline tamper/independence regressions.
+  Preserve all original native metadata, index and replay bytes, current-runtime
+  source guards, historical 49/50 FAIL/release BLOCK and non-authorizing claims.
+  Refs #2879; the work order remains open.
+
+- Closed Device Ledger verifier and proof-parity defects involving:
+  - stale-session lifecycle acceptance;
+  - interrupted-coverage gap reconstruction;
+  - exact canonical verifier-report byte binding;
+  - duplicate semantic endpoint-transition materialization;
+  - verifier-trigger trailing whitespace.
+  - Provenance: PRs #2831, #2833, #2834, and #2846.
+
+- Closed current-run compute regression false-green paths involving inherited
+  pytest control inputs, plugin injection, deselection, skipped call phases,
+  and terminal early exits before complete test execution.
+  - Provenance: PRs #2818 and #2819.
+
+- Closed Device Ledger Reproduction Capsule execution false-success and
+  exact-byte defects:
+  - removed inherited `PYTEST_ADDOPTS`, `PYTEST_PLUGINS`, and
+    `PYTEST_CURRENT_TEST` from the no-argument permanent-regression launch;
+  - disabled plugin autoload and external conftest or repository-configuration
+    influence;
+  - required all 15 collected proof tests to produce plain passing call reports,
+    rejecting collection-only, deselection, skipped proof execution, xfail,
+    xpass, and premature success;
+  - restored the exact 31,188-byte canonical reproduction-result object after a
+    browser-mediated upload appended one trailing LF byte.
+  - Provenance: PR #2852.
+
+#### Security
+
+- Hardened the GitHub Actions supply-chain boundary:
+  - pinned external Actions to immutable full commit identities;
+  - disabled persisted checkout credentials on the hardened workflow surfaces;
+  - added fail-closed workflow lint for mutable or abbreviated Action
+    references and unsafe checkout credential persistence.
+  - Provenance: PR #2803.
+
+- Restored and hardened the privileged SARIF publication path:
+  - retained first-party `actions/download-artifact`;
+  - retained first-party `github/codeql-action/upload-sarif`;
+  - bound upload eligibility to the exact GitHub-owned source workflow-run,
+    repository, event, ref, commit, and pull-request relation;
+  - rejected ambiguous, substituted, drifted, unsupported, or unverified
+    source-run state.
+  - Provenance: PRs #2804, #2805, and #2812.
+
+- Hardened current-run compute construction and intake against:
+  - symlink and path-component substitution;
+  - hard-link and inode replacement;
+  - partial-clone, promisor, lazy-fetch, alternate-object, and replacement-object
+    state;
+  - unsafe, duplicate, encrypted, malformed, oversized, or checksum-invalid
+    archive members;
+  - stale, partial, redirected, or attacker-substituted transactional output.
+  - Provenance: PRs #2815, #2822, #2823, #2825, and #2826.
+
+- Hardened Device Ledger Reproduction Capsule construction and execution:
+  - required host-runtime RepoDigest verification before launching the exact
+    declared container digest;
+  - covered publication interruption with `BaseException` cleanup while
+    re-raising the original interruption;
+  - blocked interrupt delivery across directory creation, immediate
+    device/inode capture, `O_NOFOLLOW` descriptor acquisition, descriptor
+    identity verification, and owned-state publication;
+  - removed pathname `stat`-then-`rmdir` cleanup and retained uncertain
+    random-name directories rather than risking deletion of substituted
+    objects;
+  - kept output ownership bound to retained descriptors and exact filesystem
+    identities and kept protected-source drift fail-closed.
+  - Provenance: PR #2852.
+
+#### Docs
+
+- Preserve the bounded Q2-1 native tokenizer reference `38478598045/1` and
+  its separate canonical offline replay, with six unchanged metadata files,
+  the original replay delivery archive, a non-authorizing preservation index
+  and metadata-integrity regressions. Record the bounded checkpoint in the
+  existing readiness/contract/index documentation. Preserve the initial local
+  input-staging rejection and the historical 49/50 FAIL/release BLOCK. Large
+  original input archives are identified but not included; durable owner
+  custody remains unverified. No runtime, workflow, policy, threshold or authority change.
+
+- Synchronized the canonical
+  [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md), README,
+  compute workstream record, and documentation index with the merged
+  implementation state.
+  - Provenance: PRs #2795, #2796, #2798, #2806, #2827, and #2848.
+
+- Added reviewed interoperability and measurement-boundary records for:
+  - Witness policy and attestation verification;
+  - classic in-toto layout/link evidence;
+  - synthetic-data information contribution and measurement saturation;
+  - restart authority and alternative-path closure.
+  - Provenance: PRs #2797, #2801, #2807, #2808, and #2839.
+
+- Added the canonical Device Ledger bounded mechanical proof record and
+  separated:
+  - mechanical reproducibility;
+  - optional external reproduction;
+  - external adoption;
+  - institutional maturity.
+  - Provenance: PR #2848.
+
+- Completed the Device Ledger Reproduction Capsule documentation closure across
+  six existing documentation files without creating a second canonical proof
+  document:
+  - extended the canonical bounded mechanical proof record with the exact
+    Capsule contract, deterministic execution, two-construction equality,
+    positive and targeted-negative relations, protected-source preservation,
+    and distinct execution entrypoints;
+  - extended External Verification Path v0 with direct `.pulseledger`
+    verification, complete pinned workflow dispatch, portable local proof
+    replay, bounded inner-runner execution, Swift round trip, and read-only
+    iPhone demonstration;
+  - synchronized the README, documentation index, and canonical Technical
+    Overview with the merged PR #2851–#2852 state;
+  - recorded the complete asynchronous reference-workflow command and the
+    separate local 15-test proof-replay command;
+  - preserved one canonical Device Ledger proof entrypoint and the distinction
+    between proof record, reviewer/operator procedure, and implementation-state
+    overview.
+  - Provenance: PR #2855.
+
+#### Boundaries
+
+- Current-run compute remains manual, candidate-only, non-active,
+  artifact-observed, and pre-authority.
+- Runtime-observed compute proof, per-axis resource measurement, stable
+  measurement coverage, and any compute-gate promotion remain separate work.
+- The Device Ledger reference remains:
+  - `record_status = synthetic_reference`;
+  - `identity_scope = fixture_installation`;
+  - `key_origin_profile = fixture_software_p256`.
+- The iPhone demonstrator remains a non-authorizing carrier of the already
+  closed bounded proof.
+- The Device Ledger Reproduction Capsule remains a portable construction and
+  execution carrier around the already closed bounded proof.
+- The canonical reproduction result remains orchestration evidence:
+  - `reproduction_result_role = orchestration_evidence_not_verifier_verdict`;
+  - the existing standalone verifier remains the verifier;
+  - the runner remains orchestration-only;
+  - no producer verdict is trusted.
+- The Capsule, reproduction result, workflow artifact, documentation, local
+  replay, and optional external reproduction event do not create a gate result,
+  release decision, release authority, or device-control authority;
+  `authority_effect = none`.
+- The digest-pinned reference-environment result does not create a universal
+  cross-platform reproducibility claim, production-device claim,
+  hardware-backed identity claim, or external-validation claim.
+- General-purpose iPhone product development, live production observation,
+  persistent storage, restart recovery, production key lifecycle, Secure
+  Enclave integration, platform attestation, physical-device identity, and
+  App Store qualification remain separate wider work.
+- Policy, active gate sets, `status.json`, terminal release decisions, and
+  release authority remain unchanged by these milestones.
+- The documentation closure modifies no source code, test, workflow, schema,
+  contract, canonical JSON artifact, binary artifact, standalone verifier,
+  release policy, `.zenodo.json`, DOI identity, Zenodo metadata or relationship,
+  `CITATION.cff`, Git tag, or GitHub Release.
+
+
+## [1.2.0] - 2026-08-04
+
+### Milestone
+
+- Recorded `v1.2.0` as a new milestone in the same continuous PULSE
+  development line.
+- Established the PULSEmech Transition Meter as the foundational
+  evidence-bound transition-measurement architecture.
+- Positioned artifact-bound AI release authority as the first concrete
+  implementation domain of the broader architecture.
+- Recorded the implemented release-transition path:
+
+  ```text
+  recorded current-run release evidence
+  → exact subject, run, evidence, and artifact binding
+  → declared release policy
+  → workflow-effective required-gate materialization
+  → deterministic verifier replay
+  → final gate state
+  → strict fail-closed evaluation
+  → ALLOW or BLOCK
+  ```
+
+-  Included the then-current state of:
+  -  release-grade reference-package assembly and verification;
+  -  the Tier 0 self-contained evidence floor;
+  -  fixed-source PULSE CI #6066 preservation;
+  -  current-run export-expectation contracts and validation;
+  -  recorded SLSA/VSA candidate evidence intake;
+  -  protected control-plane and source-identity hardening.
+
+### Provenance
+
+-  GitHub Release: `PULSEmech Transition Meter — v1.2.0`.
+-  Release tag: `v1.2.0`.
+-  Tagged commit:
+   `b324e733296c200c7d9b799463414c82e533a921`.
+-  Published: `2026-08-04`.
+
+### Boundaries
+
+-  The general cross-domain Transition Meter remained a foundational
+   architecture and implementation direction.
+-  The release did not claim:
+  -  a completed universal cross-domain instrument;
+  -  automatic causal sufficiency;
+  -  replacement of domain instruments;
+  -  replacement of domain verification;
+  -  automatic authority from transition observation;
+  -  downstream deployment coverage after CI `ALLOW` or `BLOCK`.
+-  The release event activated no new policy set, required gate, verifier,
+   authority path, or external executor.
+-  The release created no replacement PULSE project identity or development
+   line.
+
+## [1.1.1] - 2026-01-09
+
+### Fixed
+- Retrigger Zenodo ingestion after metadata fix.
+- `.zenodo.json`: remove hand-maintained `version` and `publication_date`.
+- CI: validate `.zenodo.json` via `json.tool`.
+
+## [1.1.0] - 2025-11-10
+
+### Changed
+- Zenodo: add `hasPart` pointing to the Guard repository so Guard appears under the Pulse Zenodo record.
+- Remove explicit `version` from `.zenodo.json`; Zenodo derives the version from the Git tag.
+
+### Notes
+- Metadata-only release; no code or CI changes; backward compatible.
+
+## [1.0.3] - 2025-10-16
+
+### Added
+- External detectors (opt-in): merge JSON/JSONL summaries from safety tools into the gate context and Quality Ledger.
+- Refusal-delta: stability signal for refusal policies.
+- JUnit and SARIF export artifacts for CI dashboards and code scanning.
+- First-run stays simple: defaults unchanged; optional pieces can be enabled later.
+
+### Notes
+- Deterministic, fail-closed release gates across Safety (I2–I7), Utility (Q1–Q4), and SLO budgets; optional EPF gate; Quality Ledger plus checksums for audit.
+- Backward compatible; all new pieces are opt-in.
+
+## [1.0.2] - 2025-09-27
+
+### Added
+- Deterministic, fail-closed gates across Safety (I₂–I₇) and Product Utility (Q₁–Q₄).
+- CI-enforced workflow (`.github/workflows/pulse_ci.yml`).
+- Human-readable Quality Ledger (`report_card.html`) and `status.json`.
+- RDSI (Release Decision Stability Index) with confidence intervals.
+- Badges (PASS/FAIL, RDSI, Q-Ledger) under `/badges`.
+- Profiles and thresholds under `/profiles`.
+- Methods and external-detectors docs under `/docs`.
+- Optional GitHub Pages publisher guarded by `PUBLISH_PAGES`.
+
+### Notes
+- Release DOI: `10.5281/zenodo.17373002`.
+- Concept DOI: `10.5281/zenodo.17214908`.
+
+## [1.0.1] - 2025-09-27
+
+### Added
+- GitHub Pages publisher workflow (guarded by `PUBLISH_PAGES`).
+- `status.json` exposed at site root on Pages.
+
+### Changed
+- README: DOI badge + Acknowledgments section.
+
+### Fixed
+- `publish_report_pages.yml`: copy `status.json`, concurrency safety.
+
+### Docs
+- `CITATION.cff`: add ORCID and ChatGPT (GPT-5 Pro) software reference.
+
+## [1.0.0] - 2025-09-23
+
+### Added
+- Initial PULSE release gates pack (I₂–I₇, Q₁–Q₄).
+- CI wiring (`pulse_ci.yml`), badges, Quality Ledger and RDSI reporting.
+
+[Unreleased]: https://github.com/HKati/pulse-release-gates-0.1/compare/v1.2.0...HEAD
+[1.1.1]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/V1.1.1
+[1.1.0]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.1.0
+[1.0.3]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.0.3
+[1.0.2]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v.1.0.2
+[1.0.1]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v.1.0.1
+[1.0.0]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.0.0
+[Post-v1.2.0]: https://github.com/HKati/pulse-release-gates-0.1/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/HKati/pulse-release-gates-0.1/releases/tag/v1.2.0

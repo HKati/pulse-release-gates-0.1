@@ -256,7 +256,7 @@ checks. Every report retains `native_execution_ready=false`,
 `native_qualification_performed=false`, `b2_complete=false`, `metric_pass=null`
 and `authority_effect=none`.
 
-The source delivery contains exactly these eleven repository-relative paths:
+The original #3064 source delivery contains exactly these eleven repository-relative paths:
 
 ```text
 CHANGELOG.md
@@ -274,6 +274,53 @@ tools/prepare_required_gate_idempotence_containment_task_guard_selection_v0.py
 
 The upload package contains source and documentation only. Compiler outputs,
 local-context records and development logs are not repository changes.
+
+### PR #3064 CI runtime follow-up
+
+The first hosted attempt at source
+`b80fc7bb3b62e3223302a0dafd05ef748bbfcece` reached the existing two-hour Tools
+smoke job limit. In [PULSE CI #7399](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/46140616120/job/140965640683),
+the 190-entry script phase completed successfully in 1 hour 50 minutes 37
+seconds. Its containment module passed all 4,300 tests in 2,244.62 seconds. The
+subsequent 41-entry pytest phase was cancelled after 9 minutes 20 seconds at
+41% progress. That prefix is not a completed result for the second phase.
+
+Profiling found repeated parsing and decompression of identical preserved input
+bytes in the new selection-test fixtures. The follow-up reuses only immutable
+parsed data inside those fixtures. Exact input bytes and every parsing bound
+or selection parameter remain part of the cache identity. Successful results
+return isolated mutable containers; rejected inputs are not cached. Fixture
+patches are restored after each test and bounded caches are cleared at module
+teardown.
+
+The field cache retains at most 131,072 successful exact paragraphs; the TAR
+cache retains at most eight successful bounded archive decodings. The change
+trades test-process memory for repeated parsing work. A representative actual
+prerequisite reconstruction took 5.776 seconds without reuse, 5.709 seconds on a
+cold cache and 1.786/1.767 seconds on warm calls, with identical reports. The
+benchmark's peak resident memory was 915,596 KiB. These local measurements are
+not a guarantee of a future hosted job duration.
+
+Source-byte reads and bindings, metadata relationships, schema checks, complete
+prerequisite source-contract reconstruction and final report construction still
+run on every validation. No acceptance result, source snapshot, digest or report
+is cached. The existing 145 selection/build cases and their assertions remain;
+additional regressions cover cache isolation and fresh reconstruction.
+
+The correction changes only this document, `CHANGELOG.md` and the appended
+selection-test section of `tests/test_required_gate_idempotence_containment_v0.py`.
+Production tools, the original test prefix, both manifests, the required check
+name and the workflow's 120-minute limit remain unchanged. No probe, startup
+helper, original launcher or container is executed by this correction.
+
+The final focused selector passed **162 tests in 355.05 seconds (5 minutes 55
+seconds)**: all 145 original cases plus 17 cache-isolation and reconstruction
+regressions. The earlier 145-case local development run took 1,237.45 seconds.
+The new integration regression compares an uncached real prerequisite report
+with two freshly reconstructed reports while recording parser-cache hits.
+All 911 preexisting test functions and decorators are AST-identical, and the
+1,464,919-byte historical prefix remains byte-identical. The complete hosted
+two-phase CI result still requires a new run on the owner's corrective commit.
 
 ## Next acceptance boundary
 

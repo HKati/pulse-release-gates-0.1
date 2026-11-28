@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Reduce repeated immutable input parsing in the new containment guard-selection
+  test fixtures after PR #3064 exhausted the Tools smoke job's two-hour budget.
+  Reuse only exact-input parser results with isolated returned containers and
+  bounded test-local caches; freshly reconstruct source contracts, relationships
+  and reports on every validation. Preserve the existing test cases, production
+  verifiers, both CI manifests and the workflow's required-check semantics.
+
 - Add [B2 containment task-guard probe build and context selection](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_SELECTION_v0.md).
   Preserve two fixed compile-only builds, actual ELF bytes, bounded compiler
   outcomes and unchanged source/compiler observations under an explicit limited
