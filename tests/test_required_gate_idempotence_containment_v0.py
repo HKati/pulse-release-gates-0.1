@@ -27683,3 +27683,757 @@ def test_containment_guard_selection_warm_parsers_keep_fresh_contract_reconstruc
         assert selected.cache.fields_values.cache_info().hits > before
     assert first["build_record_verified"] is True and second["selection_verified"] is True
     assert calls == [uncached, uncached]
+
+
+# Reviewed single-attempt adapter around the unchanged task-guard qualifier.
+# Only authored journals and injected acquisition are used in this section.
+CONTAINMENT_GUARD_ATTEMPT_ADAPTER_REL = "tools/run_required_gate_idempotence_containment_task_guard_attempt_v0.py"
+CONTAINMENT_GUARD_ATTEMPT_CHECKER_REL = "tools/check_required_gate_idempotence_containment_task_guard_attempt_v0.py"
+CONTAINMENT_GUARD_ATTEMPT_SCHEMA_REL = "schemas/required_gate_idempotence_containment_task_guard_attempt_v0.schema.json"
+CONTAINMENT_GUARD_ATTEMPT_PREFIX_BYTES = 1535810
+CONTAINMENT_GUARD_ATTEMPT_PREFIX_SHA256 = "0772b38abefa067940b87a5dfe6cf3b05304a65c71b4b606b18fce5d2c792a51"
+
+
+def containment_guard_attempt_adapter():
+    return module("run_required_gate_idempotence_containment_task_guard_attempt_v0",
+                  CONTAINMENT_GUARD_ATTEMPT_ADAPTER_REL)
+
+
+def containment_guard_attempt_checker():
+    return module("check_required_gate_idempotence_containment_task_guard_attempt_v0",
+                  CONTAINMENT_GUARD_ATTEMPT_CHECKER_REL)
+
+
+@pytest.fixture(scope="module")
+def containment_guard_attempt_case_data(containment_guard_selection_case_data,
+                                        containment_guard_qualification_record):
+    return SimpleNamespace(selection=containment_guard_selection_case_data,
+        qualification=containment_guard_qualification_record,
+        adapter=containment_guard_attempt_adapter(), checker=containment_guard_attempt_checker())
+
+
+@pytest.fixture
+def containment_guard_attempt_case(containment_guard_attempt_case_data,
+                                   containment_guard_selection_parse_cache, monkeypatch):
+    case = containment_guard_attempt_case_data
+    native_calls = []
+    def forbidden(*_args, **_kwargs):
+        native_calls.append(True)
+        pytest.fail("attempt regression tried native acquisition instead of authored data")
+    monkeypatch.setattr(case.adapter.qualifier, "NativeBackend", forbidden)
+    monkeypatch.setattr(os, "fork", forbidden)
+    monkeypatch.setattr(os, "execve", forbidden)
+    with _containment_guard_selection_cached_parsers(containment_guard_selection_parse_cache):
+        yield case
+    assert native_calls == []
+
+
+def _containment_guard_attempt_inputs(case, **overrides):
+    selected = case.selection
+    values = {"selection_bytes": selected.raw_selection,
+        "expected_selection_sha256": digest(selected.raw_selection),
+        "build_record_bytes": selected.raw_record,
+        "expected_build_record_sha256": digest(selected.raw_record),
+        "probe_bytes": selected.probe, "expected_probe_sha256": digest(selected.probe),
+        "policy_bytes": selected.policy, "accepted_policy_sha256": digest(selected.policy)}
+    values.update(overrides)
+    return values
+
+
+def _containment_guard_attempt_arguments(case, output, **overrides):
+    values = _containment_guard_attempt_inputs(case)
+    values.update(acknowledgement=case.checker.ACKNOWLEDGEMENT, output=output,
+        backend=object(), environment_reader=lambda: copy.deepcopy(case.selection.environment),
+        request_id="c" * 32)
+    values.update(overrides)
+    return values
+
+
+def _containment_guard_attempt_script(case, monkeypatch, callback=None):
+    calls = []
+    def scripted(**arguments):
+        calls.append(dict(arguments))
+        if callback is not None:
+            return callback(arguments)
+        return copy.deepcopy(case.qualification.record)
+    monkeypatch.setattr(case.adapter.qualifier, "qualify", scripted)
+    return calls
+
+
+def _containment_guard_attempt_check(case, output):
+    return case.checker.verify_bundle(directory=output,
+        expected_attempt_sha256=digest((output / "attempt.json").read_bytes()),
+        expected_request_sha256=digest((output / "request.json").read_bytes()),
+        expected_selection_sha256=digest(case.selection.raw_selection),
+        expected_build_record_sha256=digest(case.selection.raw_record),
+        expected_probe_sha256=digest(case.selection.probe),
+        accepted_policy_sha256=digest(case.selection.policy))
+
+
+def _containment_guard_attempt_boundaries(case, report, *, complete=False):
+    for field, expected in case.checker.BOUNDARY.items():
+        assert type(report[field]) is type(expected) and report[field] == expected, field
+    assert report["b2_complete"] is False
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+    assert report["selected_attempt_verified"] is complete
+    assert report["native_selected_guard_attempt_verified"] is False
+
+
+def test_containment_guard_attempt_preserves_the_entire_reviewed_prefix_and_registered_manifests():
+    assert digest((ROOT / SELF).read_bytes()[:CONTAINMENT_GUARD_ATTEMPT_PREFIX_BYTES]) == CONTAINMENT_GUARD_ATTEMPT_PREFIX_SHA256
+    expected = {"ci/tools-tests.list": "4ca6ae37463948b0f825b09f6ccb45b19eb5b6e825315e6550e45fdfb3d9b3e2",
+                "ci/pytest-tests.list": "f3d032e96e751cc0b5dfa8657c52c2be8dfea3f56709bf986ca2e69b60ea4cc7"}
+    for path, sha in expected.items():
+        assert digest((ROOT / path).read_bytes()) == sha
+
+
+def test_containment_guard_attempt_preserves_inputs_before_exactly_one_scripted_invocation(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    output = tmp_path / "attempt"
+    arguments = _containment_guard_attempt_arguments(case, output)
+    def inspect_and_return(received):
+        assert received == {"probe_bytes": case.selection.probe,
+            "expected_probe_sha256": digest(case.selection.probe),
+            "expected_environment_sha256": digest(encoded(case.selection.environment)),
+            "acknowledgement": case.adapter.qualifier.ACKNOWLEDGEMENT,
+            "backend": arguments["backend"]}
+        for name, raw in (("selection.json", case.selection.raw_selection),
+                          ("build_record.json", case.selection.raw_record),
+                          ("probe.elf", case.selection.probe), ("policy.json", case.selection.policy)):
+            assert (output / name).read_bytes() == raw
+        assert json.loads((output / "request.json").read_bytes())["execution_mode"] == "scripted"
+        assert stat.S_IMODE(output.stat().st_mode) == 0o700
+        assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in output.iterdir())
+        return copy.deepcopy(case.qualification.record)
+    calls = _containment_guard_attempt_script(case, monkeypatch, inspect_and_return)
+    attempt = case.adapter.attempt(**arguments)
+    assert len(calls) == 1 and attempt["invocation_count"] == 1
+    assert attempt["status"] == "completed" and attempt["preflight_verified"] is True
+    assert attempt["execution_mode"] == "scripted"
+    assert attempt["qualification_verification"] == "completed"
+    assert attempt["failure"] is None and attempt["cleanup_failures"] == []
+    assert attempt["observer_exit_required"] is False
+    assert (output / "qualification.json").read_bytes() == case.qualification.raw
+    assert (output / "attempt.json").read_bytes() == encoded(attempt)
+    assert {path.name for path in output.iterdir()} == {
+        "request.json", "attempt.json", "selection.json", "build_record.json", "probe.elf", "policy.json", "qualification.json"}
+    report = _containment_guard_attempt_check(case, output)
+    _containment_guard_attempt_boundaries(case, report, complete=True)
+    import jsonschema
+    schema = json.loads((ROOT / CONTAINMENT_GUARD_ATTEMPT_SCHEMA_REL).read_bytes())
+    validator = jsonschema.Draft202012Validator(schema)
+    validator.check_schema(schema)
+    for value in (json.loads((output / "request.json").read_bytes()), attempt, report):
+        assert list(validator.iter_errors(value)) == []
+
+
+@pytest.mark.parametrize("acknowledgement", ["", "qualify_containment_task_guard_only", True])
+def test_containment_guard_attempt_wrong_acknowledgement_cannot_create_or_invoke(
+        containment_guard_attempt_case, tmp_path, monkeypatch, acknowledgement):
+    case = containment_guard_attempt_case
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    output = tmp_path / "not-created"
+    with pytest.raises(ValueError):
+        case.adapter.attempt(**_containment_guard_attempt_arguments(case, output,
+            acknowledgement=acknowledgement))
+    assert calls == [] and not output.exists()
+
+
+def test_containment_guard_attempt_context_injection_cannot_select_the_native_route(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    output = tmp_path / "not-created"
+    with pytest.raises(ValueError):
+        case.adapter.attempt(**_containment_guard_attempt_arguments(case, output, backend=None))
+    assert calls == [] and not output.exists()
+
+
+@pytest.mark.parametrize("field", ["expected_selection_sha256", "expected_build_record_sha256",
+                                  "expected_probe_sha256", "accepted_policy_sha256"])
+def test_containment_guard_attempt_external_digest_mismatch_never_invokes(
+        containment_guard_attempt_case, tmp_path, monkeypatch, field):
+    case = containment_guard_attempt_case
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    output = tmp_path / "attempt"
+    try:
+        result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output,
+            **{field: "0" * 64}))
+    except ValueError:
+        pass
+    else:
+        assert result["status"] == "incomplete" and result["invocation_count"] == 0
+    assert calls == []
+
+
+@pytest.mark.parametrize("kind", ["existing_directory", "existing_file", "symlink_leaf", "symlink_parent"])
+def test_containment_guard_attempt_output_must_be_new_and_nofollow(
+        containment_guard_attempt_case, tmp_path, monkeypatch, kind):
+    case = containment_guard_attempt_case
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    owner = tmp_path / "owner"
+    owner.mkdir()
+    (owner / "sentinel").write_bytes(b"caller-owned bytes remain\n")
+    output = tmp_path / "attempt"
+    if kind == "existing_directory": output = owner
+    elif kind == "existing_file": output.write_bytes(b"caller-owned file\n")
+    elif kind == "symlink_leaf": output.symlink_to(owner, target_is_directory=True)
+    else:
+        alias = tmp_path / "alias"
+        alias.symlink_to(owner, target_is_directory=True)
+        output = alias / "attempt"
+    with pytest.raises((ValueError, OSError)):
+        case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    assert calls == [] and (owner / "sentinel").read_bytes() == b"caller-owned bytes remain\n"
+    assert {path.name for path in owner.iterdir()} == {"sentinel"}
+    if kind == "existing_file": assert output.read_bytes() == b"caller-owned file\n"
+
+
+def test_containment_guard_attempt_context_mismatch_preserves_zero_invocations(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    changed = copy.deepcopy(case.selection.environment)
+    changed["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+    output = tmp_path / "attempt"
+    result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output,
+        environment_reader=lambda: copy.deepcopy(changed)))
+    assert calls == [] and result["status"] == "incomplete" and result["invocation_count"] == 0
+    assert result["environment_before"] == changed
+    assert result["qualification"] is None and not (output / "qualification.json").exists()
+    assert json.loads((output / "attempt.json").read_bytes())["status"] == "incomplete"
+    _containment_guard_attempt_boundaries(case, _containment_guard_attempt_check(case, output))
+
+
+def test_containment_guard_attempt_mutable_context_alias_cannot_rewrite_the_before_observation(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    reused = copy.deepcopy(case.selection.environment)
+    original = copy.deepcopy(reused)
+    def mutate_after_invocation(_arguments):
+        reused["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+        return copy.deepcopy(case.qualification.record)
+    calls = _containment_guard_attempt_script(case, monkeypatch, mutate_after_invocation)
+    output = tmp_path / "attempt"
+    result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output,
+        environment_reader=lambda: reused))
+    assert len(calls) == 1 and result["status"] == "incomplete"
+    assert result["environment_before"] == original and result["environment_after"] == reused
+    assert result["environment_before"] != result["environment_after"]
+    assert (output / "qualification.json").read_bytes() == case.qualification.raw
+    _containment_guard_attempt_boundaries(case, _containment_guard_attempt_check(case, output))
+
+
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt])
+def test_containment_guard_attempt_interrupted_or_failed_qualifier_is_never_retried(
+        containment_guard_attempt_case, tmp_path, monkeypatch, exception):
+    case = containment_guard_attempt_case
+    def fail(_arguments): raise exception("authored private failure text")
+    calls = _containment_guard_attempt_script(case, monkeypatch, fail)
+    output = tmp_path / "attempt"
+    result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    assert len(calls) == 1 and result["invocation_count"] == 1 and result["status"] == "incomplete"
+    assert result["qualification"] is None and result["qualification_verification"] == "not_available"
+    assert b"authored private failure text" not in (output / "attempt.json").read_bytes()
+    assert not (output / "qualification.json").exists()
+    _containment_guard_attempt_boundaries(case, _containment_guard_attempt_check(case, output))
+
+
+def test_containment_guard_attempt_scripted_backend_cannot_return_native_evidence_origin(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    def native_claim(_arguments):
+        value = copy.deepcopy(case.qualification.record)
+        value["evidence_origin"] = "native_owned_probe"
+        return value
+    calls = _containment_guard_attempt_script(case, monkeypatch, native_claim)
+    output = tmp_path / "attempt"
+    result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    assert len(calls) == 1 and result["status"] == "incomplete"
+    assert result["execution_mode"] == "scripted"
+    assert result["qualification_verification"] == "rejected"
+    with pytest.raises(ValueError):
+        _containment_guard_attempt_check(case, output)
+
+
+@pytest.fixture(scope="module")
+def containment_guard_attempt_preserved_data(containment_guard_attempt_case_data,
+                                            containment_guard_selection_parse_cache, tmp_path_factory):
+    case = containment_guard_attempt_case_data
+    output = tmp_path_factory.mktemp("scripted-task-guard-attempt") / "attempt"
+    with _containment_guard_selection_cached_parsers(containment_guard_selection_parse_cache), pytest.MonkeyPatch.context() as patch:
+        def forbidden(*_args, **_kwargs):
+            pytest.fail("authored attempt fixture attempted native execution")
+        patch.setattr(case.adapter.qualifier, "NativeBackend", forbidden)
+        patch.setattr(os, "fork", forbidden)
+        patch.setattr(os, "execve", forbidden)
+        calls = _containment_guard_attempt_script(case, patch)
+        result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    assert len(calls) == 1 and result["status"] == "completed"
+    return {path.name: path.read_bytes() for path in output.iterdir()}
+
+
+@pytest.fixture
+def containment_guard_attempt_preserved(containment_guard_attempt_preserved_data, tmp_path):
+    output = tmp_path / "preserved"
+    output.mkdir(mode=0o700)
+    for name, data in containment_guard_attempt_preserved_data.items():
+        path = output / name
+        path.write_bytes(data)
+        path.chmod(0o600)
+    return output
+
+
+def _containment_guard_attempt_record_arguments(case, files, **overrides):
+    values = _containment_guard_attempt_inputs(case)
+    values.update(attempt_bytes=files["attempt.json"],
+        expected_attempt_sha256=digest(files["attempt.json"]),
+        request_bytes=files["request.json"], expected_request_sha256=digest(files["request.json"]),
+        qualification_bytes=files.get("qualification.json"))
+    values.update(overrides)
+    return values
+
+
+@pytest.mark.parametrize("field,value", [("invocation_count", 0), ("invocation_count", 2),
+    ("invocation_count", True), ("preflight_verified", False), ("execution_mode", "native"),
+    ("qualification", None), ("qualification_verification", "not_available"),
+    ("observer_exit_required", True), ("failure", "authored_hidden_failure"),
+    ("cleanup_failures", ["authored_hidden_cleanup_failure"])])
+def test_containment_guard_attempt_rehashed_completed_receipt_cannot_launder_missing_or_failed_work(
+        containment_guard_attempt_case, containment_guard_attempt_preserved_data, field, value):
+    case = containment_guard_attempt_case
+    files = containment_guard_attempt_preserved_data
+    attempt = json.loads(files["attempt.json"])
+    attempt[field] = value
+    raw = encoded(attempt)
+    with pytest.raises(ValueError):
+        case.checker.verify_attempt(**_containment_guard_attempt_record_arguments(case, files,
+            attempt_bytes=raw, expected_attempt_sha256=digest(raw)))
+
+
+@pytest.mark.parametrize("fault", ["missing_case", "wrong_probe", "changed_context", "changed_origin"])
+def test_containment_guard_attempt_independent_checker_replays_rebound_raw_qualification(
+        containment_guard_attempt_case, containment_guard_attempt_preserved_data, fault):
+    case = containment_guard_attempt_case
+    files = containment_guard_attempt_preserved_data
+    record = json.loads(files["qualification.json"])
+    if fault == "missing_case": record["cases"].pop()
+    elif fault == "wrong_probe": record["probe"]["sha256"] = "0" * 64
+    elif fault == "changed_context": record["environment"]["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+    else: record["evidence_origin"] = "native_owned_probe"
+    raw_qualification = encoded(record)
+    attempt = json.loads(files["attempt.json"])
+    attempt["qualification"] = bound(raw_qualification)
+    raw_attempt = encoded(attempt)
+    with pytest.raises(ValueError):
+        case.checker.verify_attempt(**_containment_guard_attempt_record_arguments(case, files,
+            attempt_bytes=raw_attempt, expected_attempt_sha256=digest(raw_attempt),
+            qualification_bytes=raw_qualification))
+
+
+@pytest.mark.parametrize("fault", ["extra", "missing", "directory", "symlink", "hardlink", "changed_probe"])
+def test_containment_guard_attempt_bundle_roster_and_actual_bytes_are_part_of_verification(
+        containment_guard_attempt_case, containment_guard_attempt_preserved, tmp_path, fault):
+    case, output = containment_guard_attempt_case, containment_guard_attempt_preserved
+    if fault == "extra": (output / "unselected.json").write_bytes(b"{}\n")
+    elif fault == "missing": (output / "qualification.json").unlink()
+    elif fault == "directory":
+        (output / "probe.elf").unlink()
+        (output / "probe.elf").mkdir()
+    elif fault == "symlink":
+        target = tmp_path / "owner-probe"
+        (output / "probe.elf").rename(target)
+        (output / "probe.elf").symlink_to(target)
+    elif fault == "hardlink": os.link(output / "probe.elf", tmp_path / "second-link")
+    else: (output / "probe.elf").write_bytes(case.selection.probe + b"changed")
+    with pytest.raises((ValueError, OSError)):
+        _containment_guard_attempt_check(case, output)
+
+
+@pytest.mark.parametrize("target", ["request.json", "attempt.json"])
+def test_containment_guard_attempt_duplicate_json_keys_cannot_be_rehashed_into_acceptance(
+        containment_guard_attempt_case, containment_guard_attempt_preserved_data, target):
+    case = containment_guard_attempt_case
+    files = dict(containment_guard_attempt_preserved_data)
+    original = json.loads(files[target])
+    files[target] = b'{"profile":' + encoded(original["profile"]).strip() + b',' + files[target][1:]
+    with pytest.raises(ValueError):
+        case.checker.verify_attempt(**_containment_guard_attempt_record_arguments(case, files))
+
+
+def test_containment_guard_attempt_offline_checker_never_reads_current_context_or_invokes_producer(
+        containment_guard_attempt_case, containment_guard_attempt_preserved_data, monkeypatch):
+    case = containment_guard_attempt_case
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("independent attempt verification tried acquisition")
+    monkeypatch.setattr(case.adapter.qualifier, "qualify", forbidden)
+    monkeypatch.setattr(os, "uname", forbidden)
+    monkeypatch.setattr(os, "getpid", forbidden)
+    first = case.checker.verify_attempt(**_containment_guard_attempt_record_arguments(
+        case, containment_guard_attempt_preserved_data))
+    second = case.checker.verify_attempt(**_containment_guard_attempt_record_arguments(
+        case, containment_guard_attempt_preserved_data))
+    assert encoded(first) == encoded(second)
+    _containment_guard_attempt_boundaries(case, first, complete=True)
+
+
+def test_containment_guard_attempt_fresh_selection_validation_precedes_context_and_callback(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    events = []
+    real = case.checker.verify_request
+    def verify(**arguments):
+        events.append("verify_request")
+        return real(**arguments)
+    def context():
+        events.append("context")
+        assert "verify_request" in events
+        return copy.deepcopy(case.selection.environment)
+    def callback(_arguments):
+        events.append("qualify")
+        assert events.index("verify_request") < events.index("context") < events.index("qualify")
+        return copy.deepcopy(case.qualification.record)
+    monkeypatch.setattr(case.checker, "verify_request", verify)
+    calls = _containment_guard_attempt_script(case, monkeypatch, callback)
+    for index in range(2):
+        before = events.count("verify_request")
+        result = case.adapter.attempt(**_containment_guard_attempt_arguments(case,
+            tmp_path / ("attempt-" + str(index)), environment_reader=context,
+            request_id=str(index + 1) * 32))
+        assert result["status"] == "completed" and events.count("verify_request") > before
+    assert len(calls) == 2
+
+
+def test_containment_guard_attempt_raw_observer_exit_prefix_is_preserved_without_retry(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    prefix = copy.deepcopy(case.qualification.record)
+    prefix.update(status="incomplete", failure="task_guard_native_cleanup_incomplete",
+        cleanup_failures=["task_guard_native_requires_observer_exit"], environment_after=None,
+        sources_after=[])
+    prefix["observer"]["subreaper_restored"] = None
+    def exit_required(_arguments):
+        raise case.adapter.qualifier.ObserverExitRequired(copy.deepcopy(prefix))
+    calls = _containment_guard_attempt_script(case, monkeypatch, exit_required)
+    output = tmp_path / "attempt"
+    with pytest.raises(case.adapter.ObserverExitRequired):
+        case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    assert len(calls) == 1 and (output / "qualification.json").read_bytes() == encoded(prefix)
+    attempt = json.loads((output / "attempt.json").read_bytes())
+    assert attempt["status"] == "incomplete" and attempt["observer_exit_required"] is True
+    assert attempt["invocation_count"] == 1 and attempt["qualification_verification"] == "not_checked"
+
+
+def test_containment_guard_attempt_publication_failure_cannot_mask_required_observer_exit(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    prefix = copy.deepcopy(case.qualification.record)
+    prefix.update(status="incomplete", failure="task_guard_native_cleanup_incomplete",
+        cleanup_failures=["task_guard_native_requires_observer_exit"])
+    prefix["observer"]["subreaper_restored"] = None
+    def exit_required(_arguments):
+        raise case.adapter.qualifier.ObserverExitRequired(copy.deepcopy(prefix))
+    calls = _containment_guard_attempt_script(case, monkeypatch, exit_required)
+    real = case.adapter.OwnedBundle.publish
+    def publication_failure(self, name, data):
+        if name == "qualification.json":
+            raise OSError(errno.ENOSPC, "authored publication failure")
+        return real(self, name, data)
+    monkeypatch.setattr(case.adapter.OwnedBundle, "publish", publication_failure)
+    with pytest.raises(case.adapter.ObserverExitRequired):
+        case.adapter.attempt(**_containment_guard_attempt_arguments(case, tmp_path / "attempt"))
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("signal", ["cleanup_marker", "unresolved_task"])
+def test_containment_guard_attempt_returned_fatal_cleanup_state_requires_observer_exit(
+        containment_guard_attempt_case, tmp_path, monkeypatch, signal):
+    case = containment_guard_attempt_case
+    prefix = copy.deepcopy(case.qualification.record)
+    prefix.update(status="incomplete", failure="authored_unresolved_cleanup")
+    if signal == "cleanup_marker":
+        prefix["cleanup_failures"] = ["task_guard_native_requires_observer_exit"]
+    else:
+        prefix["cases"][-1]["unresolved_tasks"] = [{"pid":1234,"pidfd":10,"terminal":False,"hangup":False}]
+    calls = _containment_guard_attempt_script(case, monkeypatch, lambda _arguments: copy.deepcopy(prefix))
+    output = tmp_path / "attempt"
+    with pytest.raises(case.adapter.ObserverExitRequired):
+        case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    assert len(calls) == 1
+    saved = json.loads((output / "attempt.json").read_bytes())
+    assert saved["status"] == "incomplete" and saved["observer_exit_required"] is True
+    assert saved["qualification_verification"] == "not_checked"
+    assert (output / "qualification.json").read_bytes() == encoded(prefix)
+
+
+def test_containment_guard_attempt_late_source_inventory_change_stops_before_invocation(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    actual_inventory = case.checker.source_inventory
+    state = {"after_context": False}
+    def changed_inventory(*args, **kwargs):
+        rows = actual_inventory(*args, **kwargs)
+        if state["after_context"]:
+            rows = copy.deepcopy(rows)
+            rows[0]["sha256"] = "0" * 64
+        return rows
+    def context():
+        state["after_context"] = True
+        return copy.deepcopy(case.selection.environment)
+    monkeypatch.setattr(case.checker, "source_inventory", changed_inventory)
+    result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, tmp_path / "attempt",
+        environment_reader=context))
+    assert calls == [] and result["invocation_count"] == 0 and result["status"] == "incomplete"
+    assert result["qualification"] is None
+
+
+@pytest.mark.parametrize("target", ["attempt.json", "probe.elf", "directory"])
+def test_containment_guard_attempt_late_replacement_preserves_owner_bytes_and_invalidates_owned_success(
+        containment_guard_attempt_case, tmp_path, monkeypatch, target):
+    case = containment_guard_attempt_case
+    output = tmp_path / "attempt"
+    displaced = tmp_path / "displaced"
+    owner = b"concurrent caller-owned replacement\n"
+    replaced, owner_paths, receipt_paths = [], [], []
+    real = case.adapter.OwnedBundle.publish
+    def replace_after_publish(self, name, data):
+        real(self, name, data)
+        if name != "attempt.json" or json.loads(data)["status"] != "completed":
+            return
+        replaced.append(True)
+        if target == "directory":
+            output.rename(displaced)
+            output.mkdir()
+            owner_paths.append(output / "owner")
+            receipt_paths.append(displaced / "attempt.json")
+        else:
+            selected = output / target
+            selected.rename(displaced)
+            owner_paths.append(selected)
+            receipt_paths.append(displaced if target == "attempt.json" else output / "attempt.json")
+        owner_paths[0].write_bytes(owner)
+    monkeypatch.setattr(case.adapter.OwnedBundle, "publish", replace_after_publish)
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    try:
+        result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    except (ValueError, OSError):
+        pass
+    else:
+        assert result["status"] == "incomplete"
+    assert replaced == [True] and len(calls) == 1 and owner_paths[0].read_bytes() == owner
+    remaining = receipt_paths[0].read_bytes()
+    assert not remaining or json.loads(remaining)["status"] == "incomplete"
+
+
+def test_containment_guard_attempt_same_inode_changed_input_cannot_leave_completed_receipt(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    output = tmp_path / "attempt"
+    changed = []
+    real = case.adapter.OwnedBundle.publish
+    def modify_after_publish(self, name, data):
+        real(self, name, data)
+        if name != "attempt.json" or json.loads(data)["status"] != "completed":
+            return
+        target = output / "probe.elf"
+        before = target.stat()
+        raw = bytearray(target.read_bytes())
+        raw[-1] ^= 1
+        target.write_bytes(raw)
+        assert target.stat().st_ino == before.st_ino
+        changed.append(True)
+    monkeypatch.setattr(case.adapter.OwnedBundle, "publish", modify_after_publish)
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    try:
+        result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    except (ValueError, OSError):
+        pass
+    else:
+        assert result["status"] == "incomplete"
+    assert changed == [True] and len(calls) == 1
+    remaining = (output / "attempt.json").read_bytes()
+    assert not remaining or json.loads(remaining)["status"] == "incomplete"
+
+
+def test_containment_guard_attempt_consumed_descriptor_close_error_cannot_leave_completed_receipt(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    output = tmp_path / "attempt"
+    real_close = os.close
+    injected = []
+    def failed_close(fd):
+        info = os.fstat(fd)
+        target = output / "attempt.json"
+        if not injected and target.exists() and target.stat().st_size:
+            selected = target.stat()
+            if (info.st_dev, info.st_ino) == (selected.st_dev, selected.st_ino):
+                raw = target.read_bytes()
+                if json.loads(raw)["status"] == "completed":
+                    injected.append(True)
+                    real_close(fd)
+                    raise OSError(errno.EIO, "authored close failure after descriptor consumption")
+        return real_close(fd)
+    monkeypatch.setattr(os, "close", failed_close)
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    try:
+        result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output))
+    except (ValueError, OSError):
+        pass
+    else:
+        assert result["status"] == "incomplete"
+    assert injected == [True] and len(calls) == 1
+    remaining = (output / "attempt.json").read_bytes()
+    assert not remaining or json.loads(remaining)["status"] == "incomplete"
+
+
+def _containment_guard_attempt_checker_cli(case, output, report):
+    return ["--bundle", str(output),
+        "--expected-attempt-sha256", digest((output / "attempt.json").read_bytes()),
+        "--expected-request-sha256", digest((output / "request.json").read_bytes()),
+        "--expected-selection-sha256", digest(case.selection.raw_selection),
+        "--expected-build-record-sha256", digest(case.selection.raw_record),
+        "--expected-probe-sha256", digest(case.selection.probe),
+        "--accepted-policy-sha256", digest(case.selection.policy), "--out", str(report)]
+
+
+def test_containment_guard_attempt_two_fresh_data_only_checker_processes_match(
+        containment_guard_attempt_case, containment_guard_attempt_preserved, tmp_path):
+    case, output = containment_guard_attempt_case, containment_guard_attempt_preserved
+    reports = []
+    for index in range(2):
+        report = tmp_path / ("independent-report-" + str(index) + ".json")
+        result = subprocess.run([sys.executable, str(ROOT / CONTAINMENT_GUARD_ATTEMPT_CHECKER_REL),
+            *_containment_guard_attempt_checker_cli(case, output, report)],
+            cwd=ROOT, capture_output=True, timeout=90)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == result.stderr == b""
+        reports.append(report.read_bytes())
+    assert reports[0] == reports[1]
+    _containment_guard_attempt_boundaries(case, json.loads(reports[0]), complete=True)
+
+
+@pytest.mark.parametrize("location", ["inside_bundle", "existing_owner_file"])
+def test_containment_guard_attempt_checker_cli_preserves_bundle_and_existing_report_ownership(
+        containment_guard_attempt_case, containment_guard_attempt_preserved, tmp_path, location):
+    case, output = containment_guard_attempt_case, containment_guard_attempt_preserved
+    before = {path.name: path.read_bytes() for path in output.iterdir()}
+    report = output / "report.json" if location == "inside_bundle" else tmp_path / "owner.json"
+    if location == "existing_owner_file": report.write_bytes(b"caller-owned report\n")
+    assert case.checker.main(_containment_guard_attempt_checker_cli(case, output, report)) == 2
+    assert {path.name: path.read_bytes() for path in output.iterdir()} == before
+    if location == "existing_owner_file": assert report.read_bytes() == b"caller-owned report\n"
+    else: assert not report.exists()
+
+
+def test_containment_guard_attempt_cli_finally_exits_after_fatal_prefix_even_if_saving_failed(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    paths = {}
+    for name, raw in (("selection", case.selection.raw_selection),
+                      ("build-record", case.selection.raw_record),
+                      ("probe", case.selection.probe), ("policy", case.selection.policy)):
+        paths[name] = tmp_path / name
+        paths[name].write_bytes(raw)
+    calls = []
+    def fatal(**_arguments):
+        raise case.adapter.ObserverExitRequired({"status": "incomplete",
+            "observer_exit_required": True, "cleanup_failures": ["authored_publication_failure"]})
+    def stopped(code):
+        calls.append(code)
+        raise SystemExit(99)
+    monkeypatch.setattr(case.adapter, "attempt", fatal)
+    monkeypatch.setattr(os, "_exit", stopped)
+    argv = ["--selection", str(paths["selection"]), "--expected-selection-sha256", digest(case.selection.raw_selection),
+        "--build-record", str(paths["build-record"]), "--expected-build-record-sha256", digest(case.selection.raw_record),
+        "--probe", str(paths["probe"]), "--expected-probe-sha256", digest(case.selection.probe),
+        "--policy", str(paths["policy"]), "--accepted-policy-sha256", digest(case.selection.policy),
+        "--acknowledgement", case.checker.ACKNOWLEDGEMENT, "--out", str(tmp_path / "attempt")]
+    with pytest.raises(SystemExit) as failure:
+        case.adapter.main(argv)
+    assert failure.value.code == 99 and calls == [1]
+
+
+@pytest.mark.parametrize("raw", [b"[]\n", b"null\n", b'"text"\n', b"1\n"])
+def test_containment_guard_attempt_rejected_nonobject_raw_prefix_remains_diagnostic(
+        containment_guard_attempt_case, containment_guard_attempt_preserved_data, raw):
+    case = containment_guard_attempt_case
+    files = containment_guard_attempt_preserved_data
+    attempt = json.loads(files["attempt.json"])
+    attempt.update(status="incomplete", failure="authored_rejected_raw",
+        qualification=bound(raw), qualification_verification="rejected")
+    raw_attempt = encoded(attempt)
+    report = case.checker.verify_attempt(**_containment_guard_attempt_record_arguments(case, files,
+        attempt_bytes=raw_attempt, expected_attempt_sha256=digest(raw_attempt), qualification_bytes=raw))
+    assert report["qualification_verification"] == "rejected"
+    assert report["qualification_record_verified"] is False
+    _containment_guard_attempt_boundaries(case, report)
+
+
+@pytest.mark.parametrize("public_replacement", [False, True])
+def test_containment_guard_attempt_moved_directory_and_consumed_close_preserve_only_incomplete_owned_output(
+        tmp_path, monkeypatch, public_replacement):
+    adapter = containment_guard_attempt_adapter()
+    output, displaced = tmp_path / "attempt", tmp_path / "displaced"
+    bundle = adapter.OwnedBundle(output)
+    bundle.publish("attempt.json", b'{"status":"completed"}\n')
+    selected_fd = bundle.files["attempt.json"]
+    real_close = os.close
+    failures = []
+    owner = b"unrelated replacement must remain untouched\n"
+    def moved_then_closed(fd):
+        if fd == selected_fd and not failures:
+            output.rename(displaced)
+            if public_replacement:
+                output.mkdir()
+                (output / "attempt.json").write_bytes(owner)
+            failures.append(True)
+            real_close(fd)
+            raise OSError(errno.EIO, "authored consumed close after directory replacement")
+        return real_close(fd)
+    try:
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(os, "close", moved_then_closed)
+            with pytest.raises(OSError):
+                bundle.close_file("attempt.json")
+        assert failures == [True]
+        raw = (displaced / "attempt.json").read_bytes()
+        assert not raw or json.loads(raw)["status"] == "incomplete"
+        if public_replacement:
+            assert (output / "attempt.json").read_bytes() == owner
+    finally:
+        try:
+            bundle.close()
+        except (ValueError, OSError):
+            pass
+
+
+@pytest.mark.parametrize("raw", [b"[]\n", b"null\n", b'"text"\n', b"1\n"])
+def test_containment_guard_attempt_nonobject_selected_input_has_a_controlled_rejection(
+        containment_guard_attempt_case, containment_guard_attempt_preserved_data, raw):
+    case = containment_guard_attempt_case
+    with pytest.raises(ValueError):
+        case.checker.verify_attempt(**_containment_guard_attempt_record_arguments(case,
+            containment_guard_attempt_preserved_data,
+            selection_bytes=raw, expected_selection_sha256=digest(raw)))
+
+
+def test_containment_guard_attempt_scripted_selection_cannot_enter_default_native_acquisition(
+        containment_guard_attempt_case, tmp_path, monkeypatch):
+    case = containment_guard_attempt_case
+    reads = []
+    def forbidden():
+        reads.append(True)
+        pytest.fail("scripted selection reached live observer-context sampling")
+    monkeypatch.setattr(case.adapter.preparer, "read_environment", forbidden)
+    calls = _containment_guard_attempt_script(case, monkeypatch)
+    output = tmp_path / "attempt"
+    result = case.adapter.attempt(**_containment_guard_attempt_arguments(case, output,
+        backend=None, environment_reader=None))
+    assert calls == [] and result["status"] == "incomplete" and result["invocation_count"] == 0
+    assert result["execution_mode"] == "native" and result["preflight_verified"] is False
+    assert result["environment_before"] is None and result["qualification"] is None
+    assert reads == []
+    with pytest.raises(ValueError):
+        _containment_guard_attempt_check(case, output)

@@ -319,15 +319,20 @@ regressions. The earlier 145-case local development run took 1,237.45 seconds.
 The new integration regression compares an uncached real prerequisite report
 with two freshly reconstructed reports while recording parser-cache hits.
 All 911 preexisting test functions and decorators are AST-identical, and the
-1,464,919-byte historical prefix remains byte-identical. The complete hosted
-two-phase CI result still requires a new run on the owner's corrective commit.
+1,464,919-byte historical prefix remains byte-identical. The subsequent
+[complete hosted Tools smoke run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/46164658499/job/141058618994)
+passed at `63a9d4680cfa0c9ac848ab04af53be582ce713eb`: the script phase took
+98 minutes 46 seconds and the targeted pytest phase took 14 minutes 13 seconds.
+PR #3064 was then merged as `8036eccdf403a770e9f63f8b6fd6d0a123acc0eb`.
 
 ## Next acceptance boundary
 
-A later attempt adapter must freshly revalidate this complete selection in the
-actual observer context, require separate owner authorization, invoke the
-unchanged qualifier at most once and preserve the request, attempt and raw
-qualification evidence together. No such invocation occurs in this unit.
+The following [selected-attempt adapter](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_ATTEMPT_v0.md)
+implements fresh admission in the actual observer context, separate runtime
+acknowledgement, at most one unchanged qualifier invocation and preservation of
+the request, inputs, attempt and raw evidence. Its development validation remains
+scripted and data-only. A reviewed owner-run acquisition and independent original
+evidence preservation remain required before any actual native result is claimed.
 
 The [full-host obligations](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_ENTRY_PLAN_v0.md#proposed-finite-budgets-and-host-gates)
 remain open, including executed startup-helper/build admission, the original
