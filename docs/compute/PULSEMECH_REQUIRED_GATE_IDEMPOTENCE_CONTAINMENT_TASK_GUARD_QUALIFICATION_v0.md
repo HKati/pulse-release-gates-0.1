@@ -199,6 +199,13 @@ Documentation describes the protocol; it does not qualify a future selected host
 
 ## Later execution and independent checking
 
+The separate [build and context selection unit](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_TASK_GUARD_SELECTION_v0.md)
+now captures two fixed compile-only builds and prepares an independently checked
+selection of their actual probe output, limited build policy and exact observer
+context. It preserves the qualifier source and record semantics documented here.
+That preparation performs no qualification attempt and does not supply the
+remaining full-host or executed startup-helper acceptance.
+
 Actual execution requires a separately reviewed probe build and environment
 selection, review of this acquisition path, and explicit owner authorization.
 The native CLI requires the exact acknowledgement
